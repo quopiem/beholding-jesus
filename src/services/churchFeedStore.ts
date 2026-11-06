@@ -55,6 +55,106 @@ const INITIAL_FEED_POSTS: FeedPost[] = [
     commentsCount: 0
   },
   {
+    id: 'post-moment-pastoral-prayer',
+    authorId: 'usr-pastor-john-eric',
+    authorName: 'John Erick Manjares',
+    authorAvatar: '/images/pastor-john-eric-manjares.png',
+    authorRole: 'Senior Pastor',
+    ministryLabel: 'Pastoral Leadership',
+    content: `Laying on of hands and interceding over our precious brothers and sisters in Christ. 🙏\n\n"Is anyone among you sick? Let him call for the elders of the church, and let them pray over him, anointing him with oil in the name of the Lord. And the prayer of faith will save the one who is sick, and the Lord will raise him up." (James 5:14-15)\n\nGod is moving powerfully in our midst. Let us continue to contend for one another in earnest prayer!`,
+    postType: 'community',
+    category: 'Ministry Activity',
+    imageUrls: ['/images/bjc-pastoral-prayer.jpg'],
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 12).toISOString(),
+    updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 12).toISOString(),
+    isHidden: false,
+    commentsEnabled: true,
+    reactions: [],
+    reactionCounts: { like: 12, love: 22, care: 5, celebrate: 8, pray: 35 },
+    comments: [],
+    commentsCount: 6
+  },
+  {
+    id: 'post-moment-worship-devotion',
+    authorId: 'usr-owner-001',
+    authorName: 'John Miko Sarsalijo',
+    authorAvatar: '/images/avatar-john-miko.png',
+    authorRole: 'App Owner & Finance Manager',
+    ministryLabel: 'Worship & Media',
+    content: `There is nothing like beholding the beauty and holiness of our Lord Jesus Christ in reverent adoration. ❤️✨\n\n"One thing have I asked of the Lord, that will I seek after: that I may dwell in the house of the Lord all the days of my life, to gaze upon the beauty of the Lord and to inquire in his temple." (Psalm 27:4)\n\nWhen we lift our eyes above our circumstances and fix them on Jesus, every anxiety melts away in His presence. Blessed worship moments at Beholding Jesus Church!`,
+    postType: 'community',
+    category: 'Testimony',
+    imageUrls: ['/images/bjc-worship-devotion.jpg'],
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 18).toISOString(),
+    updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 18).toISOString(),
+    isHidden: false,
+    commentsEnabled: true,
+    reactions: [],
+    reactionCounts: { like: 18, love: 31, care: 6, celebrate: 14, pray: 28 },
+    comments: [],
+    commentsCount: 9
+  },
+  {
+    id: 'post-moment-campus-training',
+    authorId: 'user-1793740233975',
+    authorName: 'Justin Dasco',
+    authorAvatar: '/icons/church-logo.png',
+    authorRole: 'Church Member',
+    ministryLabel: 'Youth & Campus Ministry',
+    content: `Campus Training at Beholding Jesus Church! 🎓✝️\n\nWhat a joy to see students and next-generation leaders gathering before the cross to be equipped and grounded in sound biblical doctrine. "And what you have heard from me in the presence of many witnesses entrust to faithful men, who will be able to teach others also." (2 Timothy 2:2)\n\nThe harvest is plentiful! Ready to make Jesus known on our campuses!`,
+    postType: 'community',
+    category: 'Ministry Activity',
+    imageUrls: ['/images/bjc-campus-training.jpg'],
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 30).toISOString(),
+    updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 30).toISOString(),
+    isHidden: false,
+    commentsEnabled: true,
+    reactions: [],
+    reactionCounts: { like: 15, love: 20, care: 2, celebrate: 24, pray: 16 },
+    comments: [],
+    commentsCount: 5
+  },
+  {
+    id: 'post-moment-youth-sisters',
+    authorId: 'usr-alyssa-mae',
+    authorName: 'Alyssa Mae',
+    authorAvatar: '/images/avatar-alyssa.png',
+    authorRole: 'Church Member',
+    ministryLabel: 'Sisters in Christ',
+    content: `Grateful to God for genuine sisterhood in Christ! 🌸💖\n\n"Therefore encourage one another and build one another up, just as you are doing." (1 Thessalonians 5:11). True spiritual friendship where we can pray together, laugh together, and point each other to Jesus every single day. Love our BJC sisters!`,
+    postType: 'community',
+    category: 'Testimony',
+    imageUrls: ['/images/bjc-youth-sisters.jpg'],
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 42).toISOString(),
+    updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 42).toISOString(),
+    isHidden: false,
+    commentsEnabled: true,
+    reactions: [],
+    reactionCounts: { like: 20, love: 35, care: 8, celebrate: 19, pray: 14 },
+    comments: [],
+    commentsCount: 7
+  },
+  {
+    id: 'post-moment-evangelism-outreach',
+    authorId: 'usr-pastor-john-eric',
+    authorName: 'John Erick Manjares',
+    authorAvatar: '/images/pastor-john-eric-manjares.png',
+    authorRole: 'Senior Pastor',
+    ministryLabel: 'Pastoral Leadership',
+    content: `JESUS CAME TO SEEK AND TO SAVE THE LOST! 📢🙌\n\nSeeing our young people take the Gospel to the streets with holy courage and conviction is such an inspiration. Luke 19:10 reminds us of the beating heart of our Savior: He came for the broken, the hurting, and the lost.\n\nKeep shining the light of Christ boldly wherever God places you!`,
+    postType: 'community',
+    category: 'Ministry Activity',
+    imageUrls: ['/images/bjc-evangelism-outreach.jpg'],
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 60).toISOString(),
+    updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 60).toISOString(),
+    isHidden: false,
+    commentsEnabled: true,
+    reactions: [],
+    reactionCounts: { like: 25, love: 40, care: 10, celebrate: 30, pray: 45 },
+    comments: [],
+    commentsCount: 11
+  },
+  {
     id: 'post-comm-testimony-1',
     authorId: 'usr-owner-001',
     authorName: 'John Miko Sarsalijo',
@@ -240,6 +340,17 @@ export class ChurchFeedStore {
       return this.memoryPosts.filter(p => !deleted.includes(p.id));
     }
     const posts = this.load<FeedPost[]>(KEY_FEED_POSTS, INITIAL_FEED_POSTS);
+    const existingIds = new Set(posts.map(p => p.id));
+    let hasNew = false;
+    for (const initPost of INITIAL_FEED_POSTS) {
+      if (!existingIds.has(initPost.id) && !deleted.includes(initPost.id)) {
+        posts.push(initPost);
+        hasNew = true;
+      }
+    }
+    if (hasNew) {
+      this.save(KEY_FEED_POSTS, posts);
+    }
     return posts.filter(p => !deleted.includes(p.id));
   }
 

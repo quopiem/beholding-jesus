@@ -7,6 +7,8 @@ import {
 import { CHURCH_INFO } from '../../services/churchInfo';
 import { UserProfile } from '../../types';
 import { DownloadAppModal } from '../../components/DownloadAppModal';
+import { CHURCH_MOMENT_PHOTOS, ChurchMomentPhoto } from './churchMomentsData';
+import { ChurchMomentsLightboxModal } from '../../components/ChurchMomentsLightboxModal';
 
 interface LandingPageViewProps {
   onNavigate: (tab: string) => void;
@@ -18,7 +20,8 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
   currentUser
 }) => {
   const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
-  const [isPhotoLightboxOpen, setIsPhotoLightboxOpen] = useState(false);
+  const [selectedMomentIndex, setSelectedMomentIndex] = useState<number | null>(null);
+  const [activeMomentCategory, setActiveMomentCategory] = useState<'all' | 'worship' | 'fellowship' | 'training' | 'outreach'>('all');
   const [copiedAddress, setCopiedAddress] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
     return document.documentElement.classList.contains('dark') || localStorage.getItem('bjc_theme') === 'dark';
@@ -51,15 +54,9 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
     onNavigate('feed');
   };
 
-  const handleDownloadPhoto = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    const a = document.createElement('a');
-    a.href = '/images/bjc-family-fellowship.jpg';
-    a.download = `bjc-church-family-fellowship-${Date.now()}.jpg`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  };
+  const filteredMoments = activeMomentCategory === 'all'
+    ? CHURCH_MOMENT_PHOTOS
+    : CHURCH_MOMENT_PHOTOS.filter(m => m.category === activeMomentCategory);
 
   return (
     <div className="min-h-screen bg-[#FAF8F5] dark:bg-[#0C0E14] text-stone-800 dark:text-stone-100 font-sans transition-colors duration-300 pb-28 md:pb-12">
@@ -100,6 +97,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
           {/* Quick Anchor Links (Desktop) */}
           <nav className="hidden lg:flex items-center gap-6 text-xs font-semibold text-stone-600 dark:text-stone-300">
             <a href="#gatherings" className="hover:text-gold transition">Gatherings</a>
+            <a href="#gallery" className="hover:text-gold transition">Church Moments</a>
             <a href="#pastor" className="hover:text-gold transition">Pastoral Word</a>
             <a href="#ministries" className="hover:text-gold transition">Ministries</a>
             <a href="#sanctuary" className="hover:text-gold transition">Sanctuary Location</a>
@@ -198,12 +196,12 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
             </a>
 
             <button
-              onClick={() => setIsPhotoLightboxOpen(true)}
+              onClick={() => setSelectedMomentIndex(0)}
               className="w-full sm:w-auto px-5 py-3.5 rounded-2xl bg-black/45 hover:bg-black/65 backdrop-blur-md border border-white/20 text-stone-200 font-bold text-xs sm:text-sm transition flex items-center justify-center gap-2 cursor-pointer shadow-md"
-              title="View High-Resolution Church Family Photo"
+              title="View High-Resolution Church Moments"
             >
               <Camera className="w-4 h-4 text-amber-400" />
-              <span>View Family Photo</span>
+              <span>View Church Moments ({CHURCH_MOMENT_PHOTOS.length})</span>
             </button>
           </div>
 
@@ -346,110 +344,152 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
       </section>
 
       {/* ============================================================== */}
-      {/* 3.5. OUR CHURCH FAMILY & FELLOWSHIP MOMENTS                     */}
+      {/* 3.5. LIFE AT BJC – FEATURED CHURCH MOMENTS GALLERY            */}
       {/* ============================================================== */}
-      <section className="py-12 sm:py-20 relative overflow-hidden">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 space-y-8">
+      <section id="gallery" className="py-12 sm:py-20 relative overflow-hidden bg-gradient-to-b from-transparent via-stone-100/60 dark:via-slate-900/40 to-transparent">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 space-y-8 sm:space-y-10">
           
-          <div className="text-center space-y-2">
-            <span className="text-xs font-bold uppercase tracking-[0.2em] text-gold">
-              Living in Covenant & Community
-            </span>
+          <div className="text-center space-y-2.5">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-gold/15 border border-gold/30 text-gold-dark dark:text-gold text-[11px] font-bold tracking-wider uppercase shadow-xs">
+              <Sparkles className="w-3.5 h-3.5 fill-current" />
+              <span>Life at Beholding Jesus Church</span>
+            </div>
             <h2 className="font-serif font-black text-2xl sm:text-4xl text-slate-900 dark:text-white uppercase tracking-tight">
-              One Family in Jesus Christ
+              Captured Moments of Faith & Grace
             </h2>
-            <p className="text-xs sm:text-sm text-stone-500 dark:text-stone-400 max-w-xl mx-auto">
-              We are more than just a weekly service—we are a loving, multigenerational spiritual family sharing life, prayer, and table fellowship together.
+            <p className="text-xs sm:text-sm text-stone-500 dark:text-stone-400 max-w-2xl mx-auto leading-relaxed">
+              Witness the authentic heartbeat of our church family: fervent pastoral prayer, reverent worship, loving sisterhood, campus discipleship, and bold Gospel outreach.
             </p>
           </div>
 
-          {/* Majestic Fellowship Showcase Card with Click to Lightbox */}
-          <div className="rounded-3xl sm:rounded-[36px] overflow-hidden bg-white dark:bg-slate-900 border-2 border-gold/40 shadow-2xl relative group">
-            
-            {/* The Photo Container */}
-            <div 
-              onClick={() => setIsPhotoLightboxOpen(true)}
-              className="relative cursor-pointer overflow-hidden min-h-[300px] sm:min-h-[460px] max-h-[580px] bg-black/20 flex items-center justify-center"
-            >
-              <img 
-                src="/images/bjc-family-fellowship.jpg" 
-                alt="Beholding Jesus Church Family Gathering" 
-                className="w-full h-auto max-h-[580px] object-cover object-center group-hover:scale-[1.02] transition-transform duration-700"
-              />
+          {/* Interactive Category Filter Pills */}
+          <div className="flex items-center justify-center gap-2 flex-wrap">
+            {[
+              { id: 'all', label: 'All Moments', count: CHURCH_MOMENT_PHOTOS.length },
+              { id: 'worship', label: 'Worship & Prayer', count: CHURCH_MOMENT_PHOTOS.filter(p => p.category === 'worship').length },
+              { id: 'fellowship', label: 'Church Family', count: CHURCH_MOMENT_PHOTOS.filter(p => p.category === 'fellowship').length },
+              { id: 'training', label: 'Campus Training', count: CHURCH_MOMENT_PHOTOS.filter(p => p.category === 'training').length },
+              { id: 'outreach', label: 'Evangelism Outreach', count: CHURCH_MOMENT_PHOTOS.filter(p => p.category === 'outreach').length }
+            ].map(tab => {
+              const isActive = activeMomentCategory === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveMomentCategory(tab.id as any)}
+                  className={`px-4 py-2 rounded-full text-xs font-bold transition-all duration-200 cursor-pointer active:scale-95 ${
+                    isActive
+                      ? 'bg-stone-900 dark:bg-gold text-white dark:text-slate-950 shadow-md ring-1 ring-gold/40'
+                      : 'bg-white dark:bg-slate-800 text-stone-600 dark:text-stone-300 border border-stone-200/80 dark:border-slate-700 hover:border-gold/50 hover:bg-stone-50 dark:hover:bg-slate-750'
+                  }`}
+                >
+                  <span>{tab.label}</span>
+                  <span className={`ml-1.5 text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                    isActive
+                      ? 'bg-white/20 dark:bg-black/20 text-white dark:text-slate-950'
+                      : 'bg-stone-100 dark:bg-slate-700 text-stone-500 dark:text-stone-400'
+                  }`}>
+                    {tab.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
 
-              {/* Action Overlays */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent flex flex-col justify-end p-6 sm:p-10 text-white">
-                <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4">
-                  <div className="space-y-1.5 max-w-xl">
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gold/90 text-slate-950 font-black text-[10px] uppercase tracking-wider shadow-md">
-                      <Sparkles className="w-3 h-3 fill-current" />
-                      <span>Church Fellowship Gathering</span>
-                    </span>
-                    <h3 className="font-serif font-bold text-lg sm:text-2xl text-white drop-shadow-md">
-                      Table Fellowship & Genuine Christian Community
-                    </h3>
-                    <p className="text-xs sm:text-sm text-stone-200 font-sans leading-relaxed drop-shadow-sm">
-                      Children, youth, parents, elders, and pastoral leaders gathering in unity, praising God for His goodness and celebrating together.
-                    </p>
+          {/* Responsive Gallery Grid of Church Moments */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
+            {filteredMoments.map((moment) => {
+              const fullIndex = CHURCH_MOMENT_PHOTOS.findIndex(m => m.id === moment.id);
+              return (
+                <div
+                  key={moment.id}
+                  onClick={() => setSelectedMomentIndex(fullIndex)}
+                  className="group rounded-3xl overflow-hidden bg-white dark:bg-slate-900 border border-stone-200/80 dark:border-slate-800 hover:border-gold/60 shadow-md hover:shadow-2xl transition-all duration-300 flex flex-col justify-between cursor-pointer"
+                >
+                  {/* Photo with Smart Framing Container */}
+                  <div className="relative overflow-hidden bg-stone-950 aspect-[4/3]">
+                    <img
+                      src={moment.imageUrl}
+                      alt={moment.title}
+                      className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-700"
+                      loading="lazy"
+                    />
+
+                    {/* Gradient Overlay for Readability */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent opacity-85 group-hover:opacity-95 transition-opacity" />
+
+                    {/* Top Badges */}
+                    <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2 z-10">
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider backdrop-blur-md shadow-sm border ${moment.badgeBg} ${moment.badgeText} ${moment.badgeBorder}`}>
+                        {moment.categoryLabel}
+                      </span>
+                      <div className="w-8 h-8 rounded-full bg-black/55 backdrop-blur-md text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Maximize2 className="w-3.5 h-3.5 text-gold" />
+                      </div>
+                    </div>
+
+                    {/* Bottom Tagline on Photo */}
+                    <div className="absolute bottom-3 left-3 right-3 z-10">
+                      <p className="text-[11px] font-bold text-amber-200/90 tracking-wide uppercase line-clamp-1">
+                        {moment.tagline}
+                      </p>
+                      <h3 className="font-serif font-bold text-base text-white tracking-tight drop-shadow-sm line-clamp-1">
+                        {moment.title}
+                      </h3>
+                    </div>
                   </div>
 
-                  <div className="flex items-center gap-2.5 shrink-0 w-full sm:w-auto">
-                    <button
-                      type="button"
-                      onClick={() => setIsPhotoLightboxOpen(true)}
-                      className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-white/20 hover:bg-white/30 backdrop-blur-md text-white font-bold text-xs border border-white/30 transition flex items-center justify-center gap-1.5 cursor-pointer shadow-lg active:scale-95"
-                    >
-                      <Maximize2 className="w-4 h-4" />
-                      <span>Full View</span>
-                    </button>
+                  {/* Card Content & Scripture */}
+                  <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between space-y-3 bg-white dark:bg-slate-900">
+                    <p className="text-xs text-stone-600 dark:text-stone-300 line-clamp-2 leading-relaxed">
+                      {moment.description}
+                    </p>
 
-                    <button
-                      type="button"
-                      onClick={handleDownloadPhoto}
-                      className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-gold hover:bg-gold-light text-slate-950 font-bold text-xs transition flex items-center justify-center gap-1.5 cursor-pointer shadow-gold active:scale-95"
-                      title="Save / Download Church Photo"
-                    >
-                      <Download className="w-4 h-4" />
-                      <span>Save Photo</span>
-                    </button>
+                    <div className="pt-3 border-t border-stone-100 dark:border-slate-800 flex items-center justify-between gap-2">
+                      <span className="text-[10px] font-bold text-gold uppercase tracking-wider truncate">
+                        📖 {moment.scriptureReference}
+                      </span>
+                      <span className="text-[11px] font-bold text-stone-500 dark:text-stone-400 group-hover:text-gold transition flex items-center gap-1 shrink-0">
+                        <span>View Moment</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
+              );
+            })}
+          </div>
+
+          {/* Fellowship & Ministry Highlights Row */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-stone-200 dark:divide-slate-800 p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900 border border-stone-200/80 dark:border-slate-800 text-xs">
+            <div className="p-2 sm:p-3 space-y-1">
+              <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <Heart className="w-3.5 h-3.5 text-rose-500" />
+                <span>Holy Worship & Prayer</span>
+              </span>
+              <p className="text-stone-500 dark:text-stone-400 text-[11px] leading-relaxed">
+                Reverent adoration and pastoral intercession over all families and believers.
+              </p>
             </div>
 
-            {/* Fellowship Pillars Row */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-stone-100 dark:divide-slate-800 p-4 sm:p-6 bg-stone-50/80 dark:bg-slate-950/80 text-xs">
-              <div className="p-3 space-y-1">
-                <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                  <Heart className="w-3.5 h-3.5 text-rose-500" />
-                  <span>Multigenerational Love</span>
-                </span>
-                <p className="text-stone-500 dark:text-stone-400 text-[11px] leading-relaxed">
-                  Every generation from young kids to seniors is cherished and nurtured in the faith.
-                </p>
-              </div>
-
-              <div className="p-3 space-y-1">
-                <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                  <Users className="w-3.5 h-3.5 text-gold" />
-                  <span>Table Fellowship</span>
-                </span>
-                <p className="text-stone-500 dark:text-stone-400 text-[11px] leading-relaxed">
-                  Sharing meals, celebrating milestones, and walking alongside one another through every season.
-                </p>
-              </div>
-
-              <div className="p-3 space-y-1">
-                <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                  <BookOpen className="w-3.5 h-3.5 text-emerald-500" />
-                  <span>Biblical Foundation</span>
-                </span>
-                <p className="text-stone-500 dark:text-stone-400 text-[11px] leading-relaxed">
-                  Steadfast in the Apostles' teaching, prayers, breaking of bread, and Christian discipleship.
-                </p>
-              </div>
+            <div className="p-2 sm:p-3 space-y-1">
+              <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <Users className="w-3.5 h-3.5 text-gold" />
+                <span>NextGen & Discipleship</span>
+              </span>
+              <p className="text-stone-500 dark:text-stone-400 text-[11px] leading-relaxed">
+                Raising up youth and students rooted in Christ before the cross.
+              </p>
             </div>
 
+            <div className="p-2 sm:p-3 space-y-1">
+              <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <BookOpen className="w-3.5 h-3.5 text-emerald-500" />
+                <span>City Outreach & Missions</span>
+              </span>
+              <p className="text-stone-500 dark:text-stone-400 text-[11px] leading-relaxed">
+                Boldly proclaiming: "Jesus came to seek and to save the lost."
+              </p>
+            </div>
           </div>
 
         </div>
@@ -753,41 +793,14 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
         onClose={() => setIsDownloadModalOpen(false)}
       />
 
-      {/* Church Family Photo Lightbox Modal */}
-      {isPhotoLightboxOpen && (
-        <div 
-          onClick={() => setIsPhotoLightboxOpen(false)}
-          className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 cursor-pointer animate-fadeIn"
-        >
-          <div className="relative max-w-6xl max-h-[92vh] overflow-hidden rounded-3xl" onClick={(e) => e.stopPropagation()}>
-            <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleDownloadPhoto}
-                className="px-4 py-2 rounded-full bg-gold hover:bg-gold-light text-slate-950 text-xs font-bold flex items-center gap-1.5 shadow-xl transition active:scale-95 cursor-pointer"
-                title="Save / Download High-Res Photo"
-              >
-                <Download className="w-4 h-4" />
-                <span>Save Photo</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsPhotoLightboxOpen(false)}
-                className="w-9 h-9 rounded-full bg-black/70 hover:bg-black/90 text-white flex items-center justify-center transition border border-white/25 cursor-pointer"
-                title="Close Lightbox"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <img 
-              src="/images/bjc-family-fellowship.jpg" 
-              alt="Beholding Jesus Church Family Full View" 
-              className="w-auto h-auto max-w-full max-h-[88vh] object-contain rounded-2xl shadow-2xl"
-            />
-          </div>
-        </div>
-      )}
+      {/* High-Resolution Church Moments Lightbox Modal */}
+      <ChurchMomentsLightboxModal
+        isOpen={selectedMomentIndex !== null}
+        photos={CHURCH_MOMENT_PHOTOS}
+        currentIndex={selectedMomentIndex ?? 0}
+        onClose={() => setSelectedMomentIndex(null)}
+        onNavigateIndex={(idx) => setSelectedMomentIndex(idx)}
+      />
 
     </div>
   );

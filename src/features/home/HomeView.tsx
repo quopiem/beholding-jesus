@@ -18,6 +18,8 @@ import { ReportPostModal } from './ReportPostModal';
 import { AdminModerationModal } from './AdminModerationModal';
 import { DownloadAppModal } from '../../components/DownloadAppModal';
 import { CHURCH_INFO } from '../../services/churchInfo';
+import { CHURCH_MOMENT_PHOTOS } from '../landing/churchMomentsData';
+import { ChurchMomentsLightboxModal } from '../../components/ChurchMomentsLightboxModal';
 
 interface HomeViewProps {
   onNavigate: (tab: string) => void;
@@ -41,6 +43,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
   // Modals & Lightbox State
   const [selectedLightboxImage, setSelectedLightboxImage] = useState<string | null>(null);
+  const [selectedMomentIndex, setSelectedMomentIndex] = useState<number | null>(null);
   const [whoReactedPost, setWhoReactedPost] = useState<FeedPost | null>(null);
   const [reportingPostInfo, setReportingPostInfo] = useState<{
     postId: string;
@@ -257,6 +260,54 @@ export const HomeView: React.FC<HomeViewProps> = ({
                 <span>Church Home</span>
                 <ChevronRight className="w-3.5 h-3.5" />
               </button>
+            </div>
+
+            {/* FEATURED CHURCH MOMENTS & LIFE AT BJC STORIES */}
+            <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md px-3.5 py-3 sm:p-4 rounded-none sm:rounded-2xl border-b sm:border border-stone-200/80 dark:border-slate-800/80 shadow-none sm:shadow-xs space-y-2">
+              <div className="flex items-center justify-between px-0.5">
+                <div className="flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-gold" />
+                  <span className="font-serif font-black text-xs uppercase tracking-wider text-stone-900 dark:text-white">
+                    Featured Church Moments
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onNavigate('home')}
+                  className="text-[10px] font-bold text-gold hover:underline transition cursor-pointer"
+                >
+                  View All ({CHURCH_MOMENT_PHOTOS.length})
+                </button>
+              </div>
+
+              {/* Horizontal Stories Carousel */}
+              <div className="flex items-center gap-3 sm:gap-4 overflow-x-auto scrollbar-none py-1">
+                {CHURCH_MOMENT_PHOTOS.map((moment, idx) => (
+                  <button
+                    key={moment.id}
+                    type="button"
+                    onClick={() => setSelectedMomentIndex(idx)}
+                    className="flex flex-col items-center gap-1.5 shrink-0 group cursor-pointer focus:outline-none"
+                    title={moment.title}
+                  >
+                    <div className="relative p-0.5 rounded-2xl bg-gradient-to-tr from-gold via-amber-400 to-amber-200 group-hover:scale-105 transition-transform duration-200 shadow-xs">
+                      <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-[14px] overflow-hidden bg-slate-950 border-2 border-white dark:border-slate-900">
+                        <img
+                          src={moment.imageUrl}
+                          alt={moment.title}
+                          className="w-full h-full object-cover object-top group-hover:scale-110 transition-transform duration-300"
+                        />
+                      </div>
+                      <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-stone-900 text-gold flex items-center justify-center border border-white dark:border-slate-900 text-[8px] font-black shadow-xs">
+                        ★
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-bold text-stone-700 dark:text-stone-300 max-w-[68px] sm:max-w-[76px] truncate text-center group-hover:text-gold transition">
+                      {moment.categoryLabel.split(' ')[0]}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* 1. PINNED ANNOUNCEMENT HERO SECTION */}
@@ -723,6 +774,15 @@ export const HomeView: React.FC<HomeViewProps> = ({
       <DownloadAppModal
         isOpen={isDownloadModalOpen}
         onClose={() => setIsDownloadModalOpen(false)}
+      />
+
+      {/* Featured Church Moments Lightbox Modal */}
+      <ChurchMomentsLightboxModal
+        isOpen={selectedMomentIndex !== null}
+        photos={CHURCH_MOMENT_PHOTOS}
+        currentIndex={selectedMomentIndex ?? 0}
+        onClose={() => setSelectedMomentIndex(null)}
+        onNavigateIndex={(idx) => setSelectedMomentIndex(idx)}
       />
 
     </div>
