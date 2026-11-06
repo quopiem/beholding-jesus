@@ -5,7 +5,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { ChurchDataStore } from './churchDataStore';
 
-const KEY_FEED_POSTS = 'bjc_feed_posts_v5';
+const KEY_FEED_POSTS = 'bjc_feed_posts_v6';
 const KEY_REACTIONS = 'bjc_post_reactions_v5';
 const KEY_COMMENTS = 'bjc_post_comments_v5';
 const KEY_REPORTS = 'bjc_post_reports_v5';
@@ -26,8 +26,34 @@ export const isChurchAdmin = (user?: UserProfile | null): boolean => {
   );
 };
 
-// Initial realistic, inspiring church seed posts (clean of deleted old samples)
+// Initial realistic, inspiring church seed posts (aligned with live cloud)
 const INITIAL_FEED_POSTS: FeedPost[] = [
+  {
+    id: 'ann-1793810805417',
+    authorId: 'usr-pastor-john-eric',
+    authorName: 'John Erick Manjares',
+    authorAvatar: '/images/pastor-john-eric-manjares.png',
+    authorRole: 'Senior Pastor',
+    ministryLabel: 'Pastoral Leadership',
+    content: `Christmas Gift-Giving on the Streets\nWe are blessed to be a blessing this Christmas! Share the love of Jesus through your pledge and be part of our Christmas Gift-Giving on the streets.`,
+    postType: 'announcement',
+    category: 'Special Events',
+    imageUrls: ['/images/theology-class-poster.png'],
+    createdAt: '2026-11-05T00:00:00.000Z',
+    updatedAt: '2026-11-05T00:00:00.000Z',
+    isHidden: false,
+    commentsEnabled: true,
+    announcementTitle: 'JESUS GIVES',
+    announcementPriority: 'pinned',
+    isPinned: true,
+    pinnedAt: '2026-11-05T00:00:00.000Z',
+    eventDate: 'December 21, 2026',
+    actionButtonLabel: 'Support Gift-Giving',
+    reactions: [],
+    reactionCounts: { like: 8, love: 14, care: 3, celebrate: 12, pray: 20 },
+    comments: [],
+    commentsCount: 0
+  },
   {
     id: 'post-comm-testimony-1',
     authorId: 'usr-owner-001',
