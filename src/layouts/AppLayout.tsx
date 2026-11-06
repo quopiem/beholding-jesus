@@ -660,60 +660,61 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         )}
 
         {/* Main Content Area */}
-        <main className={`flex-1 overflow-x-hidden ${currentTab === 'home' || currentTab === 'feed' ? 'pb-24 md:pb-6' : 'pb-16 md:pb-0'}`}>
+        <main className={`flex-1 overflow-x-hidden ${currentTab === 'home' || currentTab === 'feed' ? 'pb-28 md:pb-6' : 'pb-24 md:pb-0'}`}>
           <div key={currentTab} className="animate-fade-in">
             {children}
           </div>
         </main>
 
         {/* ============================================================== */}
-        {/* MOBILE BOTTOM NAVIGATION BAR (Fixed at bottom on phones) */}
+        {/* MOBILE FLOATING PILL ISLAND NAVIGATION BAR                     */}
         {/* ============================================================== */}
-        <nav className="fixed bottom-0 left-0 right-0 z-[999999] pointer-events-auto bg-[#FAF8F5]/92 dark:bg-[#0c0e14]/92 backdrop-blur-xl border-t border-stone-200/80 dark:border-slate-800/80 md:hidden flex items-center justify-around px-2 py-1.5 shadow-[0_-8px_30px_rgba(0,0,0,0.06)] safe-bottom">
-          {([
-            { id: 'home', label: 'Home', icon: Home },
-            { id: 'feed', label: 'Feed', icon: Sparkles },
-            { id: 'bible', label: 'Bible', icon: BookOpen },
-            { 
-              id: 'community', 
-              label: 'Fellowship', 
-              icon: MessageSquare,
-              badge: unreadChatCount > 0 ? (unreadChatCount > 99 ? '99+' : String(unreadChatCount)) : undefined
-            },
-            { id: 'profile', label: 'Profile', icon: User }
-          ] as Array<{ id: string; label: string; icon: any; badge?: string }>).map(item => {
-            const Icon = item.icon;
-            const isActive = currentTab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => {
-                  onTabChange(item.id);
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-                className={`flex flex-col items-center justify-center flex-1 py-1.5 px-1 rounded-2xl transition-all duration-300 relative active:scale-90 ${
-                  isActive 
-                    ? 'text-stone-950 dark:text-gold font-bold bg-stone-900/5 dark:bg-gold/10' 
-                    : 'text-stone-500 dark:text-stone-400 hover:text-stone-800 dark:hover:text-stone-200'
-                }`}
-              >
-                <div className="relative">
-                  <Icon className={`w-5 h-5 transition-transform duration-300 ${isActive ? 'stroke-[2.5] text-stone-950 dark:text-gold -translate-y-0.5 scale-110' : 'stroke-[1.8]'}`} />
-                  {item.badge && (
-                    <span className="absolute -top-1 -right-2.5 min-w-4 h-4 px-1 rounded-full bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-black text-[9px] flex items-center justify-center shadow-md shadow-amber-500/30 ring-1 ring-white dark:ring-slate-900 animate-pulse">
-                      {item.badge}
-                    </span>
-                  )}
-                </div>
-                <span className="text-[10px] mt-0.5 font-medium tracking-tight">
-                  {item.label}
-                </span>
-                {isActive && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-stone-900 dark:bg-gold mt-0.5 shadow-[0_0_6px_rgba(197,164,109,0.7)] animate-fade-in"></span>
-                )}
-              </button>
-            );
-          })}
+        <nav 
+          aria-label="Mobile Navigation"
+          className="fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 z-[999999] pointer-events-auto w-[calc(100%-28px)] max-w-[400px] md:hidden select-none"
+        >
+          <div className="relative flex items-center justify-between px-3 py-1.5 rounded-full bg-[#12131A]/92 dark:bg-[#0B0D14]/94 backdrop-blur-2xl border border-white/15 dark:border-[#C5A46D]/35 shadow-[0_12px_40px_rgba(0,0,0,0.45)] ring-1 ring-white/10">
+            {([
+              { id: 'home', label: 'Home', icon: Home },
+              { id: 'feed', label: 'Feed', icon: Sparkles },
+              { id: 'bible', label: 'Bible', icon: BookOpen },
+              { 
+                id: 'community', 
+                label: 'Fellowship', 
+                icon: MessageSquare,
+                badge: unreadChatCount > 0 ? (unreadChatCount > 99 ? '99+' : String(unreadChatCount)) : undefined
+              },
+              { id: 'profile', label: 'Profile', icon: User }
+            ] as Array<{ id: string; label: string; icon: any; badge?: string }>).map(item => {
+              const Icon = item.icon;
+              const isActive = currentTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    onTabChange(item.id);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className={`relative flex items-center justify-center transition-all duration-300 rounded-2xl cursor-pointer select-none active:scale-90 ${
+                    isActive 
+                      ? 'px-4 py-2.5 bg-white/20 dark:bg-gradient-to-r dark:from-[#C5A46D]/25 dark:to-[#B59157]/20 text-white dark:text-gold shadow-inner border border-white/20 dark:border-gold/40' 
+                      : 'p-2.5 text-stone-400 hover:text-white dark:text-stone-400 dark:hover:text-stone-200'
+                  }`}
+                  title={item.label}
+                  aria-label={item.label}
+                >
+                  <div className="relative flex items-center justify-center">
+                    <Icon className={`w-5 h-5 transition-transform duration-300 ${isActive ? 'stroke-[2.4] scale-110' : 'stroke-[1.8]'}`} />
+                    {item.badge && (
+                      <span className="absolute -top-1.5 -right-2 min-w-4 h-4 px-1 rounded-full bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-black text-[9px] flex items-center justify-center shadow-md shadow-amber-500/40 ring-1 ring-[#12131A] animate-pulse">
+                        {item.badge}
+                      </span>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
         </nav>
 
         {/* Global Authentication Modal */}
