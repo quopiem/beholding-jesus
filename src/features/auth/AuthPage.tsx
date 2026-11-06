@@ -202,6 +202,23 @@ export const AuthPage: React.FC<AuthPageProps> = ({
           </div>
         </div>
 
+        {/* Sacred Welcome Greeting */}
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-amber-500/10 via-gold/15 to-amber-600/10 dark:from-gold/15 dark:via-amber-500/10 dark:to-transparent border border-gold/30 p-4 text-center space-y-1.5 shadow-sm">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gold/20 border border-gold/30 text-gold text-[10px] font-bold tracking-widest uppercase">
+            <Sparkles className="w-3.5 h-3.5 text-gold" />
+            <span>Welcome to Beholding Jesus Church</span>
+          </div>
+          <h2 className="font-serif font-bold text-base sm:text-lg text-slate-900 dark:text-amber-100">
+            Welcome to Our Church Family
+          </h2>
+          <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-sans max-w-sm mx-auto">
+            "Grace to you and peace from God our Father and the Lord Jesus Christ."
+          </p>
+          <div className="text-[10px] font-serif italic text-gold/90 font-medium">
+            — 1 Corinthians 1:3 • Camella Springville, Molino 3, Bacoor
+          </div>
+        </div>
+
         {/* Auth Card Container */}
         <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-elevated border border-slate-200/80 dark:border-slate-800 overflow-hidden">
           

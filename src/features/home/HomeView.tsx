@@ -193,6 +193,13 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
   const visiblePosts = filteredPosts.slice(0, displayCount);
 
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 18) return 'Good afternoon';
+    return 'Good evening';
+  };
+
   return (
     <div className="min-h-screen bg-[#FAF8F5] dark:bg-[#0B111E] text-stone-900 dark:text-stone-100 transition-colors">
       
@@ -219,6 +226,35 @@ export const HomeView: React.FC<HomeViewProps> = ({
           {/* ============================================================== */}
           <main className="lg:col-span-6 space-y-6">
             
+            {/* 0. SACRED WELCOME GREETING BANNER */}
+            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-stone-900 via-stone-900 to-amber-950/80 dark:from-slate-900 dark:via-slate-900 dark:to-amber-950/60 border border-gold/30 p-5 sm:p-6 text-white shadow-elevated">
+              {/* Subtle ambient light glow */}
+              <div className="absolute -top-10 -right-10 w-44 h-44 bg-gold/15 rounded-full blur-3xl pointer-events-none" />
+              <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="space-y-1.5">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gold/20 border border-gold/30 text-[11px] font-bold text-gold tracking-wide">
+                    <Sparkles className="w-3.5 h-3.5 text-gold animate-pulse" />
+                    <span>Welcome to Beholding Jesus Church</span>
+                  </div>
+                  <h2 className="font-serif font-bold text-xl sm:text-2xl text-amber-50">
+                    {getGreeting()}, {currentUser?.name?.split(' ')[0] || 'Beloved'}!
+                  </h2>
+                  <p className="text-xs sm:text-sm text-stone-300 dark:text-slate-300 leading-relaxed font-sans max-w-lg">
+                    We are blessed to gather and fellowship with you today. "Beholding the glory of the Lord, we are being transformed into His image." (2 Corinthians 3:18)
+                  </p>
+                </div>
+                <div className="flex sm:flex-col items-center sm:items-end gap-1.5 w-full sm:w-auto shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-white/10">
+                  <div className="text-[11px] text-amber-200/90 font-medium flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping inline-block" />
+                    <span>Sanctuary Fellowship Active</span>
+                  </div>
+                  <div className="text-[10px] text-stone-400 font-serif">
+                    Camella Springville Molino 3
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* 1. PINNED ANNOUNCEMENT HERO SECTION */}
             <PinnedAnnouncementHero
               pinnedPosts={pinnedAnnouncements}
