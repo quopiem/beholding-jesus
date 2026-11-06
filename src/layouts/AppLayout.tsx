@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Home, BookOpen, MessageSquare, Users, Music, Calendar, 
   Heart, Shield, Bell, Moon, Sun, Search, Menu, X, 
@@ -108,6 +108,47 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
     window.addEventListener('bjc_unread_chat_count', handleCount);
     return () => window.removeEventListener('bjc_unread_chat_count', handleCount);
   }, []);
+
+  // Mobile Floating Navigation Visibility on Scroll (Disappears on scroll down, reappears on scroll up)
+  const [isNavVisible, setIsNavVisible] = useState(true);
+  const lastScrollYRef = useRef(0);
+
+  useEffect(() => {
+    let ticking = false;
+
+    const handleScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const currentScrollY = window.scrollY;
+          const diff = currentScrollY - lastScrollYRef.current;
+
+          // Always visible near top of screen (< 60px)
+          if (currentScrollY < 60) {
+            setIsNavVisible(true);
+          } else if (diff > 8) {
+            // Scrolling down -> hide buttons
+            setIsNavVisible(false);
+          } else if (diff < -8) {
+            // Scrolling up -> show buttons
+            setIsNavVisible(true);
+          }
+
+          lastScrollYRef.current = currentScrollY;
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // When changing tabs, immediately reveal the nav bar
+  useEffect(() => {
+    setIsNavVisible(true);
+    lastScrollYRef.current = 0;
+  }, [currentTab]);
 
   const handleRoleChange = (role: UserRole) => {
     const users = ChurchDataStore.getUsers();
@@ -671,7 +712,11 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         {/* ============================================================== */}
         <nav 
           aria-label="Mobile Navigation"
-          className="fixed bottom-3 sm:bottom-5 left-1/2 -translate-x-1/2 z-[999999] pointer-events-auto w-[calc(100%-20px)] max-w-[430px] md:hidden select-none"
+          className={`fixed bottom-3 sm:bottom-5 left-1/2 -translate-x-1/2 z-[999999] w-[calc(100%-20px)] max-w-[430px] md:hidden select-none transition-all duration-300 ease-in-out ${
+            isNavVisible 
+              ? 'translate-y-0 opacity-100 pointer-events-auto' 
+              : 'translate-y-28 opacity-0 pointer-events-none'
+          }`}
         >
           <div className="relative flex items-center justify-around px-1.5 py-1.5 rounded-[26px] bg-[#12131A]/94 dark:bg-[#0B0D14]/96 backdrop-blur-2xl border border-white/15 dark:border-[#C5A46D]/35 shadow-[0_14px_45px_rgba(0,0,0,0.55)] ring-1 ring-white/10">
             {([
