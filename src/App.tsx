@@ -71,10 +71,12 @@ export function App() {
 
   const renderContent = () => {
     switch (currentTab) {
+      case 'home':
+        return <LandingPageView onNavigate={setCurrentTab} currentUser={currentUser} />;
+      case 'feed':
+        return <HomeView onNavigate={setCurrentTab} onOpenQuickAction={() => setCurrentTab('worship')} currentUser={currentUser} />;
       case 'landing':
         return <LandingPageView onNavigate={setCurrentTab} currentUser={currentUser} />;
-      case 'home':
-        return <HomeView onNavigate={setCurrentTab} onOpenQuickAction={() => setCurrentTab('worship')} currentUser={currentUser} />;
       case 'bible':
         return <BibleView onNavigate={setCurrentTab} />;
       case 'worship':
@@ -94,7 +96,7 @@ export function App() {
       case 'bjc-ai':
         return <BjcAiView onNavigate={setCurrentTab} currentUser={currentUser} />;
       default:
-        return <HomeView onNavigate={setCurrentTab} currentUser={currentUser} />;
+        return <LandingPageView onNavigate={setCurrentTab} currentUser={currentUser} />;
     }
   };
 

@@ -61,7 +61,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
   };
 
   const handleEnterFeed = () => {
-    onNavigate('home');
+    onNavigate('feed');
   };
 
   return (

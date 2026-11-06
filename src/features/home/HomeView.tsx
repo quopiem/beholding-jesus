@@ -243,10 +243,10 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
               {/* View Church Landing Page pill */}
               <button
-                onClick={() => onNavigate('landing')}
+                onClick={() => onNavigate('home')}
                 className="px-3.5 py-1.5 rounded-xl border border-gold/30 bg-gold/10 hover:bg-gold/20 text-gold-dark dark:text-gold text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ml-auto sm:ml-0 shadow-xs active:scale-95"
               >
-                <span>Church Overview</span>
+                <span>Church Home</span>
                 <ChevronRight className="w-3.5 h-3.5" />
               </button>
             </div>

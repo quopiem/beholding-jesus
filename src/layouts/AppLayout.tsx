@@ -118,9 +118,9 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   };
 
   const navItems = [
-    { id: 'landing', label: 'Church Landing', icon: Compass },
-    { id: 'home', label: 'Community Feed', icon: Home },
-    { id: 'bjc-ai', label: 'BJC AI', icon: Sparkles },
+    { id: 'home', label: 'Home', icon: Home },
+    { id: 'feed', label: 'Community Feed', icon: Sparkles },
+    { id: 'bjc-ai', label: 'BJC AI', icon: Compass },
     { id: 'bible', label: 'Bible', icon: BookOpen },
     { 
       id: 'community', 
@@ -365,8 +365,8 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
       {/* ============================================================== */}
       <div className="flex-1 flex flex-col min-w-0">
         
-        {/* Top Header Bar (Shown exclusively on Home as requested to maximize full screen in Bible, Community, etc.) */}
-        {currentTab === 'home' && (
+        {/* Top Header Bar (Shown exclusively on Feed as requested to maximize full screen in Bible, Community, etc.) */}
+        {currentTab === 'feed' && (
           <header className="sticky top-0 z-20 bg-[#FAF8F5]/90 dark:bg-[#0c0e14]/90 backdrop-blur-xl border-b border-stone-200/80 dark:border-slate-800/80 px-4 sm:px-6 py-2.5 flex items-center justify-between shadow-[0_4px_25px_rgba(0,0,0,0.03)]">
             
             {/* Mobile brand & toggle */}
@@ -520,8 +520,8 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
           </header>
         )}
 
-        {/* Mobile Dropdown Drawer (Only active when menu open on Home) */}
-        {isMobileMenuOpen && currentTab === 'home' && (
+        {/* Mobile Dropdown Drawer */}
+        {isMobileMenuOpen && (
           <div className="md:hidden bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 py-3 space-y-1">
             {navItems.map(item => {
               const Icon = item.icon;
@@ -660,7 +660,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         )}
 
         {/* Main Content Area */}
-        <main className={`flex-1 overflow-x-hidden ${currentTab === 'home' ? 'pb-24 md:pb-6' : 'pb-16 md:pb-0'}`}>
+        <main className={`flex-1 overflow-x-hidden ${currentTab === 'home' || currentTab === 'feed' ? 'pb-24 md:pb-6' : 'pb-16 md:pb-0'}`}>
           <div key={currentTab} className="animate-fade-in">
             {children}
           </div>
@@ -672,6 +672,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         <nav className="fixed bottom-0 left-0 right-0 z-[999999] pointer-events-auto bg-[#FAF8F5]/92 dark:bg-[#0c0e14]/92 backdrop-blur-xl border-t border-stone-200/80 dark:border-slate-800/80 md:hidden flex items-center justify-around px-2 py-1.5 shadow-[0_-8px_30px_rgba(0,0,0,0.06)] safe-bottom">
           {([
             { id: 'home', label: 'Home', icon: Home },
+            { id: 'feed', label: 'Feed', icon: Sparkles },
             { id: 'bible', label: 'Bible', icon: BookOpen },
             { 
               id: 'community', 
@@ -679,7 +680,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
               icon: Users,
               badge: unreadChatCount > 0 ? (unreadChatCount > 99 ? '99+' : String(unreadChatCount)) : undefined
             },
-            { id: 'ministries', label: 'Ministries', icon: HandHeart },
             { id: 'profile', label: 'Profile', icon: User }
           ] as Array<{ id: string; label: string; icon: any; badge?: string }>).map(item => {
             const Icon = item.icon;
