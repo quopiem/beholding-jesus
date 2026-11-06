@@ -13,7 +13,9 @@ import {
   TrendingUp,
   AlertTriangle,
   Layers,
-  FileText
+  FileText,
+  Pin,
+  PinOff
 } from 'lucide-react';
 import { AdminAnnouncement, AdminAuditLog, AdminDashboardStats } from '../types';
 import { AdminAnnouncementService } from '../services/adminAnnouncementService';
@@ -73,6 +75,12 @@ export const AdminDashboardHome: React.FC<AdminDashboardHomeProps> = ({
       id: item.id,
       status: nextStatus
     });
+    await loadData();
+  };
+
+  const handleTogglePin = async (item: AdminAnnouncement) => {
+    const isCurrentlyPinned = item.priority === 'pinned';
+    await AdminAnnouncementService.togglePin(item.id, !isCurrentlyPinned);
     await loadData();
   };
 
@@ -300,6 +308,22 @@ export const AdminDashboardHome: React.FC<AdminDashboardHomeProps> = ({
 
                     {/* Action Controls */}
                     <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                      <button
+                        onClick={() => handleTogglePin(item)}
+                        className={`p-1.5 rounded-lg border transition-all ${
+                          item.priority === 'pinned'
+                            ? 'bg-purple-100 text-purple-700 border-purple-300 hover:bg-purple-200'
+                            : 'text-[#5C5654] hover:text-[#1F1D1D] hover:bg-[#EBDCD5]/40 border-[#E8DBD4]'
+                        }`}
+                        title={item.priority === 'pinned' ? 'Unpin from Member Hero' : 'Pin to Member Hero (Top)'}
+                      >
+                        {item.priority === 'pinned' ? (
+                          <PinOff className="w-4 h-4 text-purple-700" />
+                        ) : (
+                          <Pin className="w-4 h-4 text-[#78716E]" />
+                        )}
+                      </button>
+
                       <button
                         onClick={() => handleToggleStatus(item)}
                         className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${

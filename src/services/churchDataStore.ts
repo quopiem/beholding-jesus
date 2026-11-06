@@ -661,7 +661,7 @@ export class ChurchDataStore {
             category: d.category || 'General Church',
             date: d.date || (d.created_at ? d.created_at.split('T')[0] : new Date().toISOString().split('T')[0]),
             priority: d.priority === 'pinned' ? 'pinned' : (d.priority === 'high' ? 'high' : 'normal'),
-            isImportant: d.is_important ?? (d.priority === 'high' || d.priority === 'pinned'),
+            isImportant: d.priority === 'pinned' || d.priority === 'high',
             isRead: d.is_read || false,
             authorName: d.author_name || 'Pastor Daniel Santos',
             authorRole: d.author_role || 'Senior Pastor',

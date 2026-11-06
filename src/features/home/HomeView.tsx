@@ -7,6 +7,7 @@ import {
 import { UserProfile, FeedPost, FeedReactionType } from '../../types';
 import { ChurchDataStore } from '../../services/churchDataStore';
 import { ChurchFeedStore, isChurchAdmin } from '../../services/churchFeedStore';
+import { AdminAnnouncementService } from '../../admin/services/adminAnnouncementService';
 import { PinnedAnnouncementHero } from './PinnedAnnouncementHero';
 import { CreatePostComposer } from './CreatePostComposer';
 import { FeedPostCard } from './FeedPostCard';
@@ -72,6 +73,9 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
     const handleFeedChange = () => {
       setPosts(ChurchFeedStore.getFeedPosts(currentUser));
+      ChurchFeedStore.fetchFeedPostsFromCloud(currentUser).then(p => {
+        if (p) setPosts(p);
+      });
     };
 
     const handleWindowFocus = () => {
@@ -127,7 +131,11 @@ export const HomeView: React.FC<HomeViewProps> = ({
   // Moderation & Post Actions
   const handleTogglePin = async (post: FeedPost) => {
     if (!isAdmin) return;
-    await ChurchFeedStore.togglePinAnnouncement(post.id, !post.isPinned, currentUser);
+    const nextPinned = !post.isPinned;
+    await ChurchFeedStore.togglePinAnnouncement(post.id, nextPinned, currentUser);
+    try {
+      await AdminAnnouncementService.togglePin(post.id, nextPinned);
+    } catch {}
     setPosts(ChurchFeedStore.getFeedPosts(currentUser));
   };
 
@@ -169,8 +177,8 @@ export const HomeView: React.FC<HomeViewProps> = ({
     setPosts(ChurchFeedStore.getFeedPosts(currentUser));
   };
 
-  // Filter Posts
-  const pinnedAnnouncements = posts.filter(p => !p.isHidden && p.postType === 'announcement' && (p.isPinned || p.announcementPriority === 'pinned'));
+  // Filter Posts: Strictly pinned announcements only
+  const pinnedAnnouncements = posts.filter(p => !p.isHidden && p.postType === 'announcement' && p.isPinned === true && p.announcementPriority === 'pinned');
 
   const filteredPosts = posts.filter(p => {
     // If regular member, hide hidden posts

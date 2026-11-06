@@ -19,7 +19,9 @@ import {
   Share2,
   CalendarCheck,
   ShieldCheck,
-  Check
+  Check,
+  Pin,
+  PinOff
 } from 'lucide-react';
 import { AdminAnnouncement, AnnouncementStatus, AnnouncementPriority } from '../types';
 import { AdminAnnouncementService } from '../services/adminAnnouncementService';
@@ -214,6 +216,17 @@ export const AdminAnnouncementManager: React.FC<AdminAnnouncementManagerProps> =
       id: item.id,
       status: nextStatus
     });
+    await fetchList();
+  };
+
+  const handleTogglePin = async (item: AdminAnnouncement) => {
+    const isCurrentlyPinned = item.priority === 'pinned';
+    const nextPriority: AnnouncementPriority = isCurrentlyPinned ? 'normal' : 'pinned';
+    
+    // Optimistic UI update
+    setAnnouncements(prev => prev.map(a => a.id === item.id ? { ...a, priority: nextPriority, is_important: !isCurrentlyPinned } : a));
+
+    await AdminAnnouncementService.togglePin(item.id, !isCurrentlyPinned);
     await fetchList();
   };
 
@@ -442,6 +455,29 @@ export const AdminAnnouncementManager: React.FC<AdminAnnouncementManagerProps> =
 
                   {/* Action Buttons */}
                   <div className="flex items-center gap-2 shrink-0 self-end md:self-center pt-2 md:pt-0 border-t md:border-t-0 border-[#F5ECE8] w-full md:w-auto justify-end">
+                    {/* 1-Click Pin / Unpin Button */}
+                    <button
+                      onClick={() => handleTogglePin(item)}
+                      className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all border flex items-center gap-1.5 ${
+                        item.priority === 'pinned'
+                          ? 'bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200 shadow-xs'
+                          : 'bg-white hover:bg-[#F8F3F0] text-[#5C5654] border-[#E8DBD4]'
+                      }`}
+                      title={item.priority === 'pinned' ? 'Unpin from Member Hero' : 'Pin to Member Hero (Top)'}
+                    >
+                      {item.priority === 'pinned' ? (
+                        <>
+                          <PinOff className="w-3.5 h-3.5 text-purple-700" />
+                          <span>Unpin</span>
+                        </>
+                      ) : (
+                        <>
+                          <Pin className="w-3.5 h-3.5 text-[#78716E]" />
+                          <span>Pin Hero</span>
+                        </>
+                      )}
+                    </button>
+
                     {/* Fast Status Toggle */}
                     <button
                       onClick={() => handleToggleStatus(item)}

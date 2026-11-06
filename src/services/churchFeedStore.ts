@@ -351,8 +351,8 @@ export class ChurchFeedStore {
     // 1. Pinned announcements first (by pinnedAt or createdAt desc)
     // 2. All other posts by createdAt desc
     return enrichedPosts.sort((a, b) => {
-      const aIsPinned = !a.isHidden && a.postType === 'announcement' && (a.isPinned || a.announcementPriority === 'pinned');
-      const bIsPinned = !b.isHidden && b.postType === 'announcement' && (b.isPinned || b.announcementPriority === 'pinned');
+      const aIsPinned = !a.isHidden && a.postType === 'announcement' && a.isPinned === true && a.announcementPriority === 'pinned';
+      const bIsPinned = !b.isHidden && b.postType === 'announcement' && b.isPinned === true && b.announcementPriority === 'pinned';
 
       if (aIsPinned && !bIsPinned) return -1;
       if (!aIsPinned && bIsPinned) return 1;
@@ -389,7 +389,8 @@ export class ChurchFeedStore {
           if (deletedIds.includes(a.id)) continue;
           if (a.status === 'draft' || a.priority === 'draft') continue;
 
-          const isPinned = a.priority === 'pinned' || a.is_important === true;
+          // CRITICAL: An announcement is pinned ONLY if priority is explicitly 'pinned'
+          const isPinned = a.priority === 'pinned';
           const authorAvatar = (a.author_name && a.author_name.toLowerCase().includes('manjares'))
             ? '/images/pastor-john-eric-manjares.png'
             : (a.author_name && a.author_name.toLowerCase().includes('miko'))
@@ -412,7 +413,7 @@ export class ChurchFeedStore {
             isHidden: false,
             commentsEnabled: true,
             announcementTitle: a.title,
-            announcementPriority: a.priority || (a.is_important ? 'pinned' : 'normal'),
+            announcementPriority: isPinned ? 'pinned' : (a.priority === 'high' ? 'high' : 'normal'),
             isPinned,
             pinnedAt: isPinned ? (a.updated_at || a.created_at) : undefined,
             eventDate: a.date || a.event_date,
@@ -472,10 +473,17 @@ export class ChurchFeedStore {
       // If cloud announcement has no cover image or local has a specific image, apply local image
       for (const ann of mappedAnnouncements) {
         const local = localAdminMap.get(ann.id);
-        if (local && (local.cover_image || local.image_url)) {
-          const localImg = local.cover_image || local.image_url;
-          if (ann.imageUrls.length === 0 || !ann.imageUrls[0]) {
-            ann.imageUrls = [localImg];
+        if (local) {
+          if (local.cover_image || local.image_url) {
+            const localImg = local.cover_image || local.image_url;
+            if (ann.imageUrls.length === 0 || !ann.imageUrls[0]) {
+              ann.imageUrls = [localImg];
+            }
+          }
+          // If local admin cache was explicitly unpinned, ensure cloud sync respects it
+          if (local.priority && local.priority !== 'pinned' && ann.isPinned) {
+            ann.isPinned = false;
+            ann.announcementPriority = local.priority === 'high' ? 'high' : 'normal';
           }
         }
       }
@@ -735,14 +743,29 @@ export class ChurchFeedStore {
 
     const currentPosts = this.getRawPosts();
     const post = currentPosts.find(p => p.id === postId);
-    if (!post) return false;
+    if (post) {
+      post.isPinned = isPinned;
+      post.announcementPriority = isPinned ? 'pinned' : 'normal';
+      post.pinnedAt = isPinned ? new Date().toISOString() : undefined;
+      post.updatedAt = new Date().toISOString();
+      this.save(KEY_FEED_POSTS, currentPosts);
+    }
 
-    post.isPinned = isPinned;
-    post.announcementPriority = isPinned ? 'pinned' : 'normal';
-    post.pinnedAt = isPinned ? new Date().toISOString() : undefined;
-    post.updatedAt = new Date().toISOString();
-
-    this.save(KEY_FEED_POSTS, currentPosts);
+    // Also update local admin announcements cache
+    try {
+      const rawAdmin = localStorage.getItem('bjc_admin_announcements_cache_v1');
+      if (rawAdmin) {
+        const adminList = JSON.parse(rawAdmin);
+        if (Array.isArray(adminList)) {
+          const adm = adminList.find(a => a.id === postId);
+          if (adm) {
+            adm.priority = isPinned ? 'pinned' : 'normal';
+            adm.is_important = isPinned;
+            localStorage.setItem('bjc_admin_announcements_cache_v1', JSON.stringify(adminList));
+          }
+        }
+      }
+    } catch {}
 
     this.recordAuditLog({
       adminId: adminUser.id,
@@ -757,12 +780,17 @@ export class ChurchFeedStore {
         await supabase.from('church_announcements').update({
           priority: isPinned ? 'pinned' : 'normal',
           is_important: isPinned,
-          updated_at: post.updatedAt
+          updated_at: new Date().toISOString()
         }).eq('id', postId);
       } catch (e) {
         console.warn('togglePin cloud sync error:', e);
       }
     }
+
+    try {
+      window.dispatchEvent(new CustomEvent('bjc_feed_change'));
+      window.dispatchEvent(new CustomEvent('bjc_announcements_updated'));
+    } catch {}
 
     return true;
   }
