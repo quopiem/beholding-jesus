@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Sparkles, Calendar, Clock, MapPin, Heart, BookOpen, Music, 
   Users, ArrowRight, ShieldCheck, ExternalLink, Copy, Check, 
-  Smartphone, Moon, Sun, ChevronRight, Maximize2, Download, X, Camera
+  Smartphone, Moon, Sun, ChevronRight, ChevronLeft, Maximize2, Download, X, Camera
 } from 'lucide-react';
 import { CHURCH_INFO } from '../../services/churchInfo';
 import { UserProfile } from '../../types';
@@ -21,7 +21,41 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
 }) => {
   const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
   const [selectedMomentIndex, setSelectedMomentIndex] = useState<number | null>(null);
-  const [activeMomentCategory, setActiveMomentCategory] = useState<'all' | 'worship' | 'fellowship' | 'training' | 'outreach'>('all');
+  const [currentHeroIndex, setCurrentHeroIndex] = useState(0);
+  const [isHeroPaused, setIsHeroPaused] = useState(false);
+  const touchStartXRef = useRef<number | null>(null);
+
+  // Auto-scroll hero background photos to the right every 5 seconds
+  useEffect(() => {
+    if (isHeroPaused) return;
+    const interval = setInterval(() => {
+      setCurrentHeroIndex((prev) => (prev + 1) % CHURCH_MOMENT_PHOTOS.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [isHeroPaused]);
+
+  const handleNextHero = () => {
+    setCurrentHeroIndex((prev) => (prev + 1) % CHURCH_MOMENT_PHOTOS.length);
+  };
+
+  const handlePrevHero = () => {
+    setCurrentHeroIndex((prev) => (prev - 1 + CHURCH_MOMENT_PHOTOS.length) % CHURCH_MOMENT_PHOTOS.length);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartXRef.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartXRef.current === null) return;
+    const diff = touchStartXRef.current - e.changedTouches[0].clientX;
+    if (Math.abs(diff) > 40) {
+      if (diff > 0) handleNextHero();
+      else handlePrevHero();
+    }
+    touchStartXRef.current = null;
+  };
+
   const [copiedAddress, setCopiedAddress] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
     return document.documentElement.classList.contains('dark') || localStorage.getItem('bjc_theme') === 'dark';
@@ -53,10 +87,6 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
   const handleEnterFeed = () => {
     onNavigate('feed');
   };
-
-  const filteredMoments = activeMomentCategory === 'all'
-    ? CHURCH_MOMENT_PHOTOS
-    : CHURCH_MOMENT_PHOTOS.filter(m => m.category === activeMomentCategory);
 
   return (
     <div className="min-h-screen bg-[#FAF8F5] dark:bg-[#0C0E14] text-stone-800 dark:text-stone-100 font-sans transition-colors duration-300 pb-28 md:pb-12">
@@ -96,8 +126,8 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
 
           {/* Quick Anchor Links (Desktop) */}
           <nav className="hidden lg:flex items-center gap-6 text-xs font-semibold text-stone-600 dark:text-stone-300">
+            <a href="#hero" className="hover:text-gold transition">Church Moments</a>
             <a href="#gatherings" className="hover:text-gold transition">Gatherings</a>
-            <a href="#gallery" className="hover:text-gold transition">Church Moments</a>
             <a href="#pastor" className="hover:text-gold transition">Pastoral Word</a>
             <a href="#ministries" className="hover:text-gold transition">Ministries</a>
             <a href="#sanctuary" className="hover:text-gold transition">Sanctuary Location</a>
@@ -128,47 +158,88 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
       </header>
 
       {/* ============================================================== */}
-      {/* 2. GRAND HERO SECTION WITH BJC FAMILY FELLOWSHIP BACKGROUND   */}
+      {/* 2. GRAND AUTO-SCROLLING HERO (Slides every 5s, 1 caption)      */}
       {/* ============================================================== */}
-      <section className="relative overflow-hidden min-h-[580px] sm:min-h-[660px] flex items-center justify-center pt-14 pb-20 sm:pt-24 sm:pb-28">
-        
-        {/* Background Image Container with Cinematic Lighting & Fades */}
+      <section 
+        id="hero" 
+        className="relative overflow-hidden min-h-[85vh] sm:min-h-[720px] lg:min-h-[820px] flex items-center justify-center pt-16 pb-20 sm:pt-24 sm:pb-28 select-none"
+        onMouseEnter={() => setIsHeroPaused(true)}
+        onMouseLeave={() => setIsHeroPaused(false)}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
+        {/* Background Image Carousel Track with 5-Second Right-Scroll Transition */}
         <div className="absolute inset-0 z-0 overflow-hidden">
-          <img 
-            src="/images/bjc-family-fellowship.jpg" 
-            alt="Beholding Jesus Church Family Fellowship" 
-            className="w-full h-full object-cover object-center scale-105 filter brightness-[0.38] contrast-[1.1] saturate-[1.15]"
-          />
-          {/* Dual aesthetic gradient overlays: dark vignette at top/center, smooth fade into page theme at bottom */}
-          <div className="absolute inset-0 bg-gradient-to-b from-black/85 via-black/55 to-[#FAF8F5] dark:to-[#0C0E14]" />
-          <div className="absolute inset-0 bg-radial from-amber-500/15 via-transparent to-black/70 pointer-events-none" />
-          <div className="absolute inset-0 backdrop-blur-[0.5px]" />
+          <div 
+            className="flex w-full h-full transition-transform duration-1000 ease-in-out"
+            style={{ transform: `translateX(-${currentHeroIndex * 100}%)` }}
+          >
+            {CHURCH_MOMENT_PHOTOS.map((photo) => (
+              <div key={photo.id} className="relative min-w-full h-full shrink-0 overflow-hidden">
+                <img 
+                  src={photo.imageUrl} 
+                  alt={photo.title} 
+                  className="w-full h-full object-cover object-center filter brightness-[0.40] contrast-[1.08] saturate-[1.12]"
+                />
+                {/* Dual aesthetic gradient overlays: dark vignette at top/center, smooth fade into page theme at bottom */}
+                <div className="absolute inset-0 bg-gradient-to-b from-black/90 via-black/45 to-[#FAF8F5] dark:to-[#0C0E14]" />
+                <div className="absolute inset-0 bg-radial from-amber-500/15 via-transparent to-black/75 pointer-events-none" />
+                <div className="absolute inset-0 backdrop-blur-[0.3px]" />
+              </div>
+            ))}
+          </div>
         </div>
 
-        <div className="relative max-w-4xl mx-auto px-4 sm:px-6 text-center space-y-6 sm:space-y-8 z-10">
+        {/* Desktop Left/Right Navigation Arrows */}
+        <button
+          type="button"
+          onClick={handlePrevHero}
+          className="hidden md:flex absolute left-4 lg:left-8 top-1/2 -translate-y-1/2 z-20 w-11 h-11 lg:w-13 lg:h-13 rounded-full bg-black/45 hover:bg-black/75 backdrop-blur-md border border-white/20 text-white items-center justify-center transition shadow-2xl active:scale-95 cursor-pointer group"
+          title="Previous Photo (Scroll Left)"
+          aria-label="Previous Photo"
+        >
+          <ChevronLeft className="w-6 h-6 text-gold group-hover:-translate-x-0.5 transition-transform" />
+        </button>
+
+        <button
+          type="button"
+          onClick={handleNextHero}
+          className="hidden md:flex absolute right-4 lg:right-8 top-1/2 -translate-y-1/2 z-20 w-11 h-11 lg:w-13 lg:h-13 rounded-full bg-black/45 hover:bg-black/75 backdrop-blur-md border border-white/20 text-white items-center justify-center transition shadow-2xl active:scale-95 cursor-pointer group"
+          title="Next Photo (Scroll Right)"
+          aria-label="Next Photo"
+        >
+          <ChevronRight className="w-6 h-6 text-gold group-hover:translate-x-0.5 transition-transform" />
+        </button>
+
+        <div className="relative max-w-4xl mx-auto px-4 sm:px-6 text-center space-y-6 sm:space-y-8 z-10 w-full">
           
-          {/* Welcome Pill */}
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-black/60 backdrop-blur-md border border-gold/50 text-amber-200 text-xs font-bold tracking-wider uppercase shadow-xl">
+          {/* Welcome Badge & Current Slide Counter */}
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-black/60 backdrop-blur-md border border-gold/50 text-amber-200 text-xs font-bold tracking-wider uppercase shadow-xl">
             <Sparkles className="w-3.5 h-3.5 text-gold animate-pulse shrink-0" />
             <span>Welcome to Our Church Family</span>
+            <span className="text-white/40">•</span>
+            <span className="text-gold font-bold">
+              {currentHeroIndex + 1} / {CHURCH_MOMENT_PHOTOS.length}
+            </span>
           </div>
 
-          {/* Majestic Hero Headline */}
+          {/* Majestic Hero Headline (One Grand Headline for All) */}
           <div className="space-y-3 sm:space-y-4">
-            <h1 className="font-serif font-black text-3xl sm:text-5xl lg:text-6xl text-white tracking-tight uppercase leading-tight sm:leading-tight drop-shadow-xl">
+            <h1 className="font-serif font-black text-3xl sm:text-5xl lg:text-6xl text-white tracking-tight uppercase leading-tight sm:leading-tight drop-shadow-2xl">
               Beholding The Glory <br className="hidden sm:inline" />
               <span className="bg-gradient-to-r from-[#F3E3C3] via-gold to-amber-300 bg-clip-text text-transparent drop-shadow-md">
                 Of The Lord
               </span>
             </h1>
 
+            {/* ONE Unified Caption for All */}
             <p className="max-w-2xl mx-auto text-xs sm:text-base lg:text-lg text-stone-200 leading-relaxed font-sans px-2 drop-shadow-md">
               A Christ-centered sanctuary in Cavite dedicated to deep worship, life-giving fellowship, and spirit-led discipleship.
             </p>
           </div>
 
           {/* Scripture Callout Card */}
-          <div className="max-w-2xl mx-auto p-4 sm:p-5 rounded-2xl bg-black/60 dark:bg-black/75 border border-gold/40 shadow-2xl backdrop-blur-md text-center mx-2 sm:mx-auto">
+          <div className="max-w-2xl mx-auto p-4 sm:p-5 rounded-2xl bg-black/65 dark:bg-black/80 border border-gold/40 shadow-2xl backdrop-blur-md text-center mx-2 sm:mx-auto">
             <p className="font-serif italic text-xs sm:text-sm text-amber-100/95 leading-relaxed">
               "And we all, with unveiled face, beholding the glory of the Lord, are being transformed into the same image from one degree of glory to another. For this comes from the Lord who is the Spirit."
             </p>
@@ -196,17 +267,34 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
             </a>
 
             <button
-              onClick={() => setSelectedMomentIndex(0)}
+              onClick={() => setSelectedMomentIndex(currentHeroIndex)}
               className="w-full sm:w-auto px-5 py-3.5 rounded-2xl bg-black/45 hover:bg-black/65 backdrop-blur-md border border-white/20 text-stone-200 font-bold text-xs sm:text-sm transition flex items-center justify-center gap-2 cursor-pointer shadow-md"
               title="View High-Resolution Church Moments"
             >
               <Camera className="w-4 h-4 text-amber-400" />
-              <span>View Church Moments ({CHURCH_MOMENT_PHOTOS.length})</span>
+              <span>View Photo Details</span>
             </button>
           </div>
 
+          {/* Carousel Slide Indicators (Auto-scrolls every 5s) */}
+          <div className="pt-2 flex items-center justify-center gap-2">
+            {CHURCH_MOMENT_PHOTOS.map((photo, idx) => (
+              <button
+                key={photo.id}
+                type="button"
+                onClick={() => setCurrentHeroIndex(idx)}
+                className={`h-2.5 rounded-full transition-all duration-500 cursor-pointer ${
+                  idx === currentHeroIndex
+                    ? 'w-9 bg-gold shadow-gold'
+                    : 'w-2.5 bg-white/40 hover:bg-white/70'
+                }`}
+                title={`Photo ${idx + 1}: ${photo.title}`}
+              />
+            ))}
+          </div>
+
           {/* Live Status Pill Row */}
-          <div className="pt-2 flex flex-wrap items-center justify-center gap-2 sm:gap-4 text-xs text-stone-300 font-medium drop-shadow-sm">
+          <div className="pt-1 flex flex-wrap items-center justify-center gap-2 sm:gap-4 text-xs text-stone-300 font-medium drop-shadow-sm">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/50 backdrop-blur-md border border-white/15 text-stone-200">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping inline-block" />
               <span>Sanctuary Fellowship Active</span>
@@ -343,157 +431,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
         </div>
       </section>
 
-      {/* ============================================================== */}
-      {/* 3.5. LIFE AT BJC – FEATURED CHURCH MOMENTS GALLERY            */}
-      {/* ============================================================== */}
-      <section id="gallery" className="py-12 sm:py-20 relative overflow-hidden bg-gradient-to-b from-transparent via-stone-100/60 dark:via-slate-900/40 to-transparent">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 space-y-8 sm:space-y-10">
-          
-          <div className="text-center space-y-2.5">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-gold/15 border border-gold/30 text-gold-dark dark:text-gold text-[11px] font-bold tracking-wider uppercase shadow-xs">
-              <Sparkles className="w-3.5 h-3.5 fill-current" />
-              <span>Life at Beholding Jesus Church</span>
-            </div>
-            <h2 className="font-serif font-black text-2xl sm:text-4xl text-slate-900 dark:text-white uppercase tracking-tight">
-              Captured Moments of Faith & Grace
-            </h2>
-            <p className="text-xs sm:text-sm text-stone-500 dark:text-stone-400 max-w-2xl mx-auto leading-relaxed">
-              Witness the authentic heartbeat of our church family: fervent pastoral prayer, reverent worship, loving sisterhood, campus discipleship, and bold Gospel outreach.
-            </p>
-          </div>
 
-          {/* Interactive Category Filter Pills */}
-          <div className="flex items-center justify-center gap-2 flex-wrap">
-            {[
-              { id: 'all', label: 'All Moments', count: CHURCH_MOMENT_PHOTOS.length },
-              { id: 'worship', label: 'Worship & Prayer', count: CHURCH_MOMENT_PHOTOS.filter(p => p.category === 'worship').length },
-              { id: 'fellowship', label: 'Church Family', count: CHURCH_MOMENT_PHOTOS.filter(p => p.category === 'fellowship').length },
-              { id: 'training', label: 'Campus Training', count: CHURCH_MOMENT_PHOTOS.filter(p => p.category === 'training').length },
-              { id: 'outreach', label: 'Evangelism Outreach', count: CHURCH_MOMENT_PHOTOS.filter(p => p.category === 'outreach').length }
-            ].map(tab => {
-              const isActive = activeMomentCategory === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveMomentCategory(tab.id as any)}
-                  className={`px-4 py-2 rounded-full text-xs font-bold transition-all duration-200 cursor-pointer active:scale-95 ${
-                    isActive
-                      ? 'bg-stone-900 dark:bg-gold text-white dark:text-slate-950 shadow-md ring-1 ring-gold/40'
-                      : 'bg-white dark:bg-slate-800 text-stone-600 dark:text-stone-300 border border-stone-200/80 dark:border-slate-700 hover:border-gold/50 hover:bg-stone-50 dark:hover:bg-slate-750'
-                  }`}
-                >
-                  <span>{tab.label}</span>
-                  <span className={`ml-1.5 text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                    isActive
-                      ? 'bg-white/20 dark:bg-black/20 text-white dark:text-slate-950'
-                      : 'bg-stone-100 dark:bg-slate-700 text-stone-500 dark:text-stone-400'
-                  }`}>
-                    {tab.count}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Responsive Gallery Grid of Church Moments */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
-            {filteredMoments.map((moment) => {
-              const fullIndex = CHURCH_MOMENT_PHOTOS.findIndex(m => m.id === moment.id);
-              return (
-                <div
-                  key={moment.id}
-                  onClick={() => setSelectedMomentIndex(fullIndex)}
-                  className="group rounded-3xl overflow-hidden bg-white dark:bg-slate-900 border border-stone-200/80 dark:border-slate-800 hover:border-gold/60 shadow-md hover:shadow-2xl transition-all duration-300 flex flex-col justify-between cursor-pointer"
-                >
-                  {/* Photo with Smart Framing Container */}
-                  <div className="relative overflow-hidden bg-stone-950 aspect-[4/3]">
-                    <img
-                      src={moment.imageUrl}
-                      alt={moment.title}
-                      className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-700"
-                      loading="lazy"
-                    />
-
-                    {/* Gradient Overlay for Readability */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent opacity-85 group-hover:opacity-95 transition-opacity" />
-
-                    {/* Top Badges */}
-                    <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2 z-10">
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider backdrop-blur-md shadow-sm border ${moment.badgeBg} ${moment.badgeText} ${moment.badgeBorder}`}>
-                        {moment.categoryLabel}
-                      </span>
-                      <div className="w-8 h-8 rounded-full bg-black/55 backdrop-blur-md text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Maximize2 className="w-3.5 h-3.5 text-gold" />
-                      </div>
-                    </div>
-
-                    {/* Bottom Tagline on Photo */}
-                    <div className="absolute bottom-3 left-3 right-3 z-10">
-                      <p className="text-[11px] font-bold text-amber-200/90 tracking-wide uppercase line-clamp-1">
-                        {moment.tagline}
-                      </p>
-                      <h3 className="font-serif font-bold text-base text-white tracking-tight drop-shadow-sm line-clamp-1">
-                        {moment.title}
-                      </h3>
-                    </div>
-                  </div>
-
-                  {/* Card Content & Scripture */}
-                  <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between space-y-3 bg-white dark:bg-slate-900">
-                    <p className="text-xs text-stone-600 dark:text-stone-300 line-clamp-2 leading-relaxed">
-                      {moment.description}
-                    </p>
-
-                    <div className="pt-3 border-t border-stone-100 dark:border-slate-800 flex items-center justify-between gap-2">
-                      <span className="text-[10px] font-bold text-gold uppercase tracking-wider truncate">
-                        📖 {moment.scriptureReference}
-                      </span>
-                      <span className="text-[11px] font-bold text-stone-500 dark:text-stone-400 group-hover:text-gold transition flex items-center gap-1 shrink-0">
-                        <span>View Moment</span>
-                        <ChevronRight className="w-3.5 h-3.5" />
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Fellowship & Ministry Highlights Row */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-stone-200 dark:divide-slate-800 p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900 border border-stone-200/80 dark:border-slate-800 text-xs">
-            <div className="p-2 sm:p-3 space-y-1">
-              <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                <Heart className="w-3.5 h-3.5 text-rose-500" />
-                <span>Holy Worship & Prayer</span>
-              </span>
-              <p className="text-stone-500 dark:text-stone-400 text-[11px] leading-relaxed">
-                Reverent adoration and pastoral intercession over all families and believers.
-              </p>
-            </div>
-
-            <div className="p-2 sm:p-3 space-y-1">
-              <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                <Users className="w-3.5 h-3.5 text-gold" />
-                <span>NextGen & Discipleship</span>
-              </span>
-              <p className="text-stone-500 dark:text-stone-400 text-[11px] leading-relaxed">
-                Raising up youth and students rooted in Christ before the cross.
-              </p>
-            </div>
-
-            <div className="p-2 sm:p-3 space-y-1">
-              <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                <BookOpen className="w-3.5 h-3.5 text-emerald-500" />
-                <span>City Outreach & Missions</span>
-              </span>
-              <p className="text-stone-500 dark:text-stone-400 text-[11px] leading-relaxed">
-                Boldly proclaiming: "Jesus came to seek and to save the lost."
-              </p>
-            </div>
-          </div>
-
-        </div>
-      </section>
 
       {/* ============================================================== */}
       {/* 4. PASTORAL WORD & VISION (Aesthetic & Safe Layout)            */}
