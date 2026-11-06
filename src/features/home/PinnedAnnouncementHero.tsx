@@ -82,7 +82,7 @@ export const PinnedAnnouncementHero: React.FC<PinnedAnnouncementHeroProps> = ({
 
     // Admin empty state prompt to pin an announcement
     return (
-      <div className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-[#1C1616] via-[#2A1F1F] to-[#120F0F] text-white border border-[#C5A46D]/30 shadow-card flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div className="relative overflow-hidden rounded-none sm:rounded-2xl p-4 sm:p-6 bg-gradient-to-br from-[#1C1616] via-[#2A1F1F] to-[#120F0F] text-white border-y sm:border border-[#C5A46D]/30 shadow-none sm:shadow-md flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-3.5 text-center sm:text-left">
           <div className="w-12 h-12 rounded-2xl bg-gold/20 text-gold flex items-center justify-center shrink-0 border border-gold/40">
             <Pin className="w-6 h-6 rotate-45" />
@@ -132,7 +132,7 @@ export const PinnedAnnouncementHero: React.FC<PinnedAnnouncementHeroProps> = ({
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
-      <div className="relative overflow-hidden rounded-3xl sm:rounded-[32px] p-6 sm:p-8 bg-gradient-to-br from-[#1A1414] via-[#261C1C] to-[#110E0E] text-white border-2 border-[#C5A46D]/50 shadow-2xl">
+      <div className="relative overflow-hidden rounded-none sm:rounded-2xl p-4 sm:p-7 bg-gradient-to-br from-[#1A1414] via-[#261C1C] to-[#110E0E] text-white border-y sm:border border-[#C5A46D]/40 shadow-none sm:shadow-lg">
         
         {/* 5-second Auto-Rotation Progress Bar */}
         {pinnedPosts.length > 1 && (

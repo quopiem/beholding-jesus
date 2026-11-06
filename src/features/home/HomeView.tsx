@@ -204,11 +204,11 @@ export const HomeView: React.FC<HomeViewProps> = ({
   return (
     <div className="min-h-screen bg-[#FAF8F5] dark:bg-[#0B111E] text-stone-900 dark:text-stone-100 transition-colors">
       
-      {/* Main Container */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
+      {/* Main Container: Flush full-width on mobile, neat 3-column container on desktop */}
+      <div className="max-w-7xl mx-auto px-0 sm:px-6 lg:px-8 py-0 sm:py-5">
         
         {/* Responsive 3-Column Grid on Desktop / 1-Column on Mobile */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 sm:gap-6 items-start">
           
           {/* ============================================================== */}
           {/* LEFT SIDEBAR (Desktop lg:col-span-3)                           */}
@@ -223,12 +223,12 @@ export const HomeView: React.FC<HomeViewProps> = ({
           </div>
 
           {/* ============================================================== */}
-          {/* CENTER COMMUNITY FEED (lg:col-span-6)                          */}
+          {/* CENTER COMMUNITY FEED (lg:col-span-6: Full width Facebook style) */}
           {/* ============================================================== */}
-          <main className="lg:col-span-6 space-y-6">
+          <main className="lg:col-span-6 space-y-2 sm:space-y-3.5 bg-stone-100/70 dark:bg-slate-950 sm:bg-transparent pb-16 sm:pb-6">
             
             {/* MODERN COMMUNITY FEED HEADER */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-4 sm:p-5 rounded-3xl border border-stone-200/80 dark:border-slate-800/80 shadow-xs">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md px-4 py-3 sm:p-5 rounded-none sm:rounded-2xl border-b sm:border border-stone-200/80 dark:border-slate-800/80 shadow-none sm:shadow-xs">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-gold to-amber-200 p-0.5 shadow-sm flex items-center justify-center shrink-0">
                   <Sparkles className="w-5 h-5 text-slate-950" />
@@ -286,7 +286,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
             />
 
             {/* 3. FEED CONTROLS & FILTER TABS */}
-            <div className="flex items-center justify-between gap-2 overflow-x-auto pb-1 scrollbar-none">
+            <div className="flex items-center justify-between gap-2 overflow-x-auto px-3.5 sm:px-0 py-2 sm:py-0 scrollbar-none bg-white dark:bg-slate-900 sm:bg-transparent border-y sm:border-y-0 border-stone-200/80 dark:border-slate-800/80">
               <div className="flex items-center gap-2 flex-wrap">
                 {[
                   { id: 'all', label: 'All Feed', icon: Sparkles },
@@ -302,10 +302,10 @@ export const HomeView: React.FC<HomeViewProps> = ({
                     <button
                       key={tab.id}
                       onClick={() => setActiveFilter(tab.id as any)}
-                      className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all duration-200 flex items-center gap-1.5 shrink-0 cursor-pointer active:scale-95 ${
+                      className={`px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full text-xs font-bold transition-all duration-200 flex items-center gap-1.5 shrink-0 cursor-pointer active:scale-95 ${
                         isActive
                           ? 'bg-stone-900 dark:bg-gold text-white dark:text-slate-950 shadow-sm ring-1 ring-gold/40'
-                          : 'bg-white/90 dark:bg-slate-900/90 border border-stone-200/80 dark:border-slate-800 text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-slate-800 hover:border-gold/30'
+                          : 'bg-stone-100 dark:bg-slate-800/90 border border-stone-200/80 dark:border-slate-700 text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-slate-700'
                       }`}
                     >
                       <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-gold dark:text-slate-950' : 'text-stone-400'}`} />
@@ -319,7 +319,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
               <button
                 onClick={refreshFeed}
                 disabled={isRefreshing}
-                className="p-2.5 rounded-2xl bg-white/90 dark:bg-slate-900/90 border border-stone-200/80 dark:border-slate-800 text-stone-500 hover:text-stone-900 dark:hover:text-white hover:border-gold/30 transition cursor-pointer shrink-0 shadow-xs active:scale-95"
+                className="p-2 sm:p-2.5 rounded-full bg-stone-100 dark:bg-slate-800 border border-stone-200/80 dark:border-slate-700 text-stone-500 hover:text-stone-900 dark:hover:text-white transition cursor-pointer shrink-0 active:scale-95"
                 title="Refresh Feed"
               >
                 <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-gold' : ''}`} />
@@ -327,7 +327,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
             </div>
 
             {/* 4. DYNAMIC FEED POST LIST */}
-            <div className="space-y-4">
+            <div className="space-y-2 sm:space-y-3.5">
               {visiblePosts.length > 0 ? (
                 visiblePosts.map(post => (
                   <div key={post.id} id={`post-${post.id}`}>

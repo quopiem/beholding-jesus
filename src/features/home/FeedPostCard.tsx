@@ -157,22 +157,24 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
   const isAnnouncement = post.postType === 'announcement';
 
   return (
-    <article className={`rounded-3xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border transition-all duration-200 ${
-      post.isHidden
-        ? 'opacity-60 border-rose-300 dark:border-rose-900 bg-rose-50/20'
-        : isAnnouncement 
-          ? 'border-2 border-gold/40 dark:border-gold/30 shadow-md ring-1 ring-gold/20' 
-          : 'border-stone-200/90 dark:border-slate-800/90 shadow-xs hover:shadow-md hover:border-gold/30 dark:hover:border-slate-700'
-    }`}>
+    <article 
+      className={`w-full bg-white dark:bg-slate-900 border-y sm:border border-stone-200/90 dark:border-slate-800/90 sm:rounded-xl shadow-none transition-colors overflow-hidden ${
+        post.isHidden
+          ? 'opacity-60 bg-rose-50/20 dark:bg-rose-950/20'
+          : isAnnouncement
+          ? 'border-l-4 border-l-gold'
+          : ''
+      }`}
+    >
       
       {/* Post Header */}
-      <div className="p-4 sm:p-5 pb-3 flex items-start justify-between gap-3">
+      <div className="px-3.5 py-3 sm:px-4 sm:py-3.5 flex items-start justify-between gap-3">
         
         {/* Author info */}
-        <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-center gap-2.5 min-w-0">
           <div className="relative shrink-0">
-            <div className={`w-11 h-11 rounded-full p-0.5 overflow-hidden ${
-              isAnnouncement ? 'bg-gradient-to-tr from-gold to-amber-300 shadow-xs' : 'bg-stone-200 dark:bg-slate-700'
+            <div className={`w-10 h-10 rounded-full p-0.5 overflow-hidden ${
+              isAnnouncement ? 'bg-gradient-to-tr from-gold to-amber-300' : 'bg-stone-200 dark:bg-slate-700'
             }`}>
               <img
                 src={post.authorAvatar || '/icons/church-logo.png'}
@@ -181,15 +183,15 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
               />
             </div>
             {isAnnouncement && (
-              <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-gold text-slate-950 flex items-center justify-center text-[9px] shadow-xs ring-2 ring-white dark:ring-slate-900">
-                ✝️
+              <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-gold text-slate-950 flex items-center justify-center text-[8px] ring-2 ring-white dark:ring-slate-900">
+                ✝
               </span>
             )}
           </div>
 
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="font-bold text-sm sm:text-base text-stone-900 dark:text-white truncate">
+              <span className="font-bold text-sm text-stone-900 dark:text-white truncate">
                 {post.authorName}
               </span>
               {isAnnouncement && (
@@ -197,7 +199,7 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
               )}
             </div>
 
-            <div className="flex items-center gap-2 text-xs text-stone-500 dark:text-stone-400 flex-wrap">
+            <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-stone-500 dark:text-stone-400 flex-wrap">
               {post.authorRole && (
                 <span className={`font-semibold ${isAnnouncement ? 'text-gold' : 'text-stone-600 dark:text-stone-300'}`}>
                   {post.authorRole}
@@ -206,9 +208,7 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
               {post.ministryLabel && (
                 <>
                   <span>•</span>
-                  <span className="text-[11px] px-2 py-0.2 rounded-full bg-stone-100 dark:bg-slate-800 text-stone-600 dark:text-stone-300">
-                    {post.ministryLabel}
-                  </span>
+                  <span>{post.ministryLabel}</span>
                 </>
               )}
               <span>•</span>
@@ -220,16 +220,16 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
         </div>
 
         {/* Right Badges & More Options Menu */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0">
           {isAnnouncement && (
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-gold/15 text-gold border border-gold/30 text-[10px] font-black uppercase tracking-wider">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gold/15 text-gold border border-gold/30 text-[9px] sm:text-[10px] font-black uppercase tracking-wider">
               <Bell className="w-3 h-3" />
-              <span className="hidden sm:inline">ANNOUNCEMENT</span>
+              <span>Announcement</span>
             </span>
           )}
 
           {post.isPinned && (
-            <span className="p-1 rounded-full bg-gold/20 text-gold" title="Pinned Post">
+            <span className="p-1 rounded-full bg-gold/20 text-gold" title="Pinned Announcement">
               <Pin className="w-3.5 h-3.5 rotate-45 fill-current" />
             </span>
           )}
@@ -353,23 +353,23 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
 
       {/* Announcement Title banner if announcement */}
       {isAnnouncement && post.announcementTitle && (
-        <div className="px-4 sm:px-5 pb-2">
-          <h3 className="font-serif font-black text-lg sm:text-xl text-stone-900 dark:text-white leading-snug">
+        <div className="px-3.5 sm:px-4 pb-1.5">
+          <h3 className="font-serif font-black text-base sm:text-lg text-stone-900 dark:text-white leading-snug">
             {post.announcementTitle}
           </h3>
         </div>
       )}
 
       {/* Post Text Content */}
-      <div className="px-4 sm:px-5 pb-3">
+      <div className="px-3.5 sm:px-4 pb-2.5">
         <p className="text-sm sm:text-base text-stone-800 dark:text-stone-200 whitespace-pre-line leading-relaxed font-sans">
           {post.content}
         </p>
 
         {/* Category tag */}
         {post.category && post.category !== 'General' && (
-          <div className="pt-2.5 flex items-center gap-1.5">
-            <span className="text-[11px] font-semibold text-gold bg-gold/10 px-2.5 py-0.5 rounded-full border border-gold/20">
+          <div className="pt-2 flex items-center gap-1.5">
+            <span className="text-[11px] font-semibold text-gold bg-gold/10 px-2 py-0.5 rounded-full border border-gold/20">
               #{post.category.replace(/\s+/g, '')}
             </span>
           </div>
@@ -378,7 +378,7 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
 
       {/* Optional Event Details Box */}
       {(post.eventDate || post.eventLocation) && (
-        <div className="mx-4 sm:mx-5 mb-3 p-3 rounded-2xl bg-stone-50 dark:bg-slate-800/60 border border-stone-200 dark:border-slate-700 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-stone-700 dark:text-stone-300">
+        <div className="mx-3.5 sm:mx-4 mb-2.5 p-2.5 rounded-xl bg-stone-50 dark:bg-slate-800/60 border border-stone-200 dark:border-slate-700 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-stone-700 dark:text-stone-300">
           {post.eventDate && (
             <div className="flex items-center gap-2">
               <Calendar className="w-4 h-4 text-gold shrink-0" />
@@ -394,83 +394,82 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
         </div>
       )}
 
-      {/* Image Gallery (Responsive 1-image, 2-images, 3+ Facebook-style collage) */}
+      {/* Image Gallery (Facebook-Style Edge-to-Edge) */}
       {post.imageUrls && post.imageUrls.length > 0 && (
-        <div className="px-4 sm:px-5 mb-3">
-          <div className="rounded-2xl overflow-hidden border border-black/5 dark:border-white/10 shadow-xs">
-            {post.imageUrls.length === 1 ? (
+        <div className="w-full mb-2 bg-stone-100 dark:bg-black/50 overflow-hidden">
+          {post.imageUrls.length === 1 ? (
+            <div 
+              onClick={() => onOpenImageLightbox(post.imageUrls[0])}
+              className="relative w-full bg-stone-900/5 dark:bg-black/40 overflow-hidden cursor-pointer group flex items-center justify-center min-h-[200px]"
+            >
+              <img
+                src={post.imageUrls[0]}
+                alt="Post attachment"
+                className="w-full h-auto max-h-[640px] object-contain transition-transform duration-200"
+                loading="lazy"
+              />
+              <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 p-3">
+                <span className="px-3 py-1.5 rounded-full bg-black/75 text-white text-xs font-semibold flex items-center gap-1.5 backdrop-blur-md shadow-md">
+                  <Maximize2 className="w-3.5 h-3.5" /> Full View
+                </span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDownloadImage(post.imageUrls[0]);
+                  }}
+                  className="px-3 py-1.5 rounded-full bg-[#C5A46D] hover:bg-[#d8b982] text-slate-950 text-xs font-bold flex items-center gap-1.5 shadow-md transition active:scale-95 cursor-pointer"
+                  title="Save Photo"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Save Photo</span>
+                </button>
+              </div>
+            </div>
+          ) : post.imageUrls.length === 2 ? (
+            <div className="grid grid-cols-2 gap-0.5 w-full bg-stone-200 dark:bg-slate-800">
+              {post.imageUrls.map((url, idx) => (
+                <div 
+                  key={idx} 
+                  onClick={() => onOpenImageLightbox(url)}
+                  className="relative aspect-square overflow-hidden cursor-pointer group bg-stone-100 dark:bg-black/40"
+                >
+                  <img src={url} alt={`Attachment ${idx + 1}`} className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-200" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-0.5 w-full bg-stone-200 dark:bg-slate-800">
               <div 
                 onClick={() => onOpenImageLightbox(post.imageUrls[0])}
-                className="relative bg-stone-900/5 dark:bg-black/30 overflow-hidden cursor-pointer group flex items-center justify-center p-1 sm:p-2 min-h-[220px] max-h-[660px]"
+                className="relative aspect-square overflow-hidden cursor-pointer group col-span-1 row-span-2 bg-stone-100 dark:bg-black/40"
               >
-                <img
-                  src={post.imageUrls[0]}
-                  alt="Post attachment"
-                  className="w-full max-h-[640px] h-auto object-contain rounded-xl group-hover:scale-[1.01] transition-transform duration-300"
-                />
-                <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 p-3">
-                  <span className="px-3 py-1.5 rounded-full bg-black/75 text-white text-xs font-semibold flex items-center gap-1.5 backdrop-blur-md shadow-md">
-                    <Maximize2 className="w-3.5 h-3.5" /> Full View
-                  </span>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDownloadImage(post.imageUrls[0]);
-                    }}
-                    className="px-3 py-1.5 rounded-full bg-[#C5A46D] hover:bg-[#d8b982] text-slate-950 text-xs font-bold flex items-center gap-1.5 shadow-md transition active:scale-95 cursor-pointer"
-                    title="Save Photo"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>Save Photo</span>
-                  </button>
-                </div>
+                <img src={post.imageUrls[0]} alt="Attachment 1" className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-200" />
               </div>
-            ) : post.imageUrls.length === 2 ? (
-              <div className="grid grid-cols-2 gap-1 bg-black/5">
-                {post.imageUrls.map((url, idx) => (
-                  <div 
-                    key={idx} 
-                    onClick={() => onOpenImageLightbox(url)}
-                    className="relative aspect-square overflow-hidden cursor-pointer group"
-                  >
-                    <img src={url} alt={`Attachment ${idx + 1}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+              <div 
+                onClick={() => onOpenImageLightbox(post.imageUrls[1])}
+                className="relative aspect-square overflow-hidden cursor-pointer group bg-stone-100 dark:bg-black/40"
+              >
+                <img src={post.imageUrls[1]} alt="Attachment 2" className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-200" />
+              </div>
+              <div 
+                onClick={() => onOpenImageLightbox(post.imageUrls[2])}
+                className="relative aspect-square overflow-hidden cursor-pointer group bg-stone-100 dark:bg-black/40"
+              >
+                <img src={post.imageUrls[2]} alt="Attachment 3" className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-200" />
+                {post.imageUrls.length > 3 && (
+                  <div className="absolute inset-0 bg-black/60 text-white font-bold text-lg flex items-center justify-center backdrop-blur-xs">
+                    +{post.imageUrls.length - 3} more
                   </div>
-                ))}
+                )}
               </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-1 bg-black/5">
-                <div 
-                  onClick={() => onOpenImageLightbox(post.imageUrls[0])}
-                  className="relative aspect-square overflow-hidden cursor-pointer group col-span-1 row-span-2"
-                >
-                  <img src={post.imageUrls[0]} alt="Attachment 1" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                </div>
-                <div 
-                  onClick={() => onOpenImageLightbox(post.imageUrls[1])}
-                  className="relative aspect-square overflow-hidden cursor-pointer group"
-                >
-                  <img src={post.imageUrls[1]} alt="Attachment 2" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                </div>
-                <div 
-                  onClick={() => onOpenImageLightbox(post.imageUrls[2])}
-                  className="relative aspect-square overflow-hidden cursor-pointer group"
-                >
-                  <img src={post.imageUrls[2]} alt="Attachment 3" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                  {post.imageUrls.length > 3 && (
-                    <div className="absolute inset-0 bg-black/60 text-white font-bold text-lg flex items-center justify-center backdrop-blur-xs">
-                      +{post.imageUrls.length - 3} more
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       )}
 
       {/* Reaction and Comment Counts Row */}
-      <div className="px-4 sm:px-5 py-2 flex items-center justify-between text-xs text-stone-500 dark:text-stone-400 border-t border-stone-100 dark:border-slate-800">
+      <div className="px-3.5 sm:px-4 py-2 flex items-center justify-between text-xs text-stone-500 dark:text-stone-400 border-t border-stone-100 dark:border-slate-800">
         
         {/* Left: Reaction icons + count (clickable to view who reacted) */}
         <div 
@@ -489,10 +488,10 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
                 {post.reactionCounts.like > 0 && <span>👍</span>}
                 {post.reactionCounts.care > 0 && <span>🤗</span>}
               </div>
-              <span>{totalReactions}</span>
+              <span className="font-semibold">{totalReactions}</span>
             </>
           ) : (
-            <span>Be the first to react</span>
+            <span className="text-stone-400">Be the first to react</span>
           )}
         </div>
 
@@ -506,7 +505,7 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
       </div>
 
       {/* Action Buttons: React, Comment, Share */}
-      <div className="px-2 py-1 border-t border-stone-100 dark:border-slate-800 grid grid-cols-3 gap-1 relative">
+      <div className="px-1.5 py-1 border-t border-stone-100 dark:border-slate-800 grid grid-cols-3 gap-1 relative">
         
         {/* REACTION BUTTON WITH FLOATING FACEBOOK-STYLE PICKER */}
         <div 
@@ -516,7 +515,7 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
         >
           <button
             onClick={() => onReact(post.id, post.userReaction || 'pray')}
-            className={`w-full py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer ${
+            className={`w-full py-2 rounded-lg text-xs sm:text-sm font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer active:scale-95 ${
               activeReactionMeta
                 ? `${activeReactionMeta.color} bg-gold/10 font-bold`
                 : 'text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-slate-800'
@@ -528,7 +527,7 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
 
           {/* Floating Reaction Hover Picker */}
           {isReactionHovered && (
-            <div className="absolute left-0 bottom-full mb-1 z-30 p-1.5 rounded-full bg-white dark:bg-slate-800 border border-stone-200 dark:border-slate-700 shadow-2xl flex items-center gap-1.5 animate-in slide-in-from-bottom-2 duration-150">
+            <div className="absolute left-0 bottom-full mb-1 z-30 p-1.5 rounded-full bg-white dark:bg-slate-800 border border-stone-200 dark:border-slate-700 shadow-xl flex items-center gap-1 animate-in slide-in-from-bottom-2 duration-150">
               {(['like', 'love', 'care', 'celebrate', 'pray'] as FeedReactionType[]).map(type => {
                 const meta = FEED_REACTIONS[type];
                 return (
@@ -538,7 +537,7 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
                       onReact(post.id, type);
                       setIsReactionHovered(false);
                     }}
-                    className="p-1.5 rounded-full hover:scale-130 active:scale-95 transition-transform cursor-pointer text-lg group/emoji relative"
+                    className="p-1.5 rounded-full hover:scale-125 active:scale-95 transition-transform cursor-pointer text-lg group/emoji relative"
                     title={meta.label}
                   >
                     <span>{meta.emoji}</span>
@@ -552,7 +551,7 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
         {/* COMMENT BUTTON */}
         <button
           onClick={() => setIsCommentsOpen(!isCommentsOpen)}
-          className="w-full py-2 rounded-xl text-xs sm:text-sm font-semibold text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-slate-800 flex items-center justify-center gap-1.5 transition cursor-pointer"
+          className="w-full py-2 rounded-lg text-xs sm:text-sm font-semibold text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-slate-800 flex items-center justify-center gap-1.5 transition cursor-pointer active:scale-95"
         >
           <MessageSquare className="w-4 h-4 text-stone-500" />
           <span>Comment</span>
@@ -561,7 +560,7 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
         {/* SHARE BUTTON */}
         <button
           onClick={handleShare}
-          className="w-full py-2 rounded-xl text-xs sm:text-sm font-semibold text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-slate-800 flex items-center justify-center gap-1.5 transition cursor-pointer"
+          className="w-full py-2 rounded-lg text-xs sm:text-sm font-semibold text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-slate-800 flex items-center justify-center gap-1.5 transition cursor-pointer active:scale-95"
         >
           {copiedShare ? <Check className="w-4 h-4 text-emerald-500" /> : <Share2 className="w-4 h-4 text-stone-500" />}
           <span>{copiedShare ? 'Copied!' : 'Share'}</span>
@@ -571,7 +570,7 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
 
       {/* Threaded Comments Section */}
       {isCommentsOpen && (
-        <div className="p-4 sm:p-5 pt-3 border-t border-stone-100 dark:border-slate-800 space-y-4 bg-stone-50/50 dark:bg-slate-900/60 rounded-b-3xl animate-in fade-in duration-200">
+        <div className="px-3.5 py-3 sm:px-4 sm:py-3.5 border-t border-stone-100 dark:border-slate-800 space-y-3 bg-stone-50/70 dark:bg-slate-900/80 animate-in fade-in duration-200">
           
           {/* Add Comment Box */}
           {post.commentsEnabled ? (
