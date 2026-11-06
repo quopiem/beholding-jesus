@@ -49,6 +49,9 @@ export class ChurchDataStore {
   }
 
   // --- USER & ROLE MANAGEMENT ---
+  private static _lastUsersFetchTime = 0;
+  private static _cachedUsers: UserProfile[] = [];
+
   static getUsers(): UserProfile[] {
     const list = this.load<UserProfile[]>(KEY_USERS, INITIAL_USERS);
     // Ensure all users have a username
@@ -58,8 +61,12 @@ export class ChurchDataStore {
     }));
   }
 
-  static async fetchUsersFromCloud(): Promise<UserProfile[]> {
+  static async fetchUsersFromCloud(force: boolean = false): Promise<UserProfile[]> {
     if (!supabase) return this.getUsers();
+    const now = Date.now();
+    if (!force && this._cachedUsers.length > 0 && now - this._lastUsersFetchTime < 4000) {
+      return this._cachedUsers;
+    }
     try {
       const { data, error } = await supabase
         .from('church_members_auth')
@@ -93,6 +100,8 @@ export class ChurchDataStore {
           };
         });
         this.save(KEY_USERS, mapped);
+        this._lastUsersFetchTime = Date.now();
+        this._cachedUsers = mapped;
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new Event('bjc_users_change'));
         }
@@ -101,7 +110,9 @@ export class ChurchDataStore {
     } catch (e) {
       console.warn('fetchUsersFromCloud error:', e);
     }
-    return this.getUsers();
+    const fallback = this.getUsers();
+    this._cachedUsers = fallback;
+    return fallback;
   }
 
   static addUser(user: UserProfile): void {
@@ -584,12 +595,19 @@ export class ChurchDataStore {
     return INITIAL_MINISTRIES;
   }
 
+  private static _lastJoinReqFetchTime = 0;
+  private static _cachedJoinReqs: MinistryJoinRequest[] = [];
+
   static getJoinRequests(): MinistryJoinRequest[] {
     return this.load<MinistryJoinRequest[]>(KEY_JOIN_REQUESTS, []);
   }
 
-  static async fetchJoinRequestsFromCloud(): Promise<MinistryJoinRequest[]> {
+  static async fetchJoinRequestsFromCloud(force: boolean = false): Promise<MinistryJoinRequest[]> {
     if (!supabase) return this.getJoinRequests();
+    const now = Date.now();
+    if (!force && this._cachedJoinReqs.length > 0 && now - this._lastJoinReqFetchTime < 4000) {
+      return this._cachedJoinReqs;
+    }
     try {
       const { data, error } = await supabase
         .from('church_prayer_requests')
@@ -647,6 +665,8 @@ export class ChurchDataStore {
 
         const merged = Array.from(mergedMap.values());
         this.save(KEY_JOIN_REQUESTS, merged);
+        this._lastJoinReqFetchTime = Date.now();
+        this._cachedJoinReqs = merged;
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new Event('bjc_join_requests_change'));
         }
@@ -655,7 +675,9 @@ export class ChurchDataStore {
     } catch (e) {
       console.warn('fetchJoinRequestsFromCloud error:', e);
     }
-    return this.getJoinRequests();
+    const fallback = this.getJoinRequests();
+    this._cachedJoinReqs = fallback;
+    return fallback;
   }
 
   static subscribeToJoinRequests(onUpdate: (reqs: MinistryJoinRequest[]) => void) {
@@ -699,6 +721,7 @@ export class ChurchDataStore {
 
     requests.unshift(newReq);
     this.save(KEY_JOIN_REQUESTS, requests);
+    this._lastJoinReqFetchTime = 0;
 
     // Sync to Supabase Cloud immediately so Super Admin on any device sees it
     if (supabase) {
@@ -913,6 +936,7 @@ export class ChurchDataStore {
       }
     }
     this.save(KEY_JOIN_REQUESTS, requests);
+    this._lastJoinReqFetchTime = 0;
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('bjc_join_requests_change'));
     }
@@ -1467,11 +1491,17 @@ export class ChurchDataStore {
   static async fetchChatMessagesFromCloud(roomId: string): Promise<any[]> {
     if (!supabase) return [];
     try {
-      const { data, error } = await supabase
+      const queryPromise = supabase
         .from('church_chat_messages')
         .select('*')
         .eq('room_id', roomId)
         .order('created_at', { ascending: true });
+
+      const timeoutPromise = new Promise<{ data: null; error: any }>((resolve) =>
+        setTimeout(() => resolve({ data: null, error: new Error('timeout') }), 4000)
+      );
+
+      const { data, error } = await Promise.race([queryPromise, timeoutPromise]);
 
       if (data && !error) {
         return data;

@@ -497,12 +497,19 @@ export class AuthService {
     return [];
   }
 
+  private static _lastRecoveryFetchTime = 0;
+  private static _cachedRecoveryReqs: PasswordRecoveryRequest[] = [];
+
   private static saveRecoveryRequests(reqs: PasswordRecoveryRequest[]): void {
     localStorage.setItem(STORAGE_RECOVERY, JSON.stringify(reqs));
   }
 
-  static async fetchRecoveryRequestsFromCloud(): Promise<PasswordRecoveryRequest[]> {
+  static async fetchRecoveryRequestsFromCloud(force: boolean = false): Promise<PasswordRecoveryRequest[]> {
     if (!supabase) return this.getRecoveryRequests();
+    const now = Date.now();
+    if (!force && this._cachedRecoveryReqs.length > 0 && now - this._lastRecoveryFetchTime < 4000) {
+      return this._cachedRecoveryReqs;
+    }
     try {
       const { data, error } = await supabase
         .from('church_prayer_requests')
@@ -561,6 +568,8 @@ export class AuthService {
 
         const merged = Array.from(mergedMap.values());
         this.saveRecoveryRequests(merged);
+        this._lastRecoveryFetchTime = Date.now();
+        this._cachedRecoveryReqs = merged;
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new Event('bjc_recovery_change'));
         }
@@ -569,7 +578,9 @@ export class AuthService {
     } catch (e) {
       console.warn('fetchRecoveryRequestsFromCloud error:', e);
     }
-    return this.getRecoveryRequests();
+    const fallback = this.getRecoveryRequests();
+    this._cachedRecoveryReqs = fallback;
+    return fallback;
   }
 
   static subscribeToRecoveryRequests(onUpdate: (reqs: PasswordRecoveryRequest[]) => void) {

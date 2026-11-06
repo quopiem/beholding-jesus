@@ -36,7 +36,7 @@ export const WorshipView: React.FC = () => {
       }
     };
     loadCloudWorship();
-    const interval = setInterval(loadCloudWorship, 3500);
+    const interval = setInterval(loadCloudWorship, 30000);
     return () => {
       isMounted = false;
       clearInterval(interval);

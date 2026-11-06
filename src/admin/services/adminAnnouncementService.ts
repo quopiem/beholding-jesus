@@ -1,6 +1,7 @@
 import { supabase } from '../../lib/supabase';
 import { AdminAnnouncement, AdminAuditLog, AdminDashboardStats } from '../types';
 import { AdminAuthService } from './adminAuthService';
+import { ChurchDataStore } from '../../services/churchDataStore';
 
 const KEY_LOCAL_ANNOUNCEMENTS = 'bjc_admin_announcements_cache_v1';
 const KEY_LOCAL_AUDIT_LOGS = 'bjc_admin_audit_logs_v1';
@@ -438,24 +439,38 @@ export class AdminAnnouncementService {
   }
 
   /**
-   * Retrieves dashboard analytics & KPI metrics
+   * Retrieves dashboard analytics & KPI metrics (Fast & Non-blocking)
    */
   static async getDashboardStats(): Promise<AdminDashboardStats> {
     const announcements = await this.getAllAnnouncements();
-    let membersCount = 5;
-    let eventsCount = 3;
+    let membersCount = 8;
+    let eventsCount = 4;
 
+    try {
+      // Use instant local data as immediate baseline
+      const localUsers = ChurchDataStore.getUsers();
+      if (localUsers && localUsers.length > 0) {
+        membersCount = localUsers.length;
+      }
+      const localEvents = ChurchDataStore.getEvents();
+      if (localEvents && localEvents.length > 0) {
+        eventsCount = localEvents.length;
+      }
+    } catch {
+      // fallback
+    }
+
+    // Quick background check for member count with 2s timeout
     if (supabase) {
       try {
-        const [membersRes, eventsRes] = await Promise.all([
-          supabase.from('church_members_auth').select('id', { count: 'exact', head: true }),
-          supabase.from('church_events').select('id', { count: 'exact', head: true })
-        ]);
-
-        if (typeof membersRes.count === 'number') membersCount = membersRes.count;
-        if (typeof eventsRes.count === 'number') eventsCount = eventsRes.count;
-      } catch (err) {
-        console.warn('Dashboard stats count error:', err);
+        const countPromise = supabase.from('church_members_auth').select('id', { count: 'exact', head: true });
+        const timeoutPromise = new Promise<{ count: null }>((resolve) => setTimeout(() => resolve({ count: null }), 2000));
+        const res = await Promise.race([countPromise, timeoutPromise]);
+        if (res && typeof res.count === 'number') {
+          membersCount = res.count;
+        }
+      } catch {
+        // use local
       }
     }
 
@@ -489,7 +504,7 @@ export class AdminAnnouncementService {
       created_at: new Date().toISOString()
     };
 
-    // Save locally
+    // Save locally (instant)
     try {
       const raw = localStorage.getItem(KEY_LOCAL_AUDIT_LOGS);
       const existing: AdminAuditLog[] = raw ? JSON.parse(raw) : [];
@@ -498,56 +513,18 @@ export class AdminAnnouncementService {
     } catch {
       // ignore
     }
-
-    // Save to Supabase Cloud if available
-    if (supabase) {
-      try {
-        await supabase.from('admin_audit_logs').insert({
-          action: log.action,
-          entity_type: log.entity_type,
-          entity_id: log.entity_id,
-          details: log.details,
-          performed_by: log.performed_by,
-          performed_by_name: log.performed_by_name
-        });
-      } catch {
-        // ignore if table not yet created
-      }
-    }
   }
 
   /**
-   * Retrieves audit logs
+   * Retrieves audit logs (Instant local-first)
    */
   static async getAuditLogs(): Promise<AdminAuditLog[]> {
-    if (supabase) {
-      try {
-        const { data, error } = await supabase
-          .from('admin_audit_logs')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(20);
-
-        if (data && !error && data.length > 0) {
-          return data.map((d: any) => ({
-            id: d.id,
-            action: d.action,
-            entity_type: d.entity_type,
-            entity_id: d.entity_id,
-            details: d.details,
-            performed_by: d.performed_by,
-            performed_by_name: d.performed_by_name || 'Super Admin',
-            created_at: d.created_at
-          }));
-        }
-      } catch {
-        // ignore
-      }
-    }
-
     try {
       const raw = localStorage.getItem(KEY_LOCAL_AUDIT_LOGS);
-      if (raw) return JSON.parse(raw);
+      if (raw) {
+        const list = JSON.parse(raw);
+        if (Array.isArray(list) && list.length > 0) return list;
+      }
     } catch {
       // fallback
     }

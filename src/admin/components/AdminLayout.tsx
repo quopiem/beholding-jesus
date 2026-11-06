@@ -67,7 +67,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
 
   useEffect(() => {
     updateCounts();
-    const interval = setInterval(updateCounts, 5000);
+    const interval = setInterval(updateCounts, 20000);
 
     const handleSync = () => updateCounts();
     window.addEventListener('bjc_join_requests_change', handleSync);

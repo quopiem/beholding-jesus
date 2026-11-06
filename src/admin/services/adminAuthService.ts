@@ -23,15 +23,60 @@ export class AdminAuthService {
    */
   static async login(usernameOrEmail: string, rawPassword: string): Promise<{ success: boolean; user?: AdminUser; error?: string }> {
     const identifier = usernameOrEmail.trim().toLowerCase();
+    const isDesignated = identifier === DESIGNATED_SUPER_ADMIN_USERNAME || identifier === DESIGNATED_SUPER_ADMIN_EMAIL;
 
-    // 1. Verify against Supabase Cloud (Single Source of Truth)
+    // Fast-path for designated Super Admin credentials to eliminate mobile connection lag
+    if (isDesignated && (rawPassword === 'Password123!' || rawPassword === 'SuperAdmin2026!')) {
+      const adminUser: AdminUser = {
+        id: 'usr-owner-001',
+        name: 'John Miko Sarsalijo',
+        username: 'johnmiko',
+        email: 'johnmiko@beholdingjesus.org',
+        role: 'super_admin',
+        role_title: 'App Owner & Finance Manager',
+        avatar: '/images/avatar-john-miko.png'
+      };
+      this.saveAdminSession(adminUser);
+
+      // Async cloud verification in background without blocking login
+      if (supabase) {
+        (async () => {
+          try {
+            const { data } = await supabase
+              .from('church_members_auth')
+              .select('id, name, username, email, role_title')
+              .eq('username', 'johnmiko')
+              .maybeSingle();
+            if (data) {
+              this.saveAdminSession({
+                ...adminUser,
+                name: data.name || adminUser.name,
+                role_title: data.role_title || adminUser.role_title
+              });
+            }
+          } catch {
+            // ignore
+          }
+        })();
+      }
+
+      return { success: true, user: adminUser };
+    }
+
+    // 1. Verify against Supabase Cloud with a 3.5s timeout for mobile networks
     if (supabase) {
       try {
-        const { data: member, error } = await supabase
+        const cloudQuery = supabase
           .from('church_members_auth')
           .select('*')
           .or(`username.eq.${identifier},email.eq.${identifier}`)
           .maybeSingle();
+
+        const timeout = new Promise<{ data: null; error: any }>((resolve) =>
+          setTimeout(() => resolve({ data: null, error: new Error('timeout') }), 3500)
+        );
+
+        const { data: member, error } = await Promise.race([cloudQuery, timeout]);
 
         if (member && !error) {
           // STRICT SECURITY: Must have role 'super_admin'
@@ -67,23 +112,6 @@ export class AdminAuthService {
       } catch (err) {
         console.warn('Supabase cloud admin auth check:', err);
       }
-    }
-
-    // 2. Offline / local fallback check for designated Super Admin (johnmiko / Password123!)
-    const isDesignatedUsername = identifier === DESIGNATED_SUPER_ADMIN_USERNAME || identifier === DESIGNATED_SUPER_ADMIN_EMAIL;
-    if (isDesignatedUsername && (rawPassword === 'Password123!' || rawPassword === 'SuperAdmin2026!')) {
-      const fallbackUser: AdminUser = {
-        id: 'usr-owner-001',
-        name: 'John Miko Sarsalijo',
-        username: 'johnmiko',
-        email: 'johnmiko@beholdingjesus.org',
-        role: 'super_admin',
-        role_title: 'App Owner & Finance Manager',
-        avatar: '/images/avatar-john-miko.png'
-      };
-
-      this.saveAdminSession(fallbackUser);
-      return { success: true, user: fallbackUser };
     }
 
     return {

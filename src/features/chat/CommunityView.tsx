@@ -150,6 +150,24 @@ interface ConversationItem {
   memberCountText?: string;
 }
 
+const KEY_CACHED_CONVERSATIONS = 'bjc_cached_conversations_v3';
+const KEY_CACHED_MESSAGES = 'bjc_cached_room_messages_v3';
+
+const INITIAL_DEFAULT_FELLOWSHIP: ConversationItem = {
+  id: 'fellowship',
+  title: 'Church-Wide Fellowship',
+  symbol: '💬',
+  avatar: '/icons/church-logo.png',
+  type: 'group',
+  lastMessage: 'Welcome to Beholding Jesus Church community!',
+  timestamp: 'Just now',
+  lastMessageTimestamp: Date.now(),
+  unreadCount: 0,
+  isDirectCheck: false,
+  memberCountText: 'Church Fellowship Group',
+  isOnline: true
+};
+
 interface CommunityViewProps {
   currentUser?: UserProfile;
 }
@@ -158,7 +176,21 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ currentUser: userP
   const currentUser: UserProfile = userProp || ChurchDataStore.getCurrentUser() || ChurchDataStore.getRequiredCurrentUser();
   const [filterTab, setFilterTab] = useState<'all' | 'groups' | 'direct'>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeRoomId, setActiveRoomId] = useState('fellowship');
+  const [activeRoomId, setActiveRoomId] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem('bjc_last_active_room_id');
+      if (saved) return saved;
+    } catch {}
+    return 'fellowship';
+  });
+
+  useEffect(() => {
+    if (activeRoomId) {
+      try {
+        localStorage.setItem('bjc_last_active_room_id', activeRoomId);
+      } catch {}
+    }
+  }, [activeRoomId]);
   const [mobileActiveView, setMobileActiveView] = useState<'list' | 'chat'>('list');
   const [inputText, setInputText] = useState('');
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
@@ -311,9 +343,51 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ currentUser: userP
     }
   }, [currentUser.id, currentUser.name, currentUser.roleTitle]);
 
-  // Conversations and Room Messages
-  const [conversations, setConversations] = useState<ConversationItem[]>([]);
-  const [roomMessages, setRoomMessages] = useState<Record<string, ChatMessageItem[]>>({});
+  // Conversations and Room Messages with instant local-first cache (0ms instant display)
+  const [conversations, setConversations] = useState<ConversationItem[]>(() => {
+    try {
+      const raw = localStorage.getItem(KEY_CACHED_CONVERSATIONS);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [INITIAL_DEFAULT_FELLOWSHIP];
+  });
+
+  const [roomMessages, setRoomMessages] = useState<Record<string, ChatMessageItem[]>>(() => {
+    try {
+      const raw = localStorage.getItem(KEY_CACHED_MESSAGES);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') return parsed;
+      }
+    } catch {}
+    return {};
+  });
+
+  // Persist conversations to cache
+  useEffect(() => {
+    if (conversations.length > 0) {
+      try {
+        localStorage.setItem(KEY_CACHED_CONVERSATIONS, JSON.stringify(conversations));
+      } catch {}
+    }
+  }, [conversations]);
+
+  // Persist latest 50 messages per room to cache
+  useEffect(() => {
+    const keys = Object.keys(roomMessages);
+    if (keys.length > 0) {
+      try {
+        const trimmed: Record<string, ChatMessageItem[]> = {};
+        for (const k of keys) {
+          trimmed[k] = (roomMessages[k] || []).slice(-50);
+        }
+        localStorage.setItem(KEY_CACHED_MESSAGES, JSON.stringify(trimmed));
+      } catch {}
+    }
+  }, [roomMessages]);
 
   // Read state mapping: roomId -> timestamp (ms) of when user last viewed/read messages in that room
   const [readState, setReadState] = useState<Record<string, number>>(() => {
@@ -490,7 +564,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ currentUser: userP
       try {
         const [cloudRooms, recentActivity] = await Promise.all([
           ChurchDataStore.fetchChatRoomsFromCloud(),
-          ChurchDataStore.fetchRecentChatActivity(300)
+          ChurchDataStore.fetchRecentChatActivity(40)
         ]);
         if (!isMounted) return;
 
@@ -666,7 +740,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ currentUser: userP
     };
 
     loadCloudRooms();
-    const interval = setInterval(loadCloudRooms, 3000);
+    const interval = setInterval(loadCloudRooms, 15000);
     return () => {
       isMounted = false;
       clearInterval(interval);
@@ -772,7 +846,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ currentUser: userP
     };
 
     loadCloudMessages();
-    const interval = setInterval(loadCloudMessages, 2000);
+    const interval = setInterval(loadCloudMessages, 12000);
 
     let channel: any = null;
     if (supabase) {

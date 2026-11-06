@@ -82,7 +82,7 @@ export const AdminDashboardView: React.FC = () => {
     
     // Initial fetch from Supabase
     refreshAllCloudData();
-    const interval = setInterval(refreshAllCloudData, 4000);
+    const interval = setInterval(refreshAllCloudData, 20000);
 
     // Realtime subscriptions
     const unsubJoin = ChurchDataStore.subscribeToJoinRequests((fresh) => {
