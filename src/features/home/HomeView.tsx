@@ -65,7 +65,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
   };
 
   useEffect(() => {
-    // Initial fetch from cloud
+    // Initial fetch from Supabase cloud
     ChurchFeedStore.fetchFeedPostsFromCloud(currentUser).then(p => {
       if (p) setPosts(p);
     });
@@ -74,11 +74,45 @@ export const HomeView: React.FC<HomeViewProps> = ({
       setPosts(ChurchFeedStore.getFeedPosts(currentUser));
     };
 
+    const handleWindowFocus = () => {
+      ChurchFeedStore.fetchFeedPostsFromCloud(currentUser).then(p => {
+        if (p) setPosts(p);
+      });
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        ChurchFeedStore.fetchFeedPostsFromCloud(currentUser).then(p => {
+          if (p) setPosts(p);
+        });
+      }
+    };
+
+    // 1. Local event & storage listeners
     window.addEventListener('bjc_feed_change', handleFeedChange);
     window.addEventListener('storage', handleFeedChange);
+    window.addEventListener('focus', handleWindowFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // 2. Realtime WebSocket subscription to Supabase cloud
+    const unsubscribeRealtime = ChurchFeedStore.subscribeToFeedRealtime((fresh) => {
+      if (fresh) setPosts(fresh);
+    });
+
+    // 3. 12-second background polling to ensure 100% accuracy across mobile & PC
+    const pollTimer = setInterval(() => {
+      ChurchFeedStore.fetchFeedPostsFromCloud(currentUser).then(p => {
+        if (p) setPosts(p);
+      });
+    }, 12000);
+
     return () => {
       window.removeEventListener('bjc_feed_change', handleFeedChange);
       window.removeEventListener('storage', handleFeedChange);
+      window.removeEventListener('focus', handleWindowFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      unsubscribeRealtime();
+      clearInterval(pollTimer);
     };
   }, [currentUser]);
 

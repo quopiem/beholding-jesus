@@ -5,11 +5,13 @@ import {
 import { supabase } from '../lib/supabase';
 import { ChurchDataStore } from './churchDataStore';
 
-const KEY_FEED_POSTS = 'bjc_feed_posts_v4';
-const KEY_REACTIONS = 'bjc_post_reactions_v4';
-const KEY_COMMENTS = 'bjc_post_comments_v4';
-const KEY_REPORTS = 'bjc_post_reports_v4';
-const KEY_MODERATION_LOGS = 'bjc_moderation_logs_v4';
+const KEY_FEED_POSTS = 'bjc_feed_posts_v5';
+const KEY_REACTIONS = 'bjc_post_reactions_v5';
+const KEY_COMMENTS = 'bjc_post_comments_v5';
+const KEY_REPORTS = 'bjc_post_reports_v5';
+const KEY_MODERATION_LOGS = 'bjc_moderation_logs_v5';
+const KEY_DELETED_POST_IDS = 'bjc_deleted_feed_ids_v2';
+const DEFAULT_DELETED_IDS = ['post-ann-colossians', 'post-ann-youth-ignite'];
 
 // Helper to check if a user is an authorized Church Admin or Pastor
 export const isChurchAdmin = (user?: UserProfile | null): boolean => {
@@ -24,66 +26,8 @@ export const isChurchAdmin = (user?: UserProfile | null): boolean => {
   );
 };
 
-// Initial realistic, inspiring church seed posts
+// Initial realistic, inspiring church seed posts (clean of deleted old samples)
 const INITIAL_FEED_POSTS: FeedPost[] = [
-  {
-    id: 'post-ann-colossians',
-    authorId: 'usr-pastor-john-eric',
-    authorName: 'John Eric Manjares',
-    authorAvatar: '/images/pastor-john-eric-manjares.png',
-    authorRole: 'Senior Pastor',
-    ministryLabel: 'Pastoral Leadership',
-    content: `Grace and peace to our beloved Beholding Jesus Church family!\n\nThis coming Sunday, we commence our new expositional sermon series entitled "Walking in Colossians: Christ Supreme & Sufficient". In a world full of distractions and human philosophies, Paul reminds us that in Christ "all the fullness of God was pleased to dwell."\n\nJoin us at 9:00 AM as we worship, break bread, and behold Jesus together in His word. Bring your Bibles, invite your families, and prepare your hearts for a mighty encounter with the Lord!`,
-    postType: 'announcement',
-    category: 'Sunday Services',
-    imageUrls: ['/images/worship-service-poster.jpg'],
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
-    updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
-    isHidden: false,
-    commentsEnabled: true,
-    announcementTitle: 'Upcoming Expository Series: Walking in Colossians — Christ Preeminent in All Things',
-    announcementPriority: 'pinned',
-    isPinned: true,
-    pinnedAt: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
-    eventDate: 'Every Sunday Morning',
-    eventTime: '9:00 AM – 11:30 AM',
-    eventLocation: '2nd Flr. MV Villar Ave. Ph2 Central Camella Springville Molino 3, Bacoor, Cavite',
-    actionButtonLabel: 'View Service Details',
-    actionButtonUrl: '#worship-details',
-    reactions: [],
-    reactionCounts: { like: 2, love: 5, care: 1, celebrate: 4, pray: 8 },
-    comments: [],
-    commentsCount: 3
-  },
-  {
-    id: 'post-ann-youth-ignite',
-    authorId: 'usr-pastor-john-eric',
-    authorName: 'John Eric Manjares',
-    authorAvatar: '/images/pastor-john-eric-manjares.png',
-    authorRole: 'Senior Pastor',
-    ministryLabel: 'Youth & NextGen Ministry',
-    content: `Calling all young people, students, and young professionals! 🔥\n\nJoin our BJC NextGen Gathering this Saturday at 4:00 PM for an afternoon of acoustic worship, deep biblical discussions on navigating modern culture with Christian purity, and warm fellowship over snacks.\n\n"Don't let anyone look down on you because you are young, but set an example for the believers in speech, in conduct, in love, in faith and in purity." — 1 Timothy 4:12`,
-    postType: 'announcement',
-    category: 'Youth Ministry',
-    imageUrls: ['/images/bible-hero.jpg'],
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 18).toISOString(),
-    updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 18).toISOString(),
-    isHidden: false,
-    commentsEnabled: true,
-    announcementTitle: 'NextGen Youth Fellowship: Igniting Hearts for King Jesus',
-    announcementPriority: 'pinned',
-    isPinned: true,
-    pinnedAt: new Date(Date.now() - 1000 * 60 * 60 * 18).toISOString(),
-    eventDate: 'Saturday Afternoon',
-    eventTime: '4:00 PM – 6:30 PM',
-    eventLocation: 'BJC Youth Hall, Main Sanctuary',
-    actionButtonLabel: 'RSVP / Join Fellowship',
-    actionButtonUrl: '#youth-registration',
-    reactions: [],
-    reactionCounts: { like: 4, love: 6, care: 0, celebrate: 7, pray: 3 },
-    comments: [],
-    commentsCount: 2
-  },
   {
     id: 'post-comm-testimony-1',
     authorId: 'usr-owner-001',
@@ -244,9 +188,23 @@ export class ChurchFeedStore {
     }
   }
 
+  static getDeletedIds(): string[] {
+    return this.load<string[]>(KEY_DELETED_POST_IDS, DEFAULT_DELETED_IDS);
+  }
+
+  static addDeletedId(id: string): void {
+    const list = this.getDeletedIds();
+    if (!list.includes(id)) {
+      list.push(id);
+      this.save(KEY_DELETED_POST_IDS, list);
+    }
+  }
+
   // --- RAW GETTERS ---
   private static getRawPosts(): FeedPost[] {
-    return this.load<FeedPost[]>(KEY_FEED_POSTS, INITIAL_FEED_POSTS);
+    const deleted = this.getDeletedIds();
+    const posts = this.load<FeedPost[]>(KEY_FEED_POSTS, INITIAL_FEED_POSTS);
+    return posts.filter(p => !deleted.includes(p.id));
   }
 
   private static getRawReactions(): PostReaction[] {
@@ -356,90 +314,129 @@ export class ChurchFeedStore {
     if (!supabase) return this.getFeedPosts(currentUser);
 
     try {
-      // 1. Fetch posts
-      const { data: cloudPosts, error: postErr } = await supabase
-        .from('church_feed_posts')
+      const deletedIds = this.getDeletedIds();
+
+      // 1. Fetch live official announcements from Supabase
+      const { data: cloudAnnouncements, error: annErr } = await supabase
+        .from('church_announcements')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (cloudPosts && !postErr && cloudPosts.length > 0) {
-        const mapped: FeedPost[] = cloudPosts.map((d: any) => ({
-          id: d.id,
-          authorId: d.author_id,
-          authorName: d.author_name,
-          authorAvatar: d.author_avatar || '/icons/church-logo.png',
-          authorRole: d.author_role || 'Church Member',
-          ministryLabel: d.ministry_label,
-          content: d.content,
-          postType: (d.post_type as FeedPostType) || 'community',
-          category: d.category || 'General',
-          imageUrls: Array.isArray(d.image_urls) ? d.image_urls : (d.image_url ? [d.image_url] : []),
-          createdAt: d.created_at,
-          updatedAt: d.updated_at,
-          isHidden: Boolean(d.is_hidden),
-          commentsEnabled: d.comments_enabled !== false,
-          announcementTitle: d.announcement_title || d.title,
-          announcementPriority: d.announcement_priority || (d.is_pinned ? 'pinned' : 'normal'),
-          isPinned: Boolean(d.is_pinned),
-          pinnedAt: d.pinned_at,
-          eventDate: d.event_date,
-          eventTime: d.event_time,
-          eventLocation: d.event_location,
-          actionButtonLabel: d.action_button_label,
-          actionButtonUrl: d.action_button_url,
-          reactions: [],
-          reactionCounts: { like: 0, love: 0, care: 0, celebrate: 0, pray: 0 },
-          comments: [],
-          commentsCount: 0
-        }));
-
-        this.save(KEY_FEED_POSTS, mapped);
-      }
-
-      // 2. Fetch reactions
-      const { data: cloudReactions } = await supabase
-        .from('church_post_reactions')
-        .select('*');
-
-      if (cloudReactions && cloudReactions.length > 0) {
-        const mappedReactions: PostReaction[] = cloudReactions.map((r: any) => ({
-          id: r.id,
-          postId: r.post_id,
-          userId: r.user_id,
-          userName: r.user_name || 'Member',
-          userAvatar: r.user_avatar || '/icons/church-logo.png',
-          reactionType: r.reaction_type as FeedReactionType,
-          createdAt: r.created_at
-        }));
-        this.save(KEY_REACTIONS, mappedReactions);
-      }
-
-      // 3. Fetch comments
-      const { data: cloudComments } = await supabase
-        .from('church_post_comments')
+      // 2. Fetch live community posts from Supabase
+      const { data: cloudCommPosts, error: commErr } = await supabase
+        .from('church_community_posts')
         .select('*')
-        .order('created_at', { ascending: true });
+        .order('created_at', { ascending: false });
 
-      if (cloudComments && cloudComments.length > 0) {
-        const mappedComments: PostComment[] = cloudComments.map((c: any) => ({
-          id: c.id,
-          postId: c.post_id,
-          userId: c.user_id,
-          userName: c.user_name,
-          userAvatar: c.user_avatar || '/icons/church-logo.png',
-          userRole: c.user_role || 'Church Member',
-          parentCommentId: c.parent_comment_id || null,
-          content: c.content,
-          createdAt: c.created_at,
-          updatedAt: c.updated_at
-        }));
-        this.save(KEY_COMMENTS, mappedComments);
+      const mappedAnnouncements: FeedPost[] = [];
+      if (cloudAnnouncements && !annErr) {
+        for (const a of cloudAnnouncements) {
+          if (deletedIds.includes(a.id)) continue;
+          if (a.status === 'draft' || a.priority === 'draft') continue;
+
+          const isPinned = a.priority === 'pinned' || a.is_important === true;
+          const authorAvatar = (a.author_name && a.author_name.toLowerCase().includes('manjares'))
+            ? '/images/pastor-john-eric-manjares.png'
+            : (a.author_name && a.author_name.toLowerCase().includes('miko'))
+            ? '/images/avatar-john-miko.png'
+            : '/icons/church-logo.png';
+
+          mappedAnnouncements.push({
+            id: a.id,
+            authorId: a.created_by || 'usr-pastor-john-eric',
+            authorName: a.author_name || 'John Eric Manjares',
+            authorAvatar,
+            authorRole: a.author_role || 'Senior Pastor',
+            ministryLabel: 'Pastoral Leadership',
+            content: a.description || a.content || '',
+            postType: 'announcement',
+            category: a.category || 'Sunday Services',
+            imageUrls: a.cover_image ? [a.cover_image] : (a.image_url ? [a.image_url] : []),
+            createdAt: a.created_at || new Date().toISOString(),
+            updatedAt: a.updated_at || a.created_at || new Date().toISOString(),
+            isHidden: false,
+            commentsEnabled: true,
+            announcementTitle: a.title,
+            announcementPriority: a.priority || (a.is_important ? 'pinned' : 'normal'),
+            isPinned,
+            pinnedAt: isPinned ? (a.updated_at || a.created_at) : undefined,
+            eventDate: a.date || a.event_date,
+            reactions: [],
+            reactionCounts: { like: 0, love: 0, care: 0, celebrate: 0, pray: 0 },
+            comments: [],
+            commentsCount: 0
+          });
+        }
       }
+
+      const mappedCommPosts: FeedPost[] = [];
+      if (cloudCommPosts && !commErr) {
+        for (const p of cloudCommPosts) {
+          if (deletedIds.includes(p.id)) continue;
+
+          mappedCommPosts.push({
+            id: p.id,
+            authorId: p.user_id,
+            authorName: p.author_name,
+            authorAvatar: p.author_avatar || '/icons/church-logo.png',
+            authorRole: p.author_role || 'Church Member',
+            ministryLabel: 'Church Community',
+            content: p.content,
+            postType: 'community',
+            category: 'Personal Update',
+            imageUrls: p.image_url ? [p.image_url] : [],
+            createdAt: p.created_at || new Date().toISOString(),
+            updatedAt: p.created_at || new Date().toISOString(),
+            isHidden: false,
+            commentsEnabled: true,
+            reactions: [],
+            reactionCounts: { like: p.likes_count || 0, love: 0, care: 0, celebrate: 0, pray: 0 },
+            comments: [],
+            commentsCount: p.comments_count || 0
+          });
+        }
+      }
+
+      // Merge cloud announcements and community posts with any local non-deleted posts
+      const localCommunity = this.getRawPosts().filter(p => p.postType === 'community' && !deletedIds.includes(p.id));
+
+      const seenIds = new Set<string>();
+      const combined: FeedPost[] = [];
+
+      for (const p of [...mappedAnnouncements, ...mappedCommPosts, ...localCommunity]) {
+        if (!seenIds.has(p.id) && !deletedIds.includes(p.id)) {
+          seenIds.add(p.id);
+          combined.push(p);
+        }
+      }
+
+      this.save(KEY_FEED_POSTS, combined);
     } catch (e) {
       console.warn('fetchFeedPostsFromCloud error, falling back to local storage:', e);
     }
 
     return this.getFeedPosts(currentUser);
+  }
+
+  // --- REALTIME SYNC LISTENER ---
+  static subscribeToFeedRealtime(onUpdate: (posts: FeedPost[]) => void): () => void {
+    if (!supabase) return () => {};
+
+    const channel = supabase
+      .channel('public:bjc_feed_cloud_sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'church_announcements' }, async () => {
+        const fresh = await ChurchFeedStore.fetchFeedPostsFromCloud();
+        onUpdate(fresh);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'church_community_posts' }, async () => {
+        const fresh = await ChurchFeedStore.fetchFeedPostsFromCloud();
+        onUpdate(fresh);
+      })
+      .subscribe();
+
+    return () => {
+      supabase?.removeChannel(channel);
+    };
   }
 
   // --- POST CREATION ---
@@ -503,34 +500,43 @@ export class ChurchFeedStore {
     currentPosts.unshift(newPost);
     this.save(KEY_FEED_POSTS, currentPosts);
 
-    // Sync to Supabase
+    // Sync to Supabase Live Database
     if (supabase) {
       try {
-        await supabase.from('church_feed_posts').insert({
-          id: newPost.id,
-          author_id: newPost.authorId,
-          author_name: newPost.authorName,
-          author_avatar: newPost.authorAvatar,
-          author_role: newPost.authorRole,
-          ministry_label: newPost.ministryLabel,
-          content: newPost.content,
-          post_type: newPost.postType,
-          category: newPost.category,
-          image_urls: newPost.imageUrls,
-          is_hidden: newPost.isHidden,
-          comments_enabled: newPost.commentsEnabled,
-          announcement_title: newPost.announcementTitle,
-          announcement_priority: newPost.announcementPriority,
-          is_pinned: newPost.isPinned,
-          pinned_at: newPost.pinnedAt,
-          event_date: newPost.eventDate,
-          event_time: newPost.eventTime,
-          event_location: newPost.eventLocation,
-          action_button_label: newPost.actionButtonLabel,
-          action_button_url: newPost.actionButtonUrl,
-          created_at: newPost.createdAt,
-          updated_at: newPost.updatedAt
-        });
+        if (effectivePostType === 'announcement') {
+          await supabase.from('church_announcements').insert({
+            id: newPost.id,
+            title: newPost.announcementTitle || 'Church Announcement',
+            content: newPost.content,
+            description: newPost.content,
+            category: newPost.category || 'General Church',
+            date: newPost.eventDate || new Date().toISOString().split('T')[0],
+            event_date: newPost.eventDate || null,
+            status: 'published',
+            priority: newPost.isPinned ? 'pinned' : 'normal',
+            is_important: Boolean(newPost.isPinned),
+            author_name: newPost.authorName,
+            author_role: newPost.authorRole,
+            cover_image: newPost.imageUrls[0] || null,
+            image_url: newPost.imageUrls[0] || null,
+            created_by: newPost.authorId,
+            created_at: newPost.createdAt,
+            updated_at: newPost.updatedAt
+          });
+        } else {
+          await supabase.from('church_community_posts').insert({
+            id: newPost.id,
+            user_id: newPost.authorId,
+            author_name: newPost.authorName,
+            author_avatar: newPost.authorAvatar,
+            author_role: newPost.authorRole,
+            content: newPost.content,
+            image_url: newPost.imageUrls[0] || null,
+            likes_count: 0,
+            comments_count: 0,
+            created_at: newPost.createdAt
+          });
+        }
       } catch (e) {
         console.warn('createPost cloud sync error:', e);
       }
@@ -570,12 +576,21 @@ export class ChurchFeedStore {
 
     if (supabase) {
       try {
-        await supabase.from('church_feed_posts').update({
-          content: target.content,
-          image_urls: target.imageUrls,
-          announcement_title: target.announcementTitle,
-          updated_at: target.updatedAt
-        }).eq('id', postId);
+        if (target.postType === 'announcement') {
+          await supabase.from('church_announcements').update({
+            title: target.announcementTitle,
+            description: target.content,
+            content: target.content,
+            cover_image: target.imageUrls[0] || null,
+            image_url: target.imageUrls[0] || null,
+            updated_at: target.updatedAt
+          }).eq('id', postId);
+        } else {
+          await supabase.from('church_community_posts').update({
+            content: target.content,
+            image_url: target.imageUrls[0] || null
+          }).eq('id', postId);
+        }
       } catch (e) {
         console.warn('editPost cloud sync error:', e);
       }
@@ -597,6 +612,7 @@ export class ChurchFeedStore {
       throw new Error("You do not have permission to delete this post.");
     }
 
+    this.addDeletedId(postId);
     const filtered = currentPosts.filter(p => p.id !== postId);
     this.save(KEY_FEED_POSTS, filtered);
 
@@ -621,9 +637,8 @@ export class ChurchFeedStore {
 
     if (supabase) {
       try {
-        await supabase.from('church_post_reactions').delete().eq('post_id', postId);
-        await supabase.from('church_post_comments').delete().eq('post_id', postId);
-        await supabase.from('church_feed_posts').delete().eq('id', postId);
+        await supabase.from('church_announcements').delete().eq('id', postId);
+        await supabase.from('church_community_posts').delete().eq('id', postId);
       } catch (e) {
         console.warn('deletePost cloud sync error:', e);
       }
@@ -659,10 +674,9 @@ export class ChurchFeedStore {
 
     if (supabase) {
       try {
-        await supabase.from('church_feed_posts').update({
-          is_pinned: post.isPinned,
-          announcement_priority: post.announcementPriority,
-          pinned_at: post.pinnedAt,
+        await supabase.from('church_announcements').update({
+          priority: isPinned ? 'pinned' : 'normal',
+          is_important: isPinned,
           updated_at: post.updatedAt
         }).eq('id', postId);
       } catch (e) {

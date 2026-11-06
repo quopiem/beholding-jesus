@@ -233,6 +233,16 @@ export class AdminAnnouncementService {
     const updated = list.filter(a => a.id !== id);
     this.saveLocalAnnouncements(updated);
 
+    try {
+      const deletedKey = 'bjc_deleted_feed_ids_v2';
+      const existingDeleted = JSON.parse(localStorage.getItem(deletedKey) || '["post-ann-colossians", "post-ann-youth-ignite"]');
+      if (!existingDeleted.includes(id)) {
+        existingDeleted.push(id);
+        localStorage.setItem(deletedKey, JSON.stringify(existingDeleted));
+      }
+      window.dispatchEvent(new CustomEvent('bjc_feed_change'));
+    } catch {}
+
     if (supabase) {
       try {
         await supabase.from('church_announcements').delete().eq('id', id);
