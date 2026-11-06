@@ -17,17 +17,29 @@ import {
 
 interface BibleViewProps {
   onNavigate?: (tab: string) => void;
+  initialBookId?: string;
+  initialChapter?: number;
 }
 
-export const BibleView: React.FC<BibleViewProps> = ({ onNavigate }) => {
+export const BibleView: React.FC<BibleViewProps> = ({ 
+  onNavigate,
+  initialBookId,
+  initialChapter 
+}) => {
   // -------------------------------------------------------------
   // NAVIGATION & TRANSLATION STATE
   // -------------------------------------------------------------
-  // Default to John 3 (matching reference screenshot) or Colossians
+  // Default to initialBookId (e.g. LUK) or John 3
   const [selectedBook, setSelectedBook] = useState<BibleBook>(() => {
+    if (initialBookId) {
+      const found = BIBLE_BOOKS.find(b => b.id.toUpperCase() === initialBookId.toUpperCase());
+      if (found) return found;
+    }
     return BIBLE_BOOKS.find(b => b.id === 'JHN') || BIBLE_BOOKS.find(b => b.id === 'COL') || BIBLE_BOOKS[0];
   });
-  const [currentChapter, setCurrentChapter] = useState<number>(3);
+  const [currentChapter, setCurrentChapter] = useState<number>(() => {
+    return initialChapter || 3;
+  });
   const [selectedTranslation, setSelectedTranslation] = useState<BibleTranslationCode>('NIV');
   const [comparisonTranslation, setComparisonTranslation] = useState<BibleTranslationCode>('KJV');
   const [viewMode, setViewMode] = useState<'single' | 'parallel' | 'compare-verse'>('single');
@@ -110,6 +122,19 @@ export const BibleView: React.FC<BibleViewProps> = ({ onNavigate }) => {
     setBookmarks(BibleService.getBookmarks());
     setNotes(BibleService.getNotes());
   }, []);
+
+  // Respond to incoming initial book or chapter changes (e.g. from Stories navigation)
+  useEffect(() => {
+    if (initialBookId) {
+      const found = BIBLE_BOOKS.find(b => b.id.toUpperCase() === initialBookId.toUpperCase());
+      if (found) {
+        setSelectedBook(found);
+        if (initialChapter) {
+          setCurrentChapter(Math.min(Math.max(1, initialChapter), found.chaptersCount));
+        }
+      }
+    }
+  }, [initialBookId, initialChapter]);
 
   // Book index and boundary checks for seamless navigation
   const currBookIdx = BIBLE_BOOKS.findIndex(b => b.id === selectedBook.id);
@@ -669,6 +694,18 @@ Please answer pastorally and expositorily, grounded in Scripture.`;
         {/* Right Side: Translation Pill, Headphones (Audio), View/Compare, AA, Expand */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           
+          {/* Quick Access to Bible Stories */}
+          {onNavigate && (
+            <button
+              onClick={() => onNavigate('stories')}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/35 text-amber-300 hover:text-amber-200 text-xs font-bold transition active:scale-95 shadow-xs cursor-pointer"
+              title="Explore Bible Stories (Jesus' Birth, Parables, etc.)"
+            >
+              <BookMarked className="w-3.5 h-3.5 text-amber-400" />
+              <span className="hidden sm:inline">Stories</span>
+            </button>
+          )}
+
           {/* Translation Selector Pill (e.g., 'NIV') */}
           <div className="relative group">
             <button

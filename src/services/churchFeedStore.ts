@@ -498,7 +498,7 @@ export class ChurchFeedStore {
       if (cloudAnnouncements && !annErr) {
         for (const a of cloudAnnouncements) {
           if (deletedIds.includes(a.id)) continue;
-          if (a.status === 'draft' || a.priority === 'draft') continue;
+          if (a.status === 'draft' || a.priority === 'draft' || a.status === 'archived' || a.status === 'deleted' || a.priority === 'archived') continue;
 
           // CRITICAL: An announcement is pinned ONLY if priority is explicitly 'pinned'
           const isPinned = a.priority === 'pinned';
@@ -540,6 +540,7 @@ export class ChurchFeedStore {
       if (cloudCommPosts && !commErr) {
         for (const p of cloudCommPosts) {
           if (deletedIds.includes(p.id)) continue;
+          if (p.content === '[deleted]' || p.status === 'deleted' || !p.content?.trim()) continue;
 
           mappedCommPosts.push({
             id: p.id,
@@ -564,8 +565,18 @@ export class ChurchFeedStore {
         }
       }
 
-      // Merge cloud announcements and community posts with local admin cache and community posts
-      const localCommunity = this.getRawPosts().filter(p => p.postType === 'community' && !deletedIds.includes(p.id));
+      // Merge cloud announcements and community posts with local pending posts
+      // Only keep local pending community posts if they are recent drafts from current user not yet in cloud.
+      // NEVER resurrect deleted posts from other users that are no longer in the cloud!
+      const localCommunity = (cloudCommPosts && !commErr)
+        ? this.getRawPosts().filter(p => {
+            if (p.postType !== 'community' || deletedIds.includes(p.id)) return false;
+            if (mappedCommPosts.some(cp => cp.id === p.id)) return false;
+            const isSelf = currentUser && p.authorId === currentUser.id;
+            const isRecent = (Date.now() - new Date(p.createdAt).getTime()) < 2 * 60 * 1000;
+            return Boolean(isSelf && isRecent);
+          })
+        : this.getRawPosts().filter(p => p.postType === 'community' && !deletedIds.includes(p.id));
 
       // Check local admin announcements cache for newly added or high-res cover photos
       const localAdminMap = new Map<string, any>();
@@ -836,8 +847,20 @@ export class ChurchFeedStore {
 
     if (supabase) {
       try {
-        await supabase.from('church_announcements').delete().eq('id', postId);
+        // 1. Delete directly from Supabase
         await supabase.from('church_community_posts').delete().eq('id', postId);
+        await supabase.from('church_announcements').delete().eq('id', postId);
+
+        // 2. Also soft-delete / update status so that even if hard delete fails due to RLS or constraints,
+        // it is marked archived/deleted in Supabase and filtered out by all other accounts
+        await supabase.from('church_community_posts').update({ content: '[deleted]', status: 'deleted' }).eq('id', postId);
+        await supabase.from('church_announcements').update({ status: 'archived', priority: 'archived' }).eq('id', postId);
+
+        if (target.postType === 'announcement') {
+          try {
+            await supabase.from('announcements').delete().eq('id', postId);
+          } catch {}
+        }
       } catch (e) {
         console.warn('deletePost cloud sync error:', e);
       }

@@ -179,7 +179,13 @@ export const HomeView: React.FC<HomeViewProps> = ({
   const handleDeletePost = async (post: FeedPost) => {
     if (window.confirm('Are you sure you want to delete this post?')) {
       await ChurchFeedStore.deletePost(post.id, currentUser);
+      if (post.postType === 'announcement') {
+        try {
+          await AdminAnnouncementService.deleteAnnouncement(post.id);
+        } catch {}
+      }
       setPosts(ChurchFeedStore.getFeedPosts(currentUser));
+      refreshFeed();
     }
   };
 

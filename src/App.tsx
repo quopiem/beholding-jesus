@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { AppLayout } from './layouts/AppLayout';
 import { HomeView } from './features/home/HomeView';
 import { BibleView } from './features/bible/BibleView';
+import { BibleStoriesView } from './features/bible/BibleStoriesView';
 import { WorshipView } from './features/worship/WorshipView';
 import { CommunityView } from './features/chat/CommunityView';
 import { MinistriesView } from './features/ministries/MinistriesView';
@@ -20,6 +21,7 @@ import { UserProfile } from './types';
 export function App() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => ChurchDataStore.getCurrentUser());
   const [currentTab, setCurrentTab] = useState<string>('home');
+  const [bibleTarget, setBibleTarget] = useState<{ bookId: string; chapter: number } | null>(null);
 
   useEffect(() => {
     AuthService.initializeDefaultCredentials();
@@ -61,7 +63,23 @@ export function App() {
       case 'landing':
         return <LandingPageView onNavigate={setCurrentTab} currentUser={currentUser} />;
       case 'bible':
-        return <BibleView onNavigate={setCurrentTab} />;
+        return (
+          <BibleView 
+            onNavigate={setCurrentTab} 
+            initialBookId={bibleTarget?.bookId}
+            initialChapter={bibleTarget?.chapter}
+          />
+        );
+      case 'stories':
+        return (
+          <BibleStoriesView 
+            onNavigate={setCurrentTab} 
+            onOpenInFullBible={(bookId, chapter) => {
+              setBibleTarget({ bookId, chapter });
+              setCurrentTab('bible');
+            }}
+          />
+        );
       case 'worship':
         return <WorshipView />;
       case 'community':

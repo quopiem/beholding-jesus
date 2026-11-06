@@ -3,7 +3,7 @@ import {
   Home, BookOpen, MessageSquare, Users, Music, Calendar, 
   Heart, Shield, Bell, Moon, Sun, Search, Menu, X, 
   Sparkles, CheckCircle2, ChevronRight, ChevronDown, MapPin, ExternalLink, Plus,
-  UserPlus, LogIn, LogOut, KeyRound, UserCheck, User, HandHeart, Compass
+  UserPlus, LogIn, LogOut, KeyRound, UserCheck, User, HandHeart, Compass, BookMarked
 } from 'lucide-react';
 import { ChurchDataStore } from '../services/churchDataStore';
 import { AuthService } from '../services/authService';
@@ -163,6 +163,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
     { id: 'feed', label: 'Community Feed', icon: Sparkles },
     { id: 'bjc-ai', label: 'BJC AI', icon: Compass },
     { id: 'bible', label: 'Bible', icon: BookOpen },
+    { id: 'stories', label: 'Bible Stories', icon: BookMarked },
     { 
       id: 'community', 
       label: 'Fellowship', 
@@ -712,17 +713,18 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         {/* ============================================================== */}
         <nav 
           aria-label="Mobile Navigation"
-          className={`fixed bottom-3 sm:bottom-5 left-1/2 -translate-x-1/2 z-35 w-[calc(100%-16px)] max-w-[460px] md:hidden select-none transition-all duration-300 ease-in-out ${
+          className={`fixed bottom-3 sm:bottom-5 left-1/2 -translate-x-1/2 z-35 w-[calc(100%-12px)] max-w-[500px] md:hidden select-none transition-all duration-300 ease-in-out ${
             isNavVisible 
               ? 'translate-y-0 opacity-100 pointer-events-auto' 
               : 'translate-y-28 opacity-0 pointer-events-none'
           }`}
         >
-          <div className="relative flex items-center justify-between px-1 sm:px-1.5 py-1.5 rounded-[26px] bg-[#12131A]/94 dark:bg-[#0B0D14]/96 backdrop-blur-2xl border border-white/15 dark:border-[#C5A46D]/35 shadow-[0_14px_45px_rgba(0,0,0,0.55)] ring-1 ring-white/10 gap-0.5">
+          <div className="relative flex items-center justify-between px-1 sm:px-1.5 py-1.5 rounded-[26px] bg-[#12131A]/94 dark:bg-[#0B0D14]/96 backdrop-blur-2xl border border-white/15 dark:border-[#C5A46D]/35 shadow-[0_14px_45px_rgba(0,0,0,0.55)] ring-1 ring-white/10 gap-0.5 overflow-x-auto scrollbar-none no-scrollbar">
             {([
               { id: 'home', label: 'Home', icon: Home },
               { id: 'feed', label: 'Feed', icon: Sparkles },
               { id: 'bible', label: 'Bible', icon: BookOpen },
+              { id: 'stories', label: 'Stories', icon: BookMarked },
               { 
                 id: 'community', 
                 label: 'Fellowship', 
@@ -741,7 +743,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                     onTabChange(item.id);
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
-                  className={`relative flex flex-col items-center justify-center flex-1 py-1.5 px-0.5 rounded-2xl transition-all duration-300 cursor-pointer active:scale-95 ${
+                  className={`relative flex flex-col items-center justify-center min-w-[48px] sm:min-w-[56px] flex-1 py-1.5 px-0.5 rounded-2xl transition-all duration-300 cursor-pointer active:scale-95 shrink-0 ${
                     isActive 
                       ? 'bg-white/20 dark:bg-gradient-to-r dark:from-[#C5A46D]/25 dark:to-[#B59157]/20 text-white dark:text-gold border border-white/20 dark:border-gold/40 shadow-inner' 
                       : 'text-stone-400 hover:text-white dark:text-stone-400 dark:hover:text-stone-200'
