@@ -164,18 +164,29 @@ export class AuthService {
     const passwordHash = await this.hashPassword(data.password, salt);
     const newUserId = `user-${Date.now()}`;
 
-    // Security: Default role is strictly 'regular_member' with 'Church Member' title.
-    // Regular members cannot self-assign administrator or pastor roles.
+    const isMinistryMember = data.role === 'ministry_member';
+    const targetMinId = data.targetMinistryId || 'ministry-worship';
+    const targetMinName = targetMinId === 'ministry-worship' 
+      ? 'Worship Team' 
+      : targetMinId === 'ministry-usher' 
+        ? 'Ushering Team' 
+        : 'Multimedia Team';
+
     const newProfile: UserProfile = {
       id: newUserId,
       name: data.fullName.trim(),
       username,
       email: data.email?.trim() || `${username}@beholdingjesus.org`,
-      role: 'regular_member',
-      roleTitle: 'Church Member',
+      role: isMinistryMember ? 'ministry_member' : 'regular_member',
+      roleTitle: isMinistryMember ? 'Ministry Member (Pending Verification)' : 'Church Member',
       avatar: '/icons/church-logo.png',
-      bio: 'Faithful member of Beholding Jesus Church.',
-      ministryIds: [],
+      bio: isMinistryMember 
+        ? `Ministry applicant for ${targetMinName}.`
+        : 'Faithful member of Beholding Jesus Church.',
+      ministryIds: isMinistryMember ? [targetMinId] : [],
+      approvalStatus: isMinistryMember ? 'pending' : 'active',
+      targetMinistryId: targetMinId,
+      ministryMessage: data.ministryMessage || '',
       joinedDate: new Date().toISOString().split('T')[0]
     };
 
@@ -201,8 +212,8 @@ export class AuthService {
           username,
           name: data.fullName.trim(),
           email: newProfile.email,
-          role: 'regular_member',
-          role_title: 'Church Member',
+          role: newProfile.role,
+          role_title: newProfile.roleTitle,
           avatar: newProfile.avatar,
           bio: newProfile.bio,
           salt,
@@ -219,13 +230,23 @@ export class AuthService {
     ChurchDataStore.addUser(newProfile);
 
     // Auto-create a welcome notification
-    ChurchDataStore.addNotification({
-      userId: newUserId,
-      type: 'system',
-      title: 'Welcome to Beholding Jesus Church!',
-      message: `Praise God! Your account @${username} is registered. You can now access Scripture, prayer chain, and community features.`,
-      linkRoute: 'home'
-    });
+    if (isMinistryMember) {
+      ChurchDataStore.addNotification({
+        userId: newUserId,
+        type: 'system',
+        title: 'Ministry Application Submitted',
+        message: `Praise God! Your registration for the ${targetMinName} has been submitted. Your account is pending confirmation and verification by the Super Admin.`,
+        linkRoute: 'home'
+      });
+    } else {
+      ChurchDataStore.addNotification({
+        userId: newUserId,
+        type: 'system',
+        title: 'Welcome to Beholding Jesus Church!',
+        message: `Praise God! Your account @${username} is registered as a Church Member. You can now access Scripture, prayer chain, and community features.`,
+        linkRoute: 'home'
+      });
+    }
 
     return {
       success: true,
@@ -390,6 +411,25 @@ export class AuthService {
           lockout_until: null
         }).then();
       }
+    }
+
+    // Check verification approval status for Ministry Members
+    if (user.role === 'ministry_member' && user.approvalStatus === 'pending') {
+      return {
+        success: false,
+        isPendingApproval: true,
+        user,
+        error: `Your account registration as a Ministry Member is currently pending confirmation and verification by the Super Admin. You will be able to log in once your account is verified.`
+      };
+    }
+
+    if (user.approvalStatus === 'rejected') {
+      return {
+        success: false,
+        isRejected: true,
+        user,
+        error: `Your registration for ministry membership was not confirmed at this time. Please contact church leadership or pastoral directors.`
+      };
     }
 
     // Create Secure Session

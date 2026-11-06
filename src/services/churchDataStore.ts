@@ -9,6 +9,7 @@ import {
   INITIAL_CHAT_ROOMS, INITIAL_POSTS 
 } from './initialData';
 import { supabase } from '../lib/supabase';
+import { MinistryStore, MinistryId } from './ministryStore';
 
 // Local storage storage keys
 const KEY_SONGS = 'bjc_songs_v2';
@@ -606,6 +607,91 @@ export class ChurchDataStore {
     return newReq;
   }
 
+  static getPendingMinistryRegistrations(): UserProfile[] {
+    const users = this.getUsers();
+    return users.filter(u => u.role === 'ministry_member' && u.approvalStatus === 'pending');
+  }
+
+  static approveMinistryRegistration(userId: string, targetMinistryId?: string): UserProfile | null {
+    const users = this.getUsers();
+    const user = users.find(u => u.id === userId);
+    if (!user) return null;
+
+    const assignedMinistryId = (targetMinistryId || user.targetMinistryId || 'ministry-worship') as MinistryId;
+    user.approvalStatus = 'active';
+    user.role = 'ministry_member';
+    user.roleTitle = 'Ministry Member';
+    if (!user.ministryIds) user.ministryIds = [];
+    if (!user.ministryIds.includes(assignedMinistryId)) {
+      user.ministryIds.push(assignedMinistryId);
+    }
+    this.save(KEY_USERS, users);
+
+    // Also add to MinistryStore members list
+    try {
+      MinistryStore.addMember({
+        userId: user.id,
+        name: user.name,
+        role: 'volunteer',
+        roleTitle: 'Ministry Member',
+        avatar: user.avatar || '/icons/church-logo.png',
+        ministryId: assignedMinistryId,
+        joinedDate: new Date().toISOString().split('T')[0]
+      });
+    } catch (e) {
+      console.warn('MinistryStore.addMember fallback:', e);
+    }
+
+    // Add to ministries in ChurchDataStore
+    const ministries = this.getMinistries();
+    const min = ministries.find(m => m.id === assignedMinistryId);
+    if (min && !min.memberIds.includes(user.id)) {
+      min.memberIds.push(user.id);
+      min.membersCount = min.memberIds.length;
+      this.save(KEY_MINISTRIES, ministries);
+    }
+
+    // Send welcome notification
+    this.addNotification({
+      userId: user.id,
+      type: 'system',
+      title: 'Ministry Account Confirmed & Approved!',
+      message: `Praise God! Your registration as a Ministry Member for Beholding Jesus Church has been confirmed by the Super Admin. You now have full access to your ministry workspace.`,
+      linkRoute: 'ministries'
+    });
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('bjc_users_change'));
+      window.dispatchEvent(new Event('bjc_auth_change'));
+    }
+
+    return user;
+  }
+
+  static rejectMinistryRegistration(userId: string, reason?: string): UserProfile | null {
+    const users = this.getUsers();
+    const user = users.find(u => u.id === userId);
+    if (!user) return null;
+
+    user.approvalStatus = 'rejected';
+    this.save(KEY_USERS, users);
+
+    this.addNotification({
+      userId: user.id,
+      type: 'system',
+      title: 'Ministry Registration Notice',
+      message: reason || `Your registration for ministry membership was not confirmed at this time. Please contact church leadership or worship directors.`,
+      linkRoute: 'home'
+    });
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('bjc_users_change'));
+      window.dispatchEvent(new Event('bjc_auth_change'));
+    }
+
+    return user;
+  }
+
   static handleJoinRequest(requestId: string, status: 'approved' | 'declined'): MinistryJoinRequest[] {
     const requests = this.getJoinRequests();
     const req = requests.find(r => r.id === requestId);
@@ -619,6 +705,58 @@ export class ChurchDataStore {
           min.membersCount = min.memberIds.length;
           this.save(KEY_MINISTRIES, ministries);
         }
+
+        // Upgrade requesting church member to active ministry member
+        const users = this.getUsers();
+        const user = users.find(u => u.id === req.userId);
+        if (user) {
+          user.role = 'ministry_member';
+          user.roleTitle = 'Ministry Member';
+          user.approvalStatus = 'active';
+          if (!user.ministryIds) user.ministryIds = [];
+          if (!user.ministryIds.includes(req.ministryId)) {
+            user.ministryIds.push(req.ministryId);
+          }
+          this.save(KEY_USERS, users);
+
+          // Add to MinistryStore member list
+          try {
+            MinistryStore.addMember({
+              userId: user.id,
+              name: user.name,
+              role: 'volunteer',
+              roleTitle: 'Ministry Member',
+              avatar: user.avatar || '/icons/church-logo.png',
+              ministryId: req.ministryId as MinistryId,
+              joinedDate: new Date().toISOString().split('T')[0]
+            });
+          } catch (e) {
+            console.warn('MinistryStore.addMember fallback:', e);
+          }
+
+          // Send approval notification to user
+          this.addNotification({
+            userId: user.id,
+            type: 'system',
+            title: 'Ministry Application Approved!',
+            message: `Praise God! Your request to join the ${req.ministryName} has been approved by the Super Admin & pastoral team. You now have full access to your ministry workspace.`,
+            linkRoute: 'ministries'
+          });
+
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new Event('bjc_users_change'));
+            window.dispatchEvent(new Event('bjc_auth_change'));
+          }
+        }
+      } else {
+        // Declined
+        this.addNotification({
+          userId: req.userId,
+          type: 'system',
+          title: 'Ministry Application Update',
+          message: `Your request to join the ${req.ministryName} was reviewed. Thank you for your servant heart to serve at Beholding Jesus Church!`,
+          linkRoute: 'ministries'
+        });
       }
     }
     this.save(KEY_JOIN_REQUESTS, requests);

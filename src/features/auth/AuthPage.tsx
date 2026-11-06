@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Shield, Lock, User, KeyRound, CheckCircle2, AlertCircle, 
   Eye, EyeOff, ArrowRight, Sparkles, HelpCircle, UserPlus, LogIn, Heart,
-  Smartphone, Download
+  Smartphone, Download, Clock, Users
 } from 'lucide-react';
 import { AuthService } from '../../services/authService';
 import { CHURCH_INFO } from '../../services/churchInfo';
@@ -34,6 +34,10 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   const [regPassword, setRegPassword] = useState('');
   const [regConfirmPassword, setRegConfirmPassword] = useState('');
   const [regShowPassword, setRegShowPassword] = useState(false);
+  const [regRole, setRegRole] = useState<'regular_member' | 'ministry_member'>('regular_member');
+  const [regMinistryId, setRegMinistryId] = useState<'ministry-worship' | 'ministry-usher' | 'ministry-multimedia'>('ministry-worship');
+  const [regMinistryMessage, setRegMinistryMessage] = useState('');
+  const [pendingApprovalUser, setPendingApprovalUser] = useState<UserProfile | null>(null);
   const [regErrors, setRegErrors] = useState<Record<string, string>>({});
   const [usernameStatus, setUsernameStatus] = useState<{ checked: boolean; available: boolean; message?: string }>({
     checked: false,
@@ -73,6 +77,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError(null);
+    setPendingApprovalUser(null);
 
     if (!loginUsername.trim() || !loginPassword) {
       setLoginError('Please enter both your username and password.');
@@ -84,6 +89,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       const result = await AuthService.login(loginUsername, loginPassword);
       if (result.success && result.user) {
         onAuthSuccess(result.user);
+      } else if (result.isPendingApproval && result.user) {
+        setPendingApprovalUser(result.user);
+        setLoginError(null);
       } else {
         setLoginError(result.error || 'Invalid username or password. Please try again.');
       }
@@ -105,7 +113,10 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       fullName: regFullName.trim(),
       username: regUsername.trim(),
       password: regPassword,
-      confirmPassword: regConfirmPassword
+      confirmPassword: regConfirmPassword,
+      role: regRole,
+      targetMinistryId: regRole === 'ministry_member' ? regMinistryId : undefined,
+      ministryMessage: regRole === 'ministry_member' ? regMinistryMessage.trim() : undefined
     };
 
     const validation = AuthService.validateRegistration(data);
@@ -118,16 +129,20 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     try {
       const res = await AuthService.register(data);
       if (res.success && res.user) {
-        // Step 9: Redirect the member to the login tab with pre-filled username
         setTab('login');
         setLoginUsername(data.username.toLowerCase());
         setLoginPassword('');
-        setRegSuccessBanner(`Account @${data.username} created successfully with Church Member role. Please sign in below.`);
+        if (regRole === 'ministry_member') {
+          setRegSuccessBanner(`Registration for Ministry Member (@${data.username}) received! It is pending confirmation and verification by the Super Admin.`);
+        } else {
+          setRegSuccessBanner(`Account @${data.username} created successfully with Church Member role. Please sign in below.`);
+        }
         // Reset registration form
         setRegFullName('');
         setRegUsername('');
         setRegPassword('');
         setRegConfirmPassword('');
+        setRegMinistryMessage('');
       } else {
         setRegErrors({ form: res.error || 'Failed to create church identity.' });
       }
@@ -267,115 +282,202 @@ export const AuthPage: React.FC<AuthPageProps> = ({
           {tab === 'login' && (
             <div className="p-6 sm:p-8 space-y-4">
               
-              {/* Success Banner */}
-              {regSuccessBanner && (
-                <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/80 text-emerald-800 dark:text-emerald-300 text-xs flex items-start gap-2.5">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                  <div>
-                    <div className="font-bold">Registration Successful</div>
-                    <div className="text-[11px] mt-0.5 leading-relaxed">{regSuccessBanner}</div>
+              {/* PENDING SUPER ADMIN APPROVAL VIEW */}
+              {pendingApprovalUser ? (
+                <div className="space-y-5 animate-fade-in text-center py-2">
+                  <div className="w-16 h-16 rounded-3xl bg-amber-500/10 border border-amber-500/20 text-gold flex items-center justify-center mx-auto shadow-inner">
+                    <Clock className="w-8 h-8 text-gold animate-pulse" />
                   </div>
-                </div>
-              )}
 
-              {/* Error Banner */}
-              {loginError && (
-                <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/80 text-rose-800 dark:text-rose-300 text-xs flex items-start gap-2.5">
-                  <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <div className="font-bold">Sign In Notice</div>
-                    <div className="text-[11px] mt-0.5 leading-relaxed">{loginError}</div>
-                    {loginError.includes('locked') && (
-                      <button
-                        type="button"
-                        onClick={() => setTab('recovery')}
-                        className="mt-2 inline-flex items-center gap-1 font-bold text-rose-700 dark:text-rose-300 underline text-[11px]"
-                      >
-                        Request Administrator Password Reset <ArrowRight className="w-3 h-3" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              <form onSubmit={handleLogin} className="space-y-4">
-                {/* Username Field */}
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                    Username
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                      <User className="w-4 h-4" />
+                  <div className="space-y-1.5">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-[11px] font-bold uppercase tracking-wider">
+                      <span>Pending Admin Verification</span>
                     </div>
-                    <input
-                      type="text"
-                      required
-                      autoCapitalize="none"
-                      autoCorrect="off"
-                      value={loginUsername}
-                      onChange={(e) => setLoginUsername(e.target.value)}
-                      placeholder="Enter username (e.g. johnmiko or member)"
-                      className="w-full pl-10 pr-3.5 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold transition"
-                    />
+                    <h3 className="font-serif font-bold text-xl sm:text-2xl text-slate-900 dark:text-white">
+                      Registration Under Review
+                    </h3>
+                    <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 max-w-sm mx-auto leading-relaxed">
+                      Hello, <strong className="text-slate-900 dark:text-white">{pendingApprovalUser.name}</strong> (@{pendingApprovalUser.username})!
+                    </p>
                   </div>
-                </div>
 
-                {/* Password Field */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                      Password
-                    </label>
+                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 text-left text-xs space-y-2">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-700">
+                      <span className="text-slate-500">Account Type:</span>
+                      <span className="font-bold text-amber-600 dark:text-amber-400">Ministry Member</span>
+                    </div>
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-700">
+                      <span className="text-slate-500">Ministry Team:</span>
+                      <span className="font-bold text-slate-900 dark:text-white">
+                        {pendingApprovalUser.targetMinistryId === 'ministry-usher' 
+                          ? 'Ushering Team' 
+                          : pendingApprovalUser.targetMinistryId === 'ministry-multimedia' 
+                            ? 'Multimedia Team' 
+                            : 'Worship Team'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-500">Approval Status:</span>
+                      <span className="font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5" /> Awaiting Super Admin Confirmation
+                      </span>
+                    </div>
+                  </div>
+
+                  <p className="text-[11px] text-slate-500 leading-relaxed max-w-sm mx-auto">
+                    To preserve sanctuary order and coordinated schedules, ministry registrations require confirmation by the church Super Admin. Once approved, you can sign in with full access.
+                  </p>
+
+                  <div className="pt-2 flex flex-col sm:flex-row gap-2">
                     <button
                       type="button"
-                      onClick={() => setTab('recovery')}
-                      className="text-[11px] text-gold hover:underline font-semibold"
+                      disabled={isLoggingIn}
+                      onClick={async () => {
+                        setIsLoggingIn(true);
+                        try {
+                          const res = await AuthService.login(loginUsername, loginPassword);
+                          if (res.success && res.user) {
+                            onAuthSuccess(res.user);
+                          } else if (res.isPendingApproval) {
+                            alert('Your account is still pending verification by the Super Admin. Please check back shortly!');
+                          } else {
+                            alert(res.error || 'Verification check failed.');
+                          }
+                        } finally {
+                          setIsLoggingIn(false);
+                        }
+                      }}
+                      className="flex-1 py-2.5 px-4 rounded-2xl bg-gold hover:bg-[#b08e57] text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 transition shadow-soft cursor-pointer"
                     >
-                      Forgot Password?
+                      <Sparkles className="w-4 h-4" />
+                      <span>{isLoggingIn ? 'Checking...' : 'Check Approval Status'}</span>
                     </button>
-                  </div>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                      <Lock className="w-4 h-4" />
-                    </div>
-                    <input
-                      type={loginShowPassword ? 'text' : 'password'}
-                      required
-                      value={loginPassword}
-                      onChange={(e) => setLoginPassword(e.target.value)}
-                      placeholder="Enter secure password"
-                      className="w-full pl-10 pr-10 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold transition"
-                    />
+
                     <button
                       type="button"
-                      onClick={() => setLoginShowPassword(!loginShowPassword)}
-                      className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                      onClick={() => {
+                        setPendingApprovalUser(null);
+                        setLoginPassword('');
+                      }}
+                      className="py-2.5 px-4 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 font-bold text-xs transition cursor-pointer"
                     >
-                      {loginShowPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      Back to Sign In
                     </button>
                   </div>
                 </div>
-
-                {/* Sign In Submit Button */}
-                <button
-                  type="submit"
-                  disabled={isLoggingIn}
-                  className="w-full py-3 rounded-2xl bg-primary hover:bg-slate-800 text-white font-bold text-xs sm:text-sm tracking-wider uppercase shadow-soft transition flex items-center justify-center gap-2 disabled:opacity-60"
-                >
-                  {isLoggingIn ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                      <span>Verifying Credentials...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>Sign In to Church Portal</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </>
+              ) : (
+                <>
+                  {/* Success Banner */}
+                  {regSuccessBanner && (
+                    <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/80 text-emerald-800 dark:text-emerald-300 text-xs flex items-start gap-2.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                      <div>
+                        <div className="font-bold">Registration Successful</div>
+                        <div className="text-[11px] mt-0.5 leading-relaxed">{regSuccessBanner}</div>
+                      </div>
+                    </div>
                   )}
-                </button>
-              </form>
+
+                  {/* Error Banner */}
+                  {loginError && (
+                    <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/80 text-rose-800 dark:text-rose-300 text-xs flex items-start gap-2.5">
+                      <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <div className="font-bold">Sign In Notice</div>
+                        <div className="text-[11px] mt-0.5 leading-relaxed">{loginError}</div>
+                        {loginError.includes('locked') && (
+                          <button
+                            type="button"
+                            onClick={() => setTab('recovery')}
+                            className="mt-2 inline-flex items-center gap-1 font-bold text-rose-700 dark:text-rose-300 underline text-[11px]"
+                          >
+                            Request Administrator Password Reset <ArrowRight className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  <form onSubmit={handleLogin} className="space-y-4">
+                    {/* Username Field */}
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                        Username
+                      </label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                          <User className="w-4 h-4" />
+                        </div>
+                        <input
+                          type="text"
+                          required
+                          autoCapitalize="none"
+                          autoCorrect="off"
+                          value={loginUsername}
+                          onChange={(e) => setLoginUsername(e.target.value)}
+                          placeholder="Enter username (e.g. johnmiko or member)"
+                          className="w-full pl-10 pr-3.5 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold transition"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Password Field */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                          Password
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setTab('recovery')}
+                          className="text-[11px] text-gold hover:underline font-semibold"
+                        >
+                          Forgot Password?
+                        </button>
+                      </div>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                          <Lock className="w-4 h-4" />
+                        </div>
+                        <input
+                          type={loginShowPassword ? 'text' : 'password'}
+                          required
+                          value={loginPassword}
+                          onChange={(e) => setLoginPassword(e.target.value)}
+                          placeholder="Enter secure password"
+                          className="w-full pl-10 pr-10 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold transition"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setLoginShowPassword(!loginShowPassword)}
+                          className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                        >
+                          {loginShowPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Sign In Submit Button */}
+                    <button
+                      type="submit"
+                      disabled={isLoggingIn}
+                      className="w-full py-3 rounded-2xl bg-primary hover:bg-slate-800 text-white font-bold text-xs sm:text-sm tracking-wider uppercase shadow-soft transition flex items-center justify-center gap-2 disabled:opacity-60"
+                    >
+                      {isLoggingIn ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                          <span>Verifying Credentials...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>Sign In to Church Portal</span>
+                          <ArrowRight className="w-4 h-4" />
+                        </>
+                      )}
+                    </button>
+                  </form>
+                </>
+              )}
 
               {/* Demo Accounts Quick Fill Helper */}
               <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-2">
@@ -431,10 +533,10 @@ export const AuthPage: React.FC<AuthPageProps> = ({
               <div className="text-xs text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 space-y-1">
                 <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                   <Shield className="w-3.5 h-3.5 text-gold" />
-                  <span>New Member Registration</span>
+                  <span>Church Registration & Role Selection</span>
                 </div>
                 <p className="text-[11px] leading-relaxed">
-                  Join the church fellowship. Enter your real name and choose an easy username. New accounts receive standard Church Member access.
+                  Join the body of Beholding Jesus Church. Register as a Church Member for immediate access, or apply as a Ministry Member to serve on our worship, ushering, or multimedia teams (pending Super Admin verification).
                 </p>
               </div>
 
@@ -446,6 +548,101 @@ export const AuthPage: React.FC<AuthPageProps> = ({
               )}
 
               <form onSubmit={handleRegister} className="space-y-3.5">
+                {/* Role Choice: Church Member vs Ministry Member */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Registering As *
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => setRegRole('regular_member')}
+                      className={`p-3.5 rounded-2xl border text-left transition cursor-pointer flex flex-col justify-between ${
+                        regRole === 'regular_member'
+                          ? 'bg-primary text-white border-primary shadow-soft ring-2 ring-gold/40'
+                          : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 hover:border-gold/50 text-slate-700 dark:text-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <Users className="w-4 h-4 text-gold" />
+                        <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded ${
+                          regRole === 'regular_member' ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-500'
+                        }`}>
+                          Immediate Login
+                        </span>
+                      </div>
+                      <div className="mt-2.5">
+                        <div className="font-bold text-xs">Church Member</div>
+                        <p className={`text-[10px] mt-0.5 leading-snug ${regRole === 'regular_member' ? 'text-slate-300' : 'text-slate-500'}`}>
+                          Standard congregation member. Sign in immediately to Scripture, prayer chain, and fellowship feed.
+                        </p>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setRegRole('ministry_member')}
+                      className={`p-3.5 rounded-2xl border text-left transition cursor-pointer flex flex-col justify-between ${
+                        regRole === 'ministry_member'
+                          ? 'bg-primary text-white border-primary shadow-soft ring-2 ring-gold/40'
+                          : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 hover:border-gold/50 text-slate-700 dark:text-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <Sparkles className="w-4 h-4 text-gold" />
+                        <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded ${
+                          regRole === 'ministry_member' ? 'bg-amber-500/30 text-amber-300' : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-400'
+                        }`}>
+                          Admin Approval
+                        </span>
+                      </div>
+                      <div className="mt-2.5">
+                        <div className="font-bold text-xs">Ministry Member</div>
+                        <p className={`text-[10px] mt-0.5 leading-snug ${regRole === 'ministry_member' ? 'text-slate-300' : 'text-slate-500'}`}>
+                          Serve in Worship, Ushering, or Multimedia. Account requires Super Admin verification before activation.
+                        </p>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                {/* If Ministry Member is chosen, show ministry picker & message */}
+                {regRole === 'ministry_member' && (
+                  <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-3 animate-fade-in text-xs">
+                    <div className="space-y-1">
+                      <label className="block text-xs font-bold text-slate-800 dark:text-slate-200">
+                        Select Ministry Team *
+                      </label>
+                      <select
+                        value={regMinistryId}
+                        onChange={(e) => setRegMinistryId(e.target.value as any)}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-900 dark:text-white outline-none"
+                      >
+                        <option value="ministry-worship">Worship Team (Praise, Vocals & Band)</option>
+                        <option value="ministry-usher">Ushering Team (Hospitality & Greeters)</option>
+                        <option value="ministry-multimedia">Multimedia Team (Sound, Slides & Livestream)</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="block text-xs font-bold text-slate-800 dark:text-slate-200">
+                        Service Heart & Experience / Message (Optional)
+                      </label>
+                      <textarea
+                        value={regMinistryMessage}
+                        onChange={(e) => setRegMinistryMessage(e.target.value)}
+                        placeholder="Tell leadership about your heart to serve, instruments played, vocal range, or technical AV skills..."
+                        className="w-full p-2.5 rounded-xl border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 h-20 outline-none"
+                      />
+                    </div>
+
+                    <div className="text-[11px] text-amber-800 dark:text-amber-300 flex items-start gap-1.5 leading-snug pt-1">
+                      <Clock className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-600" />
+                      <span>Upon registration, your account will be pending confirmation by the Super Admin in the Admin Dashboard.</span>
+                    </div>
+                  </div>
+                )}
+
                 {/* 1. Full Name */}
                 <div className="space-y-1">
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">

@@ -2,13 +2,14 @@ import React, { useState } from 'react';
 import { 
   Users, Sparkles, MapPin, Clock, CheckCircle2, ChevronRight, 
   Send, FileText, ArrowRight, X, ShieldAlert, Music, Video,
-  Calendar, Layers, ShieldCheck, Heart, UserPlus, ExternalLink
+  Calendar, Layers, ShieldCheck, Heart, UserPlus, ExternalLink,
+  Lock, AlertCircle
 } from 'lucide-react';
 import { ChurchDataStore } from '../../services/churchDataStore';
 import { 
   MinistryStore, MinistryItem, MinistryId 
 } from '../../services/ministryStore';
-import { UserProfile } from '../../types';
+import { UserProfile, MinistryJoinRequest } from '../../types';
 import { SharedWorkspaceLayout } from './SharedWorkspaceLayout';
 import { UnifiedSundayServicePlanner } from './UnifiedSundayServicePlanner';
 
@@ -26,32 +27,56 @@ export const MinistriesView: React.FC<MinistriesViewProps> = ({
   const [activeWorkspaceMinistry, setActiveWorkspaceMinistry] = useState<MinistryItem | null>(null);
   const [viewMode, setViewMode] = useState<'cards' | 'planner'>('cards');
   
-  // Volunteer join request modal
+  // Join requests
+  const [joinRequests, setJoinRequests] = useState<MinistryJoinRequest[]>(() => ChurchDataStore.getJoinRequests());
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
-  const [targetMinistryForJoin, setTargetMinistryForJoin] = useState<MinistryItem | null>(null);
+  const [targetMinistryForJoin, setTargetMinistryForJoin] = useState<MinistryItem>(ministries[0]);
   const [experienceText, setExperienceText] = useState('');
   const [submittedSuccess, setSubmittedSuccess] = useState(false);
+
+  // Role & Permissions check:
+  // Church members (regular_member) CANNOT enter the workspace; only view the ministries & request to join.
+  // Super Admin, Church Admin, Pastor, Ministry Leader, and active verified Ministry Members can enter.
+  const isSuperOrPastor = ['super_admin', 'church_admin', 'pastor'].includes(currentUser.role);
+  const isMinistryLeader = currentUser.role === 'ministry_leader';
+  const isActiveMinistryMember = currentUser.role === 'ministry_member' && currentUser.approvalStatus !== 'pending';
+  const canAccessWorkspaces = isSuperOrPastor || isMinistryLeader || isActiveMinistryMember;
 
   const handleOpenJoinModal = (m: MinistryItem) => {
     setTargetMinistryForJoin(m);
     setIsJoinModalOpen(true);
+    setSubmittedSuccess(false);
+  };
+
+  const handleMinistryCardClick = (m: MinistryItem) => {
+    if (canAccessWorkspaces) {
+      setActiveWorkspaceMinistry(m);
+    } else {
+      // Church Member: Cannot enter, open Join Request modal
+      handleOpenJoinModal(m);
+    }
   };
 
   const handleApply = (e: React.FormEvent) => {
     e.preventDefault();
     if (!targetMinistryForJoin) return;
     ChurchDataStore.submitJoinRequest(targetMinistryForJoin.id, experienceText);
+    setJoinRequests(ChurchDataStore.getJoinRequests());
     setSubmittedSuccess(true);
     setTimeout(() => {
       setSubmittedSuccess(false);
       setIsJoinModalOpen(false);
       setExperienceText('');
-      setTargetMinistryForJoin(null);
-    }, 1500);
+    }, 2200);
+  };
+
+  // Check if current user has an active pending request for a ministry
+  const getPendingRequestForMinistry = (ministryId: string) => {
+    return joinRequests.find(r => r.ministryId === ministryId && r.userId === currentUser.id && r.status === 'pending');
   };
 
   // If a ministry workspace is active, render the dedicated workspace
-  if (activeWorkspaceMinistry) {
+  if (activeWorkspaceMinistry && canAccessWorkspaces) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <SharedWorkspaceLayout
@@ -85,7 +110,13 @@ export const MinistriesView: React.FC<MinistriesViewProps> = ({
           currentUser={currentUser}
           onNavigateToMinistry={(id) => {
             const m = ministries.find(item => item.id === id);
-            if (m) setActiveWorkspaceMinistry(m);
+            if (m) {
+              if (canAccessWorkspaces) {
+                setActiveWorkspaceMinistry(m);
+              } else {
+                handleOpenJoinModal(m);
+              }
+            }
           }}
           onOpenWorshipHub={() => onNavigate && onNavigate('worship')}
         />
@@ -122,7 +153,7 @@ export const MinistriesView: React.FC<MinistriesViewProps> = ({
             </p>
           </div>
 
-          {/* Quick Trigger to Unified Sunday Planner */}
+          {/* Quick Trigger to Unified Sunday Planner (Available to leaders/members, or preview) */}
           <div className="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/15 w-full md:w-auto shrink-0 space-y-2.5">
             <div className="flex items-center justify-between gap-4">
               <span className="text-[11px] font-bold uppercase tracking-wider text-stone-300">
@@ -148,6 +179,31 @@ export const MinistriesView: React.FC<MinistriesViewProps> = ({
         </div>
       </div>
 
+      {/* WANT TO JOIN A MINISTRY CALLOUT BANNER (For Church Members) */}
+      {!canAccessWorkspaces && (
+        <div className="rounded-3xl bg-gradient-to-r from-amber-500/10 via-gold/10 to-amber-500/10 border border-gold/30 p-5 sm:p-6 shadow-soft flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-gold flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-gold" />
+              <span>Serving at Beholding Jesus Church</span>
+            </span>
+            <h3 className="font-serif font-bold text-lg text-stone-900 dark:text-white">
+              Want to Join a Ministry Team?
+            </h3>
+            <p className="text-xs text-stone-600 dark:text-stone-300 max-w-2xl leading-relaxed">
+              Our ministry workspaces, transposed chord charts, rosters, and technical checklists are reserved for active ministry team members. Select a ministry below and request to join with a personal message!
+            </p>
+          </div>
+          <button
+            onClick={() => handleOpenJoinModal(ministries[0])}
+            className="px-5 py-2.5 rounded-2xl bg-gold hover:bg-[#b08e57] text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-soft transition whitespace-nowrap cursor-pointer active:scale-95"
+          >
+            <UserPlus className="w-4 h-4" />
+            <span>Request to Join a Ministry</span>
+          </button>
+        </div>
+      )}
+
       {/* 3 MINISTRY CARDS (Worship Team, Ushering Team, Multimedia Team) */}
       <div>
         <div className="flex items-center justify-between mb-4">
@@ -156,7 +212,9 @@ export const MinistriesView: React.FC<MinistriesViewProps> = ({
               The Three Core Ministry Teams
             </h2>
             <p className="text-xs text-stone-500 dark:text-stone-400">
-              Select a ministry to access schedules, rosters, tasks, attendance, and team resources.
+              {canAccessWorkspaces 
+                ? 'Select a ministry to access schedules, rosters, tasks, attendance, and team resources.'
+                : 'Browse our church ministries. Click a team to request to join and submit your message to the Admin Dashboard.'}
             </p>
           </div>
 
@@ -172,13 +230,13 @@ export const MinistriesView: React.FC<MinistriesViewProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {ministries.map(m => {
             const Icon = m.icon === 'Music' ? Music : m.icon === 'Users' ? Users : Video;
-            const isWorship = m.id === 'ministry-worship';
-            const isUsher = m.id === 'ministry-usher';
+            const pendingReq = getPendingRequestForMinistry(m.id);
 
             return (
               <div
                 key={m.id}
-                className="group rounded-3xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 hover:border-gold/60 shadow-card hover:shadow-elevated transition-all duration-300 flex flex-col justify-between overflow-hidden"
+                onClick={() => handleMinistryCardClick(m)}
+                className="group rounded-3xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 hover:border-gold/60 shadow-card hover:shadow-elevated transition-all duration-300 flex flex-col justify-between overflow-hidden cursor-pointer"
               >
                 {/* Ministry Cover Header */}
                 <div className="relative h-44 overflow-hidden bg-stone-900">
@@ -234,21 +292,42 @@ export const MinistriesView: React.FC<MinistriesViewProps> = ({
 
                   {/* Actions */}
                   <div className="pt-3 border-t border-stone-100 dark:border-stone-800 flex items-center gap-2">
-                    <button
-                      onClick={() => setActiveWorkspaceMinistry(m)}
-                      className="flex-1 py-2.5 px-4 rounded-xl bg-primary hover:bg-slate-800 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition shadow-soft cursor-pointer active:scale-95"
-                    >
-                      <span>View Ministry</span>
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
-
-                    <button
-                      onClick={() => handleOpenJoinModal(m)}
-                      title="Request to volunteer"
-                      className="py-2.5 px-3 rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 text-stone-700 dark:text-stone-300 font-semibold text-xs flex items-center justify-center transition cursor-pointer"
-                    >
-                      <UserPlus className="w-4 h-4" />
-                    </button>
+                    {canAccessWorkspaces ? (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveWorkspaceMinistry(m);
+                        }}
+                        className="flex-1 py-2.5 px-4 rounded-xl bg-primary hover:bg-slate-800 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition shadow-soft cursor-pointer active:scale-95"
+                      >
+                        <span>View Ministry Workspace</span>
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    ) : (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenJoinModal(m);
+                        }}
+                        className={`flex-1 py-2.5 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition shadow-soft cursor-pointer active:scale-95 ${
+                          pendingReq 
+                            ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-800' 
+                            : 'bg-gold hover:bg-[#b08e57] text-slate-950'
+                        }`}
+                      >
+                        {pendingReq ? (
+                          <>
+                            <Clock className="w-4 h-4" />
+                            <span>Request Pending Review</span>
+                          </>
+                        ) : (
+                          <>
+                            <UserPlus className="w-4 h-4" />
+                            <span>Request to Join Team</span>
+                          </>
+                        )}
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -257,68 +336,122 @@ export const MinistriesView: React.FC<MinistriesViewProps> = ({
         </div>
       </div>
 
-      {/* Volunteer Modal */}
+      {/* REQUEST TO JOIN MINISTRY MODAL (For Church Members) */}
       {isJoinModalOpen && targetMinistryForJoin && (
-        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-3xl p-6 w-full max-w-md shadow-2xl space-y-4">
-            <div className="flex items-start justify-between">
-              <div>
-                <h3 className="font-bold text-base text-stone-900 dark:text-white">
-                  Volunteer for {targetMinistryForJoin.name}
+        <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-3xl p-6 sm:p-7 w-full max-w-lg shadow-2xl space-y-5 animate-scale-in">
+            <div className="flex items-start justify-between pb-3 border-b border-stone-100 dark:border-stone-800">
+              <div className="space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-gold flex items-center gap-1.5">
+                  <Heart className="w-3.5 h-3.5 text-gold" />
+                  <span>Ministry Application • Church Member</span>
+                </span>
+                <h3 className="font-serif font-bold text-lg sm:text-xl text-stone-900 dark:text-white">
+                  Want to Join a Ministry?
                 </h3>
                 <p className="text-xs text-stone-500">
-                  Lead: {targetMinistryForJoin.leaderName}
+                  Submit your request to serve. Your application will appear on the Admin Dashboard for Super Admin review.
                 </p>
               </div>
               <button 
                 onClick={() => setIsJoinModalOpen(false)}
-                className="text-stone-400 hover:text-stone-600"
+                className="p-1.5 rounded-xl hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-400 hover:text-stone-600 transition"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {submittedSuccess ? (
-              <div className="p-4 rounded-2xl bg-emerald-50 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 text-xs font-bold flex items-center gap-2">
-                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                <span>Request sent! The ministry leader will contact you.</span>
+              <div className="p-5 rounded-2xl bg-emerald-50 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 text-xs font-bold space-y-2 text-center animate-fade-in">
+                <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
+                <div className="text-sm">Praise God! Request Submitted</div>
+                <p className="text-[11px] font-normal leading-relaxed text-emerald-700 dark:text-emerald-400">
+                  Your request to join the <strong>{targetMinistryForJoin.name}</strong> has been forwarded to the Admin Dashboard for Super Admin confirmation.
+                </p>
               </div>
             ) : (
-              <form onSubmit={handleApply} className="space-y-3 text-xs">
-                <div>
-                  <label className="font-semibold block mb-1">Your Name</label>
-                  <input 
-                    type="text" 
-                    value={currentUser.name} 
-                    disabled 
-                    className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-100 dark:bg-stone-800 text-stone-500"
-                  />
+              <form onSubmit={handleApply} className="space-y-4 text-xs">
+                {/* Ministry Switcher Pills */}
+                <div className="space-y-1.5">
+                  <label className="font-bold text-stone-700 dark:text-stone-300 block">
+                    1. Choose Which Ministry to Join *
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {ministries.map(min => {
+                      const isSelected = targetMinistryForJoin.id === min.id;
+                      return (
+                        <button
+                          key={min.id}
+                          type="button"
+                          onClick={() => setTargetMinistryForJoin(min)}
+                          className={`p-2.5 rounded-2xl border text-center transition cursor-pointer flex flex-col items-center gap-1 ${
+                            isSelected 
+                              ? 'bg-primary text-white border-primary shadow-soft ring-2 ring-gold/40' 
+                              : 'bg-stone-50 dark:bg-stone-800/40 border-stone-200 dark:border-stone-700 hover:border-gold/50 text-stone-700 dark:text-stone-300'
+                          }`}
+                        >
+                          <span className="font-bold text-xs truncate w-full">{min.name}</span>
+                          <span className={`text-[9.5px] truncate w-full ${isSelected ? 'text-gold' : 'text-stone-400'}`}>
+                            {min.category.split(' ')[0]}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-                <div>
-                  <label className="font-semibold block mb-1">
-                    Your Heart to Serve / Relevant Experience
+
+                {/* Existing Pending Request Check */}
+                {getPendingRequestForMinistry(targetMinistryForJoin.id) ? (
+                  <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 space-y-1">
+                    <div className="font-bold flex items-center gap-1.5">
+                      <Clock className="w-4 h-4 text-amber-600" />
+                      <span>Application Currently Pending</span>
+                    </div>
+                    <p className="text-[11px] text-amber-700 dark:text-amber-400 leading-relaxed">
+                      You already submitted an application to join the {targetMinistryForJoin.name}. It is currently awaiting Super Admin review on the Admin Dashboard.
+                    </p>
+                  </div>
+                ) : null}
+
+                {/* 2. Applicant Info */}
+                <div className="p-3 rounded-2xl bg-stone-50 dark:bg-stone-800/50 border border-stone-100 dark:border-stone-800 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase text-stone-400 block">Applicant</span>
+                    <span className="font-bold text-stone-900 dark:text-white">{currentUser.name}</span>
+                    <span className="text-[11px] text-stone-500 block">{currentUser.email}</span>
+                  </div>
+                  <span className="px-2.5 py-1 rounded-xl bg-stone-200 dark:bg-stone-700 font-bold text-[10px] uppercase text-stone-600 dark:text-stone-300">
+                    {currentUser.roleTitle}
+                  </span>
+                </div>
+
+                {/* 3. Personal Message */}
+                <div className="space-y-1">
+                  <label className="font-bold text-stone-700 dark:text-stone-300 block">
+                    2. Why do you want to join this ministry? (Heart to Serve) *
                   </label>
                   <textarea 
                     value={experienceText} 
                     onChange={e => setExperienceText(e.target.value)} 
-                    placeholder="Tell us what instruments you play, your passion for greeting, or technical background..."
-                    className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-stone-700 bg-transparent text-stone-900 dark:text-white h-24"
-                    required
+                    placeholder="Tell leadership why you would like to join, what instruments you play, vocal range, hospitality experience, or technical/AV background..."
+                    className="w-full p-3 rounded-2xl border border-stone-200 dark:border-stone-700 bg-transparent text-stone-900 dark:text-white placeholder:text-stone-400 h-28 outline-none focus:ring-2 focus:ring-gold/40"
+                    required 
                   />
                 </div>
-                <div className="flex justify-end gap-2 pt-2">
+
+                <div className="flex items-center justify-end gap-2 pt-2">
                   <button 
                     type="button" 
                     onClick={() => setIsJoinModalOpen(false)}
-                    className="px-4 py-2 rounded-xl text-stone-600 dark:text-stone-400 font-bold hover:bg-stone-100"
+                    className="px-4 py-2.5 rounded-xl text-stone-600 dark:text-stone-400 font-bold hover:bg-stone-100 dark:hover:bg-stone-800 transition cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button 
                     type="submit" 
-                    className="px-4 py-2 rounded-xl bg-primary text-white font-bold"
+                    className="px-5 py-2.5 rounded-xl bg-gold hover:bg-[#b08e57] text-slate-950 font-bold shadow-soft transition cursor-pointer"
                   >
-                    Send Volunteer Application
+                    Submit Join Request to Admin
                   </button>
                 </div>
               </form>

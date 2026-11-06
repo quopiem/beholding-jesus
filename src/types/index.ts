@@ -21,6 +21,9 @@ export interface UserProfile {
   joinedDate?: string;
   isSuspended?: boolean;
   ministryLabel?: string;
+  approvalStatus?: 'active' | 'pending' | 'rejected';
+  targetMinistryId?: string;
+  ministryMessage?: string;
 }
 
 export interface AuthSession {
@@ -62,6 +65,8 @@ export interface AuthResult {
   error?: string;
   user?: UserProfile;
   session?: AuthSession;
+  isPendingApproval?: boolean;
+  isRejected?: boolean;
 }
 
 export interface RegistrationData {
@@ -70,6 +75,9 @@ export interface RegistrationData {
   password: string;
   confirmPassword: string;
   email?: string;
+  role?: 'regular_member' | 'ministry_member';
+  targetMinistryId?: string;
+  ministryMessage?: string;
 }
 
 // -------------------------------------------------------------
