@@ -15,15 +15,21 @@ import {
   Layers,
   FileText,
   Pin,
-  PinOff
+  PinOff,
+  UserCheck,
+  KeyRound
 } from 'lucide-react';
 import { AdminAnnouncement, AdminAuditLog, AdminDashboardStats } from '../types';
 import { AdminAnnouncementService } from '../services/adminAnnouncementService';
+import { ChurchDataStore } from '../../services/churchDataStore';
+import { AuthService } from '../../services/authService';
 
 interface AdminDashboardHomeProps {
   onNavigateToAnnouncements: () => void;
   onNavigateToMembers: () => void;
   onNavigateToAudit: () => void;
+  onNavigateToRequests?: () => void;
+  onNavigateToRecovery?: () => void;
   onOpenCreateModal: () => void;
   onEditAnnouncement: (announcement: AdminAnnouncement) => void;
 }
@@ -32,6 +38,8 @@ export const AdminDashboardHome: React.FC<AdminDashboardHomeProps> = ({
   onNavigateToAnnouncements,
   onNavigateToMembers,
   onNavigateToAudit,
+  onNavigateToRequests,
+  onNavigateToRecovery,
   onOpenCreateModal,
   onEditAnnouncement
 }) => {
@@ -43,6 +51,8 @@ export const AdminDashboardHome: React.FC<AdminDashboardHomeProps> = ({
     scheduledCount: 0,
     upcomingEventsCount: 0
   });
+  const [pendingMinistryCount, setPendingMinistryCount] = useState(0);
+  const [pendingRecoveryCount, setPendingRecoveryCount] = useState(0);
   const [recentAnnouncements, setRecentAnnouncements] = useState<AdminAnnouncement[]>([]);
   const [recentLogs, setRecentLogs] = useState<AdminAuditLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,14 +60,24 @@ export const AdminDashboardHome: React.FC<AdminDashboardHomeProps> = ({
   const loadData = async () => {
     setLoading(true);
     try {
-      const [statsData, allAnnouncements, logsData] = await Promise.all([
+      const [statsData, allAnnouncements, logsData, joins, users, recs] = await Promise.all([
         AdminAnnouncementService.getDashboardStats(),
         AdminAnnouncementService.getAllAnnouncements(),
-        AdminAnnouncementService.getAuditLogs()
+        AdminAnnouncementService.getAuditLogs(),
+        ChurchDataStore.fetchJoinRequestsFromCloud(),
+        ChurchDataStore.fetchUsersFromCloud(),
+        AuthService.fetchRecoveryRequestsFromCloud()
       ]);
       setStats(statsData);
       setRecentAnnouncements(allAnnouncements.slice(0, 5));
       setRecentLogs(logsData.slice(0, 6));
+
+      const pendingReg = ChurchDataStore.getPendingMinistryRegistrations().length;
+      const pendingJoin = joins ? joins.filter(j => j.status === 'pending').length : 0;
+      setPendingMinistryCount(pendingReg + pendingJoin);
+
+      const pendingRec = recs ? recs.filter(r => r.status === 'pending').length : 0;
+      setPendingRecoveryCount(pendingRec);
     } catch (err) {
       console.error('Error loading dashboard overview:', err);
     } finally {
@@ -117,8 +137,104 @@ export const AdminDashboardHome: React.FC<AdminDashboardHomeProps> = ({
         <div className="absolute -right-16 -top-16 w-64 h-64 rounded-full bg-white/10 blur-3xl pointer-events-none" />
       </div>
 
+      {/* Action Required Banner for Pending Requests */}
+      {(pendingMinistryCount > 0 || pendingRecoveryCount > 0) && (
+        <div className="p-5 sm:p-6 rounded-3xl bg-amber-50 border border-amber-300 text-amber-950 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 animate-fadeIn">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="p-2.5 rounded-2xl bg-amber-200 text-amber-800 shrink-0">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="font-serif font-bold text-base text-amber-950">
+                Action Required by Super Admin
+              </div>
+              <p className="text-xs text-amber-900 mt-0.5">
+                {pendingMinistryCount > 0 && `${pendingMinistryCount} ministry application/registration request(s) awaiting verification. `}
+                {pendingRecoveryCount > 0 && `${pendingRecoveryCount} account recovery request(s) needing password reset.`}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {pendingMinistryCount > 0 && onNavigateToRequests && (
+              <button
+                onClick={onNavigateToRequests}
+                className="px-4 py-2 rounded-xl bg-[#8C5858] hover:bg-[#754444] text-white font-bold text-xs flex items-center gap-1.5 transition shadow-xs cursor-pointer"
+              >
+                <UserCheck className="w-4 h-4" />
+                <span>Review Ministry ({pendingMinistryCount})</span>
+              </button>
+            )}
+            {pendingRecoveryCount > 0 && onNavigateToRecovery && (
+              <button
+                onClick={onNavigateToRecovery}
+                className="px-4 py-2 rounded-xl bg-amber-700 hover:bg-amber-800 text-white font-bold text-xs flex items-center gap-1.5 transition shadow-xs cursor-pointer"
+              >
+                <KeyRound className="w-4 h-4" />
+                <span>Review Recovery ({pendingRecoveryCount})</span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* KPI Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Ministry Approvals KPI Card */}
+        <div 
+          onClick={onNavigateToRequests}
+          className={`p-5 rounded-2xl border transition-all cursor-pointer group ${
+            pendingMinistryCount > 0 
+              ? 'bg-amber-50/50 border-amber-300 shadow-sm' 
+              : 'bg-white border-[#E8DBD4] shadow-xs hover:border-[#8C5858]/40'
+          }`}
+        >
+          <div className="flex items-center justify-between text-[#78716E] mb-2">
+            <span className="text-xs font-semibold uppercase tracking-wider">Ministry Approvals</span>
+            <div className={`p-2 rounded-xl ${
+              pendingMinistryCount > 0 
+                ? 'bg-amber-200 text-amber-900' 
+                : 'bg-[#F8F3F0] text-[#8C5858] group-hover:bg-[#8C5858] group-hover:text-white'
+            } transition-colors`}>
+              <UserCheck className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-2xl sm:text-3xl font-bold font-serif text-[#1F1D1D]">
+            {loading ? '-' : pendingMinistryCount}
+          </div>
+          <div className="text-[11px] text-[#78716E] mt-1 flex items-center gap-1">
+            <span>{pendingMinistryCount > 0 ? 'Pending verification' : 'Up to date'}</span>
+            <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+          </div>
+        </div>
+
+        {/* Account Recovery KPI Card */}
+        <div 
+          onClick={onNavigateToRecovery}
+          className={`p-5 rounded-2xl border transition-all cursor-pointer group ${
+            pendingRecoveryCount > 0 
+              ? 'bg-rose-50/50 border-rose-300 shadow-sm' 
+              : 'bg-white border-[#E8DBD4] shadow-xs hover:border-[#8C5858]/40'
+          }`}
+        >
+          <div className="flex items-center justify-between text-[#78716E] mb-2">
+            <span className="text-xs font-semibold uppercase tracking-wider">Account Recovery</span>
+            <div className={`p-2 rounded-xl ${
+              pendingRecoveryCount > 0 
+                ? 'bg-rose-200 text-rose-900' 
+                : 'bg-[#F8F3F0] text-[#8C5858] group-hover:bg-[#8C5858] group-hover:text-white'
+            } transition-colors`}>
+              <KeyRound className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-2xl sm:text-3xl font-bold font-serif text-[#1F1D1D]">
+            {loading ? '-' : pendingRecoveryCount}
+          </div>
+          <div className="text-[11px] text-[#78716E] mt-1 flex items-center gap-1">
+            <span>{pendingRecoveryCount > 0 ? 'Action required' : 'All resolved'}</span>
+            <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+          </div>
+        </div>
+
         {/* Total Members */}
         <div 
           onClick={onNavigateToMembers}

@@ -494,42 +494,142 @@ export class AuthService {
       const raw = localStorage.getItem(STORAGE_RECOVERY);
       if (raw) return JSON.parse(raw);
     } catch {}
-    return [
-      {
-        id: 'rec-sample-1',
-        userId: 'user-member-kyle',
-        username: 'kyle',
-        fullName: 'Kyle Evangelista',
-        status: 'pending',
-        requestReason: 'Forgot password after mobile phone switch. Need access for youth worship rehearsal.',
-        createdAt: '2026-11-03T18:00:00.000Z'
-      }
-    ];
+    return [];
   }
 
   private static saveRecoveryRequests(reqs: PasswordRecoveryRequest[]): void {
     localStorage.setItem(STORAGE_RECOVERY, JSON.stringify(reqs));
   }
 
-  static requestAccountRecovery(username: string, reason: string): { success: boolean; message: string } {
+  static async fetchRecoveryRequestsFromCloud(): Promise<PasswordRecoveryRequest[]> {
+    if (!supabase) return this.getRecoveryRequests();
+    try {
+      const { data, error } = await supabase
+        .from('church_prayer_requests')
+        .select('*')
+        .eq('category', 'sys_account_recovery')
+        .order('created_at', { ascending: false });
+
+      if (data && !error) {
+        const cloudRequests: PasswordRecoveryRequest[] = data.map(d => {
+          let meta: any = {};
+          try { meta = JSON.parse(d.testimony_text || '{}'); } catch {}
+          return {
+            id: d.id,
+            userId: d.user_id,
+            username: d.title,
+            fullName: d.author_name || d.title,
+            status: meta.status || (d.is_answered ? 'resolved' : 'pending'),
+            requestReason: d.description || 'Password reset requested by member.',
+            temporaryPassword: meta.tempPassword || d.target_ministry_id,
+            resolvedBy: meta.resolvedBy,
+            resolvedAt: meta.resolvedAt,
+            createdAt: d.created_at
+          };
+        });
+
+        // Merge with any local recovery requests
+        const localRequests = this.getRecoveryRequests();
+        const mergedMap = new Map<string, PasswordRecoveryRequest>();
+
+        cloudRequests.forEach(r => mergedMap.set(r.id, r));
+        localRequests.forEach(r => {
+          if (!mergedMap.has(r.id)) {
+            mergedMap.set(r.id, r);
+            // Push missing local request to cloud
+            supabase?.from('church_prayer_requests').upsert({
+              id: r.id,
+              user_id: r.userId,
+              author_name: r.fullName,
+              is_anonymous: false,
+              category: 'sys_account_recovery',
+              title: r.username,
+              description: r.requestReason || '',
+              visibility: 'admin_only',
+              target_ministry_id: r.temporaryPassword || '',
+              is_answered: r.status === 'resolved',
+              testimony_text: JSON.stringify({
+                status: r.status,
+                tempPassword: r.temporaryPassword,
+                resolvedBy: r.resolvedBy,
+                resolvedAt: r.resolvedAt
+              }),
+              created_at: r.createdAt
+            }).then();
+          }
+        });
+
+        const merged = Array.from(mergedMap.values());
+        this.saveRecoveryRequests(merged);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('bjc_recovery_change'));
+        }
+        return merged;
+      }
+    } catch (e) {
+      console.warn('fetchRecoveryRequestsFromCloud error:', e);
+    }
+    return this.getRecoveryRequests();
+  }
+
+  static subscribeToRecoveryRequests(onUpdate: (reqs: PasswordRecoveryRequest[]) => void) {
+    if (!supabase) return () => {};
+    const channel = supabase
+      .channel('public:sys_account_recovery')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'church_prayer_requests' },
+        async (payload: any) => {
+          if (payload.new?.category === 'sys_account_recovery' || payload.old?.category === 'sys_account_recovery') {
+            const fresh = await AuthService.fetchRecoveryRequestsFromCloud();
+            onUpdate(fresh);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }
+
+  static async requestAccountRecovery(username: string, reason: string): Promise<{ success: boolean; message: string }> {
     const uname = username.trim().toLowerCase();
     const users = ChurchDataStore.getUsers();
-    const found = users.find(u => u.username?.toLowerCase() === uname);
+    let found = users.find(u => u.username?.toLowerCase() === uname);
 
-    if (!found) {
-      // Don't leak whether username exists or not
-      return {
-        success: true,
-        message: 'If the username exists in our church directory, your recovery request has been submitted to church leadership.'
-      };
+    // If not in local cache, check Supabase Cloud
+    if (!found && supabase) {
+      try {
+        const { data } = await supabase
+          .from('church_members_auth')
+          .select('id, name, username')
+          .eq('username', uname)
+          .maybeSingle();
+        if (data) {
+          found = {
+            id: data.id,
+            name: data.name,
+            username: data.username,
+            email: `${uname}@beholdingjesus.org`,
+            role: 'regular_member',
+            roleTitle: 'Church Member',
+            avatar: '',
+            bio: '',
+            joinedDate: '2026-11-04'
+          };
+        }
+      } catch (err) {
+        console.warn('Check user for recovery error:', err);
+      }
     }
 
     const reqs = this.getRecoveryRequests();
     const newReq: PasswordRecoveryRequest = {
       id: `rec-${Date.now()}`,
-      userId: found.id,
+      userId: found ? found.id : `user-${uname}`,
       username: uname,
-      fullName: found.name,
+      fullName: found ? found.name : uname,
       status: 'pending',
       requestReason: reason || 'Password reset requested by member.',
       createdAt: new Date().toISOString()
@@ -537,6 +637,33 @@ export class AuthService {
 
     reqs.unshift(newReq);
     this.saveRecoveryRequests(reqs);
+
+    // Sync to Supabase Cloud so Super Admin sees it across all devices
+    if (supabase) {
+      try {
+        await supabase.from('church_prayer_requests').upsert({
+          id: newReq.id,
+          user_id: newReq.userId,
+          author_name: newReq.fullName,
+          is_anonymous: false,
+          category: 'sys_account_recovery',
+          title: uname,
+          description: newReq.requestReason,
+          visibility: 'admin_only',
+          target_ministry_id: '',
+          is_answered: false,
+          testimony_text: JSON.stringify({ status: 'pending' }),
+          created_at: newReq.createdAt
+        });
+      } catch (err) {
+        console.warn('Upsert recovery to Supabase fallback:', err);
+      }
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('bjc_recovery_change'));
+      window.dispatchEvent(new Event('storage'));
+    }
 
     return {
       success: true,
@@ -563,17 +690,51 @@ export class AuthService {
     if (!req) return { success: false, error: 'Recovery request not found.' };
 
     const tempPassword = newTempPassword || `Bjc${Math.floor(100000 + Math.random() * 900000)}!`;
+    const newSalt = this.generateSalt();
+    const newPasswordHash = await this.hashPassword(tempPassword, newSalt);
+
     const creds = this.getCredentials();
     const cred = creds.find(c => c.userId === req.userId || c.username === req.username);
 
     if (cred) {
-      const newSalt = this.generateSalt();
       cred.salt = newSalt;
-      cred.passwordHash = await this.hashPassword(tempPassword, newSalt);
+      cred.passwordHash = newPasswordHash;
       cred.failedAttempts = 0;
       cred.lockoutUntil = null;
       cred.updatedAt = new Date().toISOString();
       this.saveCredentials(creds);
+    }
+
+    // Direct Cloud Reset in Supabase so user can log in immediately from mobile or PC
+    if (supabase) {
+      try {
+        await supabase
+          .from('church_members_auth')
+          .update({
+            salt: newSalt,
+            password_hash: newPasswordHash,
+            failed_attempts: 0,
+            lockout_until: null,
+            updated_at: new Date().toISOString()
+          })
+          .or(`username.ilike.${req.username},id.eq.${req.userId}`);
+
+        await supabase
+          .from('church_prayer_requests')
+          .update({
+            is_answered: true,
+            target_ministry_id: tempPassword,
+            testimony_text: JSON.stringify({
+              status: 'resolved',
+              tempPassword,
+              resolvedBy: admin.name,
+              resolvedAt: new Date().toISOString()
+            })
+          })
+          .eq('id', requestId);
+      } catch (err) {
+        console.warn('Cloud password reset error:', err);
+      }
     }
 
     req.status = 'resolved';
@@ -581,6 +742,11 @@ export class AuthService {
     req.resolvedAt = new Date().toISOString();
     req.resolvedBy = admin.name;
     this.saveRecoveryRequests(reqs);
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('bjc_recovery_change'));
+      window.dispatchEvent(new Event('storage'));
+    }
 
     return { success: true, tempPassword };
   }

@@ -156,7 +156,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   // -------------------------------------------------------------
   // HANDLER: ACCOUNT RECOVERY WORKFLOW
   // -------------------------------------------------------------
-  const handleRecoverySubmit = (e: React.FormEvent) => {
+  const handleRecoverySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setRecResult(null);
 
@@ -167,7 +167,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 
     setIsRecovering(true);
     try {
-      const res = AuthService.requestAccountRecovery(recUsername, recReason);
+      const res = await AuthService.requestAccountRecovery(recUsername, recReason);
       setRecResult({
         type: 'success',
         message: res.message

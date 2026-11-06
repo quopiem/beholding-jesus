@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, 
   Megaphone, 
@@ -12,11 +12,15 @@ import {
   X, 
   ShieldCheck,
   Calendar,
-  Sparkles
+  Sparkles,
+  UserCheck,
+  KeyRound
 } from 'lucide-react';
 import { AdminUser } from '../types';
+import { ChurchDataStore } from '../../services/churchDataStore';
+import { AuthService } from '../../services/authService';
 
-export type AdminViewType = 'dashboard' | 'announcements' | 'members' | 'audit' | 'setup';
+export type AdminViewType = 'dashboard' | 'announcements' | 'members' | 'requests' | 'recovery' | 'audit' | 'setup';
 
 interface AdminLayoutProps {
   currentAdmin: AdminUser;
@@ -36,9 +40,64 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
   children
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [pendingMinistryCount, setPendingMinistryCount] = useState(0);
+  const [pendingRecoveryCount, setPendingRecoveryCount] = useState(0);
 
-  const navItems: { id: AdminViewType; label: string; icon: React.ReactNode; badge?: string }[] = [
+  const updateCounts = async () => {
+    try {
+      const [joins, users, recs] = await Promise.all([
+        ChurchDataStore.fetchJoinRequestsFromCloud(),
+        ChurchDataStore.fetchUsersFromCloud(),
+        AuthService.fetchRecoveryRequestsFromCloud()
+      ]);
+      const pendingReg = ChurchDataStore.getPendingMinistryRegistrations().length;
+      const pendingJoin = joins ? joins.filter(j => j.status === 'pending').length : 0;
+      setPendingMinistryCount(pendingReg + pendingJoin);
+
+      const pendingRec = recs ? recs.filter(r => r.status === 'pending').length : 0;
+      setPendingRecoveryCount(pendingRec);
+    } catch {
+      // fallback
+      const pendingReg = ChurchDataStore.getPendingMinistryRegistrations().length;
+      const pendingJoin = ChurchDataStore.getJoinRequests().filter(j => j.status === 'pending').length;
+      setPendingMinistryCount(pendingReg + pendingJoin);
+      setPendingRecoveryCount(AuthService.getRecoveryRequests().filter(r => r.status === 'pending').length);
+    }
+  };
+
+  useEffect(() => {
+    updateCounts();
+    const interval = setInterval(updateCounts, 5000);
+
+    const handleSync = () => updateCounts();
+    window.addEventListener('bjc_join_requests_change', handleSync);
+    window.addEventListener('bjc_recovery_change', handleSync);
+    window.addEventListener('bjc_users_change', handleSync);
+    window.addEventListener('storage', handleSync);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('bjc_join_requests_change', handleSync);
+      window.removeEventListener('bjc_recovery_change', handleSync);
+      window.removeEventListener('bjc_users_change', handleSync);
+      window.removeEventListener('storage', handleSync);
+    };
+  }, []);
+
+  const navItems: { id: AdminViewType; label: string; icon: React.ReactNode; badge?: number }[] = [
     { id: 'dashboard', label: 'Overview', icon: <LayoutDashboard className="w-4 h-4" /> },
+    { 
+      id: 'requests', 
+      label: 'Ministry Approvals', 
+      icon: <UserCheck className="w-4 h-4" />,
+      badge: pendingMinistryCount > 0 ? pendingMinistryCount : undefined
+    },
+    { 
+      id: 'recovery', 
+      label: 'Account Recovery', 
+      icon: <KeyRound className="w-4 h-4" />,
+      badge: pendingRecoveryCount > 0 ? pendingRecoveryCount : undefined
+    },
     { id: 'announcements', label: 'Announcements CMS', icon: <Megaphone className="w-4 h-4" /> },
     { id: 'members', label: 'Church Members', icon: <Users className="w-4 h-4" /> },
     { id: 'audit', label: 'Audit Trail', icon: <FileText className="w-4 h-4" /> },
@@ -154,6 +213,11 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
                 >
                   {item.icon}
                   <span>{item.label}</span>
+                  {item.badge !== undefined && item.badge > 0 && (
+                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-[#8C5858] text-white">
+                      {item.badge}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -170,14 +234,21 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
               <button
                 key={item.id}
                 onClick={() => handleNavClick(item.id)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all text-left ${
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-semibold transition-all text-left ${
                   active
                     ? 'bg-[#F5ECE8] text-[#8C5858]'
                     : 'text-[#5C5654] hover:bg-[#F8F3F0]'
                 }`}
               >
-                {item.icon}
-                <span>{item.label}</span>
+                <div className="flex items-center gap-3">
+                  {item.icon}
+                  <span>{item.label}</span>
+                </div>
+                {item.badge !== undefined && item.badge > 0 && (
+                  <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-[#8C5858] text-white">
+                    {item.badge}
+                  </span>
+                )}
               </button>
             );
           })}

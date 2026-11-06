@@ -67,19 +67,35 @@ export class ChurchDataStore {
         .order('created_at', { ascending: true });
 
       if (data && !error && data.length > 0) {
-        const mapped: UserProfile[] = data.map(d => ({
-          id: d.id,
-          name: d.name,
-          username: d.username,
-          email: d.email,
-          role: d.role as UserRole,
-          roleTitle: d.role_title || 'Church Member',
-          avatar: d.avatar || '/icons/church-logo.png',
-          bio: d.bio || 'Faithful member of Beholding Jesus Church.',
-          ministryIds: [],
-          joinedDate: d.created_at ? d.created_at.split('T')[0] : '2026-11-04'
-        }));
+        const localUsers = this.getUsers();
+        const mapped: UserProfile[] = data.map(d => {
+          const existing = localUsers.find(u => u.id === d.id || u.username?.toLowerCase() === d.username?.toLowerCase());
+          const isPending = d.role === 'ministry_member' && (
+            d.role_title?.includes('Pending') || 
+            existing?.approvalStatus === 'pending' || 
+            !d.role_title || 
+            d.role_title.toLowerCase().includes('pending')
+          );
+          return {
+            id: d.id,
+            name: d.name,
+            username: d.username,
+            email: d.email,
+            role: d.role as UserRole,
+            roleTitle: d.role_title || (isPending ? 'Ministry Member (Pending)' : 'Church Member'),
+            avatar: d.avatar || '/icons/church-logo.png',
+            bio: d.bio || 'Faithful member of Beholding Jesus Church.',
+            ministryIds: existing?.ministryIds || [],
+            approvalStatus: isPending ? 'pending' : (existing?.approvalStatus || 'active'),
+            targetMinistryId: existing?.targetMinistryId,
+            ministryMessage: existing?.ministryMessage,
+            joinedDate: d.created_at ? d.created_at.split('T')[0] : '2026-11-04'
+          };
+        });
         this.save(KEY_USERS, mapped);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('bjc_users_change'));
+        }
         return mapped;
       }
     } catch (e) {
@@ -569,19 +585,98 @@ export class ChurchDataStore {
   }
 
   static getJoinRequests(): MinistryJoinRequest[] {
-    return this.load<MinistryJoinRequest[]>(KEY_JOIN_REQUESTS, [
-      {
-        id: 'req-1',
-        ministryId: 'ministry-worship',
-        ministryName: 'Worship Ministry',
-        userId: 'user-member-sarah',
-        userName: 'Sarah Gomez',
-        userEmail: 'sarah.g@example.com',
-        experience: 'Acoustic guitar and vocal alto, would love to audition.',
-        status: 'pending',
-        requestedAt: '2026-11-02T14:00:00.000Z'
+    return this.load<MinistryJoinRequest[]>(KEY_JOIN_REQUESTS, []);
+  }
+
+  static async fetchJoinRequestsFromCloud(): Promise<MinistryJoinRequest[]> {
+    if (!supabase) return this.getJoinRequests();
+    try {
+      const { data, error } = await supabase
+        .from('church_prayer_requests')
+        .select('*')
+        .eq('category', 'sys_ministry_join_request')
+        .order('created_at', { ascending: false });
+
+      if (data && !error) {
+        const cloudRequests: MinistryJoinRequest[] = data.map(d => {
+          let ministryId = d.target_ministry_id || 'ministry-worship';
+          let ministryName = d.title || 'Ministry';
+          if (d.title && d.title.includes(':::')) {
+            const parts = d.title.split(':::');
+            ministryId = parts[0];
+            ministryName = parts[1];
+          }
+          return {
+            id: d.id,
+            ministryId,
+            ministryName,
+            userId: d.user_id,
+            userName: d.author_name,
+            userEmail: `${d.user_id}@beholdingjesus.org`,
+            experience: d.description || '',
+            status: (d.testimony_text as any) || (d.is_answered ? 'approved' : 'pending'),
+            requestedAt: d.created_at
+          };
+        });
+
+        // Merge with any local join requests to ensure complete coverage
+        const localRequests = this.getJoinRequests();
+        const mergedMap = new Map<string, MinistryJoinRequest>();
+        
+        cloudRequests.forEach(r => mergedMap.set(r.id, r));
+        localRequests.forEach(r => {
+          if (!mergedMap.has(r.id)) {
+            mergedMap.set(r.id, r);
+            // Upsert unsynced local request to cloud
+            supabase?.from('church_prayer_requests').upsert({
+              id: r.id,
+              user_id: r.userId,
+              author_name: r.userName,
+              is_anonymous: false,
+              category: 'sys_ministry_join_request',
+              title: `${r.ministryId}:::${r.ministryName}`,
+              description: r.experience || '',
+              visibility: 'admin_only',
+              target_ministry_id: r.ministryId,
+              is_answered: r.status === 'approved',
+              testimony_text: r.status,
+              created_at: r.requestedAt
+            }).then();
+          }
+        });
+
+        const merged = Array.from(mergedMap.values());
+        this.save(KEY_JOIN_REQUESTS, merged);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('bjc_join_requests_change'));
+        }
+        return merged;
       }
-    ]);
+    } catch (e) {
+      console.warn('fetchJoinRequestsFromCloud error:', e);
+    }
+    return this.getJoinRequests();
+  }
+
+  static subscribeToJoinRequests(onUpdate: (reqs: MinistryJoinRequest[]) => void) {
+    if (!supabase) return () => {};
+    const channel = supabase
+      .channel('public:sys_ministry_join_requests')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'church_prayer_requests' },
+        async (payload: any) => {
+          if (payload.new?.category === 'sys_ministry_join_request' || payload.old?.category === 'sys_ministry_join_request') {
+            const fresh = await ChurchDataStore.fetchJoinRequestsFromCloud();
+            onUpdate(fresh);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }
 
   static submitJoinRequest(ministryId: string, experience: string): MinistryJoinRequest {
@@ -604,6 +699,30 @@ export class ChurchDataStore {
 
     requests.unshift(newReq);
     this.save(KEY_JOIN_REQUESTS, requests);
+
+    // Sync to Supabase Cloud immediately so Super Admin on any device sees it
+    if (supabase) {
+      supabase.from('church_prayer_requests').upsert({
+        id: newReq.id,
+        user_id: newReq.userId,
+        author_name: newReq.userName,
+        is_anonymous: false,
+        category: 'sys_ministry_join_request',
+        title: `${ministryId}:::${newReq.ministryName}`,
+        description: experience || '',
+        visibility: 'admin_only',
+        target_ministry_id: ministryId,
+        is_answered: false,
+        testimony_text: 'pending',
+        created_at: newReq.requestedAt
+      }).then();
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('bjc_join_requests_change'));
+      window.dispatchEvent(new Event('storage'));
+    }
+
     return newReq;
   }
 
@@ -626,6 +745,15 @@ export class ChurchDataStore {
       user.ministryIds.push(assignedMinistryId);
     }
     this.save(KEY_USERS, users);
+
+    // Sync approval to Supabase Cloud church_members_auth
+    if (supabase) {
+      supabase.from('church_members_auth').update({
+        role: 'ministry_member',
+        role_title: 'Ministry Member',
+        updated_at: new Date().toISOString()
+      }).eq('id', userId).then();
+    }
 
     // Also add to MinistryStore members list
     try {
@@ -676,6 +804,13 @@ export class ChurchDataStore {
     user.approvalStatus = 'rejected';
     this.save(KEY_USERS, users);
 
+    if (supabase) {
+      supabase.from('church_members_auth').update({
+        role_title: 'Registration Rejected',
+        updated_at: new Date().toISOString()
+      }).eq('id', userId).then();
+    }
+
     this.addNotification({
       userId: user.id,
       type: 'system',
@@ -697,6 +832,15 @@ export class ChurchDataStore {
     const req = requests.find(r => r.id === requestId);
     if (req) {
       req.status = status;
+
+      // Sync status change to Supabase Cloud
+      if (supabase) {
+        supabase.from('church_prayer_requests').update({
+          is_answered: status === 'approved',
+          testimony_text: status
+        }).eq('id', requestId).then();
+      }
+
       if (status === 'approved') {
         const ministries = this.getMinistries();
         const min = ministries.find(m => m.id === req.ministryId);
@@ -718,6 +862,15 @@ export class ChurchDataStore {
             user.ministryIds.push(req.ministryId);
           }
           this.save(KEY_USERS, users);
+
+          // Update in Supabase Cloud
+          if (supabase) {
+            supabase.from('church_members_auth').update({
+              role: 'ministry_member',
+              role_title: 'Ministry Member',
+              updated_at: new Date().toISOString()
+            }).eq('id', req.userId).then();
+          }
 
           // Add to MinistryStore member list
           try {
@@ -760,6 +913,9 @@ export class ChurchDataStore {
       }
     }
     this.save(KEY_JOIN_REQUESTS, requests);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('bjc_join_requests_change'));
+    }
     return requests;
   }
 
@@ -1000,7 +1156,12 @@ export class ChurchDataStore {
         .order('created_at', { ascending: false });
 
       if (data && !error) {
-        const mapped: PrayerRequest[] = data.map(d => ({
+        // Exclude system administrative join requests & account recovery requests
+        const prayersOnly = data.filter((d: any) => 
+          d.category !== 'sys_ministry_join_request' && 
+          d.category !== 'sys_account_recovery'
+        );
+        const mapped: PrayerRequest[] = prayersOnly.map(d => ({
           id: d.id,
           userId: d.user_id,
           authorName: d.author_name,

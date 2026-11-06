@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Shield, Users, Bell, Music, Calendar, CheckCircle2, 
   XCircle, Plus, Edit, Trash2, Database, AlertCircle, 
-  Check, ArrowRight, ShieldCheck, Layers, KeyRound, Copy, Lock
+  Check, ArrowRight, ShieldCheck, Layers, KeyRound, Copy, Lock, RefreshCw
 } from 'lucide-react';
 import { ChurchDataStore } from '../../services/churchDataStore';
 import { AuthService } from '../../services/authService';
@@ -26,6 +26,7 @@ export const AdminDashboardView: React.FC = () => {
   const [recoveryRequests, setRecoveryRequests] = useState<PasswordRecoveryRequest[]>(AuthService.getRecoveryRequests());
   const [resolvedTempPassword, setResolvedTempPassword] = useState<{ id: string; tempPass: string } | null>(null);
   const [copiedKey, setCopiedKey] = useState(false);
+  const [isRefreshingCloud, setIsRefreshingCloud] = useState(false);
 
   // Super Admin delete account handler
   const handleDeleteMember = async (targetUser: UserProfile) => {
@@ -52,17 +53,44 @@ export const AdminDashboardView: React.FC = () => {
   const [annPriority, setAnnPriority] = useState<any>('normal');
   const [annList, setAnnList] = useState<Announcement[]>(announcements);
 
-  // Cloud Sync for Announcements & Realtime Store Sync
+  const refreshAllCloudData = async () => {
+    setIsRefreshingCloud(true);
+    try {
+      const [cloudAnn, cloudJoin, cloudRec, cloudUsers] = await Promise.all([
+        ChurchDataStore.fetchAnnouncementsFromCloud(),
+        ChurchDataStore.fetchJoinRequestsFromCloud(),
+        AuthService.fetchRecoveryRequestsFromCloud(),
+        ChurchDataStore.fetchUsersFromCloud()
+      ]);
+      if (cloudAnn) setAnnList(cloudAnn);
+      if (cloudJoin) setJoinRequests(cloudJoin);
+      if (cloudRec) setRecoveryRequests(cloudRec);
+      if (cloudUsers) {
+        setUsersList(cloudUsers);
+        setPendingRegistrations(ChurchDataStore.getPendingMinistryRegistrations());
+      }
+    } catch (err) {
+      console.warn('Dashboard cloud refresh error:', err);
+    } finally {
+      setIsRefreshingCloud(false);
+    }
+  };
+
+  // Cloud Sync for Announcements, Join Requests, Recoveries & Realtime Store Sync
   useEffect(() => {
     let isMounted = true;
-    const loadAnnouncements = async () => {
-      const cloudAnn = await ChurchDataStore.fetchAnnouncementsFromCloud();
-      if (isMounted && cloudAnn) {
-        setAnnList(cloudAnn);
-      }
-    };
-    loadAnnouncements();
-    const interval = setInterval(loadAnnouncements, 4000);
+    
+    // Initial fetch from Supabase
+    refreshAllCloudData();
+    const interval = setInterval(refreshAllCloudData, 4000);
+
+    // Realtime subscriptions
+    const unsubJoin = ChurchDataStore.subscribeToJoinRequests((fresh) => {
+      if (isMounted) setJoinRequests(fresh);
+    });
+    const unsubRec = AuthService.subscribeToRecoveryRequests((fresh) => {
+      if (isMounted) setRecoveryRequests(fresh);
+    });
 
     const handleStoreChange = () => {
       setUsersList(ChurchDataStore.getUsers());
@@ -73,13 +101,19 @@ export const AdminDashboardView: React.FC = () => {
 
     window.addEventListener('bjc_users_change', handleStoreChange);
     window.addEventListener('bjc_auth_change', handleStoreChange);
+    window.addEventListener('bjc_join_requests_change', handleStoreChange);
+    window.addEventListener('bjc_recovery_change', handleStoreChange);
     window.addEventListener('storage', handleStoreChange);
 
     return () => {
       isMounted = false;
       clearInterval(interval);
+      unsubJoin();
+      unsubRec();
       window.removeEventListener('bjc_users_change', handleStoreChange);
       window.removeEventListener('bjc_auth_change', handleStoreChange);
+      window.removeEventListener('bjc_join_requests_change', handleStoreChange);
+      window.removeEventListener('bjc_recovery_change', handleStoreChange);
       window.removeEventListener('storage', handleStoreChange);
     };
   }, []);
@@ -162,10 +196,21 @@ export const AdminDashboardView: React.FC = () => {
             </p>
           </div>
 
-          <div className="p-3 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 text-xs space-y-1">
-            <div className="font-semibold text-gold-300">Active Operator</div>
-            <div className="font-bold text-white">{currentUser.name}</div>
-            <div className="text-[11px] text-slate-300">{currentUser.roleTitle}</div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={refreshAllCloudData}
+              disabled={isRefreshingCloud}
+              className="px-3.5 py-2.5 rounded-2xl bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 text-xs font-semibold text-white flex items-center gap-2 transition active:scale-95 disabled:opacity-50 cursor-pointer shadow-soft"
+              title="Refresh and sync all requests from Supabase Cloud"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-gold-300 ${isRefreshingCloud ? 'animate-spin' : ''}`} />
+              <span>{isRefreshingCloud ? 'Syncing...' : 'Sync Cloud'}</span>
+            </button>
+            <div className="p-3 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 text-xs space-y-0.5">
+              <div className="font-semibold text-gold-300">Active Operator</div>
+              <div className="font-bold text-white">{currentUser.name}</div>
+              <div className="text-[10px] text-slate-300">{currentUser.roleTitle}</div>
+            </div>
           </div>
         </div>
       </div>

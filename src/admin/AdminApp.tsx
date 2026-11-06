@@ -8,6 +8,8 @@ import { AdminAnnouncementManager } from './components/AdminAnnouncementManager'
 import { AdminMembersView } from './components/AdminMembersView';
 import { AdminAuditLogsView } from './components/AdminAuditLogsView';
 import { AdminSetupView } from './components/AdminSetupView';
+import { AdminMinistryRequestsView } from './components/AdminMinistryRequestsView';
+import { AdminAccountRecoveryView } from './components/AdminAccountRecoveryView';
 
 export const AdminApp: React.FC = () => {
   const [currentAdmin, setCurrentAdmin] = useState<AdminUser | null>(null);
@@ -83,9 +85,19 @@ export const AdminApp: React.FC = () => {
           onNavigateToAnnouncements={() => setCurrentView('announcements')}
           onNavigateToMembers={() => setCurrentView('members')}
           onNavigateToAudit={() => setCurrentView('audit')}
+          onNavigateToRequests={() => setCurrentView('requests')}
+          onNavigateToRecovery={() => setCurrentView('recovery')}
           onOpenCreateModal={handleCreateFromDashboard}
           onEditAnnouncement={handleEditFromDashboard}
         />
+      )}
+
+      {currentView === 'requests' && (
+        <AdminMinistryRequestsView />
+      )}
+
+      {currentView === 'recovery' && (
+        <AdminAccountRecoveryView />
       )}
 
       {currentView === 'announcements' && (
