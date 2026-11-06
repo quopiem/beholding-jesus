@@ -24,7 +24,7 @@ export const FeedSidebarLeft: React.FC<FeedSidebarLeftProps> = ({
   const navigationShortcuts = [
     { id: 'bible', label: 'Holy Bible & Audio', icon: BookOpen, color: 'text-amber-500', bg: 'bg-amber-500/10' },
     { id: 'songs', label: 'Worship Chords & Keys', icon: Music, color: 'text-purple-500', bg: 'bg-purple-500/10' },
-    { id: 'community', label: 'Community & Messenger', icon: MessageSquare, color: 'text-blue-500', bg: 'bg-blue-500/10' },
+    { id: 'community', label: 'Fellowship Chat', icon: MessageSquare, color: 'text-blue-500', bg: 'bg-blue-500/10' },
     { id: 'prayer', label: 'Prayer & Intercession', icon: Heart, color: 'text-rose-500', bg: 'bg-rose-500/10' },
     { id: 'events', label: 'Weekly Gatherings', icon: Calendar, color: 'text-emerald-500', bg: 'bg-emerald-500/10' }
   ];

@@ -124,7 +124,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
     { id: 'bible', label: 'Bible', icon: BookOpen },
     { 
       id: 'community', 
-      label: 'Community', 
+      label: 'Fellowship', 
       icon: MessageSquare,
       badge: unreadChatCount > 0 ? (unreadChatCount > 99 ? '99+' : String(unreadChatCount)) : undefined,
       isCountBadge: true
@@ -676,8 +676,8 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
             { id: 'bible', label: 'Bible', icon: BookOpen },
             { 
               id: 'community', 
-              label: 'Community', 
-              icon: Users,
+              label: 'Fellowship', 
+              icon: MessageSquare,
               badge: unreadChatCount > 0 ? (unreadChatCount > 99 ? '99+' : String(unreadChatCount)) : undefined
             },
             { id: 'profile', label: 'Profile', icon: User }
