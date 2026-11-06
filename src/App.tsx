@@ -20,7 +20,6 @@ import { UserProfile } from './types';
 export function App() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => ChurchDataStore.getCurrentUser());
   const [currentTab, setCurrentTab] = useState<string>('home');
-  const [authViewMode, setAuthViewMode] = useState<'landing' | 'auth'>('landing');
 
   useEffect(() => {
     AuthService.initializeDefaultCredentials();
@@ -39,32 +38,16 @@ export function App() {
     };
   }, []);
 
-  // For unauthenticated visitors: Show the official Church Landing Page
-  // or the Sign In / Registration portal
+  // Strict Authentication Gate:
+  // New or unauthenticated users ONLY see the Login or Registration screen.
+  // The landing page is shown immediately AFTER registering or logging in.
   if (!currentUser) {
-    if (authViewMode === 'auth') {
-      return (
-        <AuthPage 
-          onAuthSuccess={(user) => {
-            setCurrentUser(user);
-            setCurrentTab('home');
-            setAuthViewMode('landing');
-          }} 
-          onBackToLanding={() => setAuthViewMode('landing')}
-        />
-      );
-    }
-
     return (
-      <LandingPageView
-        onNavigate={(tab) => {
-          if (tab === 'home') {
-            setAuthViewMode('auth');
-          } else {
-            setAuthViewMode('auth');
-          }
-        }}
-        onOpenAuth={() => setAuthViewMode('auth')}
+      <AuthPage 
+        onAuthSuccess={(user) => {
+          setCurrentUser(user);
+          setCurrentTab('home'); // First view after login/register is the Landing Page
+        }} 
       />
     );
   }

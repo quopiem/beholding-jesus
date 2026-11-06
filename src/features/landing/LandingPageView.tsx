@@ -2,27 +2,22 @@ import React, { useState } from 'react';
 import { 
   Sparkles, Calendar, Clock, MapPin, Heart, BookOpen, Music, 
   Users, ArrowRight, ShieldCheck, ExternalLink, Copy, Check, 
-  Smartphone, Download, Moon, Sun, ChevronRight, LogIn, UserPlus
+  Smartphone, Moon, Sun, ChevronRight
 } from 'lucide-react';
 import { CHURCH_INFO } from '../../services/churchInfo';
 import { UserProfile } from '../../types';
 import { DownloadAppModal } from '../../components/DownloadAppModal';
-import { AuthModal } from '../auth/AuthModal';
 
 interface LandingPageViewProps {
   onNavigate: (tab: string) => void;
-  onOpenAuth?: (tab?: 'login' | 'register') => void;
   currentUser?: UserProfile | null;
 }
 
 export const LandingPageView: React.FC<LandingPageViewProps> = ({
   onNavigate,
-  onOpenAuth,
   currentUser
 }) => {
   const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [authTab, setAuthTab] = useState<'login' | 'register'>('login');
   const [copiedAddress, setCopiedAddress] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
     return document.documentElement.classList.contains('dark') || localStorage.getItem('bjc_theme') === 'dark';
@@ -51,62 +46,56 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
     setTimeout(() => setCopiedAddress(false), 2500);
   };
 
-  const handleTriggerAuth = (tab: 'login' | 'register') => {
-    if (onOpenAuth) {
-      onOpenAuth(tab);
-    } else {
-      setAuthTab(tab);
-      setIsAuthModalOpen(true);
-    }
-  };
-
   const handleEnterFeed = () => {
     onNavigate('feed');
   };
 
   return (
-    <div className="min-h-screen bg-[#FAF8F5] dark:bg-[#0C0E14] text-stone-800 dark:text-stone-100 font-sans transition-colors duration-300">
+    <div className="min-h-screen bg-[#FAF8F5] dark:bg-[#0C0E14] text-stone-800 dark:text-stone-100 font-sans transition-colors duration-300 pb-28 md:pb-12">
       
       {/* ============================================================== */}
-      {/* 1. TOP SACRED NAVBAR                                           */}
+      {/* 1. TOP SACRED NAVBAR (Aesthetic, Responsive, No Overlaps)      */}
       {/* ============================================================== */}
-      <header className="sticky top-0 z-40 bg-[#FAF8F5]/90 dark:bg-[#0C0E14]/90 backdrop-blur-xl border-b border-stone-200/70 dark:border-slate-800/80 px-4 sm:px-8 py-3.5 transition-colors">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+      <header className="sticky top-0 z-30 bg-[#FAF8F5]/92 dark:bg-[#0C0E14]/92 backdrop-blur-xl border-b border-stone-200/70 dark:border-slate-800/80 px-3 sm:px-8 py-3 transition-colors">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
           
           {/* Brand Logo & Name */}
-          <div className="flex items-center gap-3 cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-            <div className="w-10 h-10 rounded-2xl bg-white dark:bg-slate-900 border border-gold/40 p-1 shadow-sm shrink-0 flex items-center justify-center">
+          <div 
+            className="flex items-center gap-2.5 sm:gap-3 cursor-pointer min-w-0" 
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          >
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-white dark:bg-slate-900 border border-gold/40 p-1 shadow-xs shrink-0 flex items-center justify-center">
               <img 
                 src="/icons/church-seal-gold.png" 
                 alt="Beholding Jesus Church" 
-                className="w-8 h-8 object-contain" 
+                className="w-7 h-7 sm:w-8 sm:h-8 object-contain" 
               />
             </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="font-serif font-black text-sm sm:text-base tracking-wider text-slate-900 dark:text-white uppercase">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="font-serif font-black text-xs sm:text-base tracking-wider text-slate-900 dark:text-white uppercase truncate">
                   Beholding Jesus
                 </span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gold/15 text-gold-dark dark:text-gold font-bold uppercase tracking-wider border border-gold/30">
+                <span className="text-[9px] sm:text-[10px] px-1.5 py-0.2 rounded-full bg-gold/15 text-gold-dark dark:text-gold font-bold uppercase tracking-wider border border-gold/30 shrink-0">
                   Church
                 </span>
               </div>
-              <p className="text-[10px] text-stone-500 dark:text-stone-400 font-medium">
+              <p className="text-[9px] sm:text-[10px] text-stone-500 dark:text-stone-400 font-medium truncate hidden xs:block">
                 {CHURCH_INFO.primaryMotto}
               </p>
             </div>
           </div>
 
           {/* Quick Anchor Links (Desktop) */}
-          <nav className="hidden md:flex items-center gap-6 text-xs font-semibold text-stone-600 dark:text-stone-300">
+          <nav className="hidden lg:flex items-center gap-6 text-xs font-semibold text-stone-600 dark:text-stone-300">
             <a href="#gatherings" className="hover:text-gold transition">Gatherings</a>
             <a href="#pastor" className="hover:text-gold transition">Pastoral Word</a>
             <a href="#ministries" className="hover:text-gold transition">Ministries</a>
             <a href="#sanctuary" className="hover:text-gold transition">Sanctuary Location</a>
           </nav>
 
-          {/* Right Controls: Theme Toggle & Community / Member Action */}
-          <div className="flex items-center gap-2.5">
+          {/* Right Controls: Theme Toggle & Community Feed Action */}
+          <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={toggleTheme}
               className="p-2 rounded-xl bg-stone-100 hover:bg-stone-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-stone-600 dark:text-stone-300 transition cursor-pointer"
@@ -116,82 +105,65 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
               {isDarkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-700" />}
             </button>
 
-            {currentUser ? (
-              <button
-                onClick={handleEnterFeed}
-                className="px-4 py-2 rounded-xl bg-gradient-to-r from-stone-900 to-stone-800 dark:from-gold dark:to-amber-400 text-white dark:text-slate-950 font-bold text-xs hover:shadow-md transition flex items-center gap-2 cursor-pointer"
-              >
-                <span>Community Feed</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            ) : (
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleTriggerAuth('login')}
-                  className="px-3.5 py-2 rounded-xl border border-stone-300 dark:border-slate-700 text-stone-700 dark:text-stone-200 hover:border-gold font-bold text-xs transition flex items-center gap-1.5 cursor-pointer"
-                >
-                  <LogIn className="w-3.5 h-3.5 text-gold" />
-                  <span>Sign In</span>
-                </button>
-                <button
-                  onClick={() => handleTriggerAuth('register')}
-                  className="px-4 py-2 rounded-xl bg-gold hover:bg-gold-light text-slate-950 font-bold text-xs shadow-gold transition flex items-center gap-1.5 cursor-pointer"
-                >
-                  <UserPlus className="w-3.5 h-3.5" />
-                  <span>Join Family</span>
-                </button>
-              </div>
-            )}
+            <button
+              onClick={handleEnterFeed}
+              className="px-3.5 sm:px-4 py-2 rounded-xl bg-gradient-to-r from-stone-900 to-stone-800 dark:from-gold dark:to-amber-400 text-white dark:text-slate-950 font-bold text-xs hover:shadow-md transition flex items-center gap-1.5 sm:gap-2 cursor-pointer active:scale-95 shrink-0 shadow-xs"
+            >
+              <span className="hidden sm:inline">Community Feed</span>
+              <span className="sm:hidden">Feed</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
           </div>
+
         </div>
       </header>
 
       {/* ============================================================== */}
       {/* 2. GRAND HERO SECTION                                          */}
       {/* ============================================================== */}
-      <section className="relative overflow-hidden pt-12 pb-20 sm:pt-20 sm:pb-28">
+      <section className="relative overflow-hidden pt-10 pb-16 sm:pt-20 sm:pb-24">
         
-        {/* Background Ambience & Sacred Lighting */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-96 bg-gradient-to-b from-amber-500/10 via-gold/5 to-transparent blur-3xl pointer-events-none" />
-        <div className="absolute top-1/4 right-10 w-72 h-72 rounded-full bg-gold/10 blur-3xl pointer-events-none" />
+        {/* Ambient Glow Elements (pointer-events-none to prevent touch/click blocking) */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-5xl h-80 bg-gradient-to-b from-amber-500/10 via-gold/5 to-transparent blur-3xl pointer-events-none" />
+        <div className="absolute top-1/4 right-5 w-60 h-60 rounded-full bg-gold/10 blur-3xl pointer-events-none" />
 
-        <div className="relative max-w-5xl mx-auto px-4 sm:px-6 text-center space-y-8 z-10">
+        <div className="relative max-w-4xl mx-auto px-4 sm:px-6 text-center space-y-6 sm:space-y-8 z-10">
           
           {/* Welcome Pill */}
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gold/15 dark:bg-gold/20 border border-gold/40 text-gold-dark dark:text-gold text-xs font-bold tracking-wider uppercase shadow-xs">
-            <Sparkles className="w-3.5 h-3.5 text-gold animate-pulse" />
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gold/15 dark:bg-gold/20 border border-gold/40 text-gold-dark dark:text-gold text-xs font-bold tracking-wider uppercase shadow-xs">
+            <Sparkles className="w-3.5 h-3.5 text-gold animate-pulse shrink-0" />
             <span>Welcome in the Name of Jesus</span>
           </div>
 
           {/* Majestic Hero Headline */}
-          <div className="space-y-4">
-            <h1 className="font-serif font-black text-3xl sm:text-5xl lg:text-6xl text-slate-900 dark:text-white tracking-tight uppercase leading-tight">
+          <div className="space-y-3 sm:space-y-4">
+            <h1 className="font-serif font-black text-2xl sm:text-5xl lg:text-6xl text-slate-900 dark:text-white tracking-tight uppercase leading-tight sm:leading-tight">
               Beholding The Glory <br className="hidden sm:inline" />
               <span className="bg-gradient-to-r from-gold via-amber-400 to-amber-600 bg-clip-text text-transparent">
                 Of The Lord
               </span>
             </h1>
 
-            <p className="max-w-2xl mx-auto text-sm sm:text-base lg:text-lg text-stone-600 dark:text-stone-300 leading-relaxed font-sans">
+            <p className="max-w-2xl mx-auto text-xs sm:text-base lg:text-lg text-stone-600 dark:text-stone-300 leading-relaxed font-sans px-2">
               A Christ-centered sanctuary in Cavite dedicated to deep worship, life-giving fellowship, and spirit-led discipleship.
             </p>
           </div>
 
           {/* Scripture Callout Card */}
-          <div className="max-w-2xl mx-auto p-4 sm:p-5 rounded-2xl bg-white/80 dark:bg-slate-900/80 border border-gold/30 shadow-card backdrop-blur-md text-center">
+          <div className="max-w-2xl mx-auto p-4 sm:p-5 rounded-2xl bg-white/80 dark:bg-slate-900/80 border border-gold/30 shadow-card backdrop-blur-md text-center mx-2 sm:mx-auto">
             <p className="font-serif italic text-xs sm:text-sm text-stone-700 dark:text-amber-100/90 leading-relaxed">
               "And we all, with unveiled face, beholding the glory of the Lord, are being transformed into the same image from one degree of glory to another. For this comes from the Lord who is the Spirit."
             </p>
-            <div className="mt-2 text-[11px] font-bold tracking-widest text-gold uppercase">
+            <div className="mt-2 text-[10px] sm:text-[11px] font-bold tracking-widest text-gold uppercase">
               2 Corinthians 3:18 • Church Foundation Scripture
             </div>
           </div>
 
-          {/* Primary Action Buttons */}
-          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+          {/* Action Buttons: Responsive & No Overlaps */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2 w-full max-w-md sm:max-w-none mx-auto">
             <button
               onClick={handleEnterFeed}
-              className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-stone-900 to-[#1e293b] dark:from-gold dark:to-amber-400 text-white dark:text-slate-950 font-bold text-sm shadow-xl hover:shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition flex items-center gap-2.5 cursor-pointer"
+              className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-gradient-to-r from-stone-900 to-[#1e293b] dark:from-gold dark:to-amber-400 text-white dark:text-slate-950 font-bold text-xs sm:text-sm shadow-xl hover:shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition flex items-center justify-center gap-2 cursor-pointer"
             >
               <span>Explore Community Feed</span>
               <ArrowRight className="w-4 h-4" />
@@ -199,7 +171,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
 
             <a
               href="#gatherings"
-              className="px-6 py-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 hover:border-gold text-stone-800 dark:text-stone-200 font-bold text-sm shadow-sm hover:shadow-md transition flex items-center gap-2 cursor-pointer"
+              className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 hover:border-gold text-stone-800 dark:text-stone-200 font-bold text-xs sm:text-sm shadow-xs hover:shadow-md transition flex items-center justify-center gap-2 cursor-pointer"
             >
               <Calendar className="w-4 h-4 text-gold" />
               <span>Sunday Gatherings</span>
@@ -207,34 +179,35 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
 
             <button
               onClick={() => setIsDownloadModalOpen(true)}
-              className="px-5 py-3.5 rounded-2xl bg-stone-100 hover:bg-stone-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-stone-700 dark:text-stone-300 font-bold text-sm transition flex items-center gap-2 cursor-pointer"
+              className="w-full sm:w-auto px-5 py-3.5 rounded-2xl bg-stone-100 hover:bg-stone-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-stone-700 dark:text-stone-300 font-bold text-xs sm:text-sm transition flex items-center justify-center gap-2 cursor-pointer"
             >
               <Smartphone className="w-4 h-4 text-emerald-500" />
               <span>Mobile App</span>
             </button>
           </div>
 
-          {/* Church Seal Floating Crest */}
-          <div className="pt-4 flex items-center justify-center gap-6 text-xs text-stone-500 dark:text-stone-400 font-medium">
-            <span className="flex items-center gap-1.5">
+          {/* Live Status Pill Row */}
+          <div className="pt-2 flex flex-wrap items-center justify-center gap-2 sm:gap-4 text-xs text-stone-500 dark:text-stone-400 font-medium">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-stone-100 dark:bg-slate-800/80 border border-stone-200/60 dark:border-slate-700/60">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping inline-block" />
-              Sanctuary Fellowship Active
+              <span>Sanctuary Fellowship Active</span>
             </span>
-            <span>•</span>
+            <span className="hidden sm:inline">•</span>
             <span>Camella Springville Molino 3</span>
-            <span>•</span>
+            <span className="hidden sm:inline">•</span>
             <span>Bacoor City, Cavite</span>
           </div>
+
         </div>
       </section>
 
       {/* ============================================================== */}
       {/* 3. WEEKLY GATHERINGS & WORSHIP SCHEDULES                       */}
       {/* ============================================================== */}
-      <section id="gatherings" className="py-16 sm:py-20 bg-stone-100/60 dark:bg-slate-900/40 border-y border-stone-200/70 dark:border-slate-800/80">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 space-y-12">
+      <section id="gatherings" className="py-12 sm:py-20 bg-stone-100/60 dark:bg-slate-900/40 border-y border-stone-200/70 dark:border-slate-800/80">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 space-y-8 sm:space-y-12">
           
-          <div className="text-center space-y-2">
+          <div className="text-center space-y-1.5">
             <span className="text-xs font-bold uppercase tracking-[0.2em] text-gold">
               Times of Fellowship
             </span>
@@ -246,26 +219,26 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6 items-stretch">
             
             {/* Card 1: Sunday Worship Service */}
             <div className="rounded-3xl bg-white dark:bg-slate-900 border-2 border-gold/40 p-6 sm:p-7 shadow-elevated relative overflow-hidden flex flex-col justify-between group hover:border-gold transition-all duration-300">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
+              <div className="space-y-3.5">
+                <div className="flex items-center justify-between gap-2">
                   <span className="px-3 py-1 rounded-full bg-gold/20 text-gold-dark dark:text-gold text-[10px] font-black uppercase tracking-wider">
                     Primary Service
                   </span>
-                  <div className="w-10 h-10 rounded-2xl bg-gold/15 text-gold flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-2xl bg-gold/15 text-gold flex items-center justify-center shrink-0">
                     <Calendar className="w-5 h-5" />
                   </div>
                 </div>
 
                 <div>
-                  <h3 className="font-serif font-bold text-xl text-slate-900 dark:text-white">
+                  <h3 className="font-serif font-bold text-lg sm:text-xl text-slate-900 dark:text-white">
                     Sunday Worship Service
                   </h3>
                   <div className="mt-1 flex items-center gap-1.5 text-xs text-gold font-bold">
-                    <Clock className="w-3.5 h-3.5" />
+                    <Clock className="w-3.5 h-3.5 shrink-0" />
                     <span>Sundays • 9:00 AM – 11:30 AM</span>
                   </div>
                 </div>
@@ -275,7 +248,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                 </p>
               </div>
 
-              <div className="pt-6 mt-6 border-t border-stone-100 dark:border-slate-800 flex items-center justify-between text-xs">
+              <div className="pt-5 mt-5 border-t border-stone-100 dark:border-slate-800 flex items-center justify-between text-xs">
                 <span className="text-stone-500 dark:text-stone-400">Main Sanctuary & Online</span>
                 <span className="text-gold font-bold">All Are Welcome</span>
               </div>
@@ -283,22 +256,22 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
 
             {/* Card 2: NextGen Youth Fellowship */}
             <div className="rounded-3xl bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 p-6 sm:p-7 shadow-card flex flex-col justify-between group hover:border-purple-400 transition-all duration-300">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
+              <div className="space-y-3.5">
+                <div className="flex items-center justify-between gap-2">
                   <span className="px-3 py-1 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-300 text-[10px] font-black uppercase tracking-wider">
                     Youth & Students
                   </span>
-                  <div className="w-10 h-10 rounded-2xl bg-purple-500/15 text-purple-500 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-2xl bg-purple-500/15 text-purple-500 flex items-center justify-center shrink-0">
                     <Users className="w-5 h-5" />
                   </div>
                 </div>
 
                 <div>
-                  <h3 className="font-serif font-bold text-xl text-slate-900 dark:text-white">
+                  <h3 className="font-serif font-bold text-lg sm:text-xl text-slate-900 dark:text-white">
                     NextGen Youth Fellowship
                   </h3>
                   <div className="mt-1 flex items-center gap-1.5 text-xs text-purple-600 dark:text-purple-400 font-bold">
-                    <Clock className="w-3.5 h-3.5" />
+                    <Clock className="w-3.5 h-3.5 shrink-0" />
                     <span>Saturdays • 4:00 PM – 6:30 PM</span>
                   </div>
                 </div>
@@ -308,7 +281,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                 </p>
               </div>
 
-              <div className="pt-6 mt-6 border-t border-stone-100 dark:border-slate-800 flex items-center justify-between text-xs">
+              <div className="pt-5 mt-5 border-t border-stone-100 dark:border-slate-800 flex items-center justify-between text-xs">
                 <span className="text-stone-500 dark:text-stone-400">Youth Sanctuary</span>
                 <span className="text-purple-500 font-bold">Ages 12 – 25</span>
               </div>
@@ -316,22 +289,22 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
 
             {/* Card 3: Midweek Prayer & Study */}
             <div className="rounded-3xl bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 p-6 sm:p-7 shadow-card flex flex-col justify-between group hover:border-emerald-400 transition-all duration-300">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
+              <div className="space-y-3.5">
+                <div className="flex items-center justify-between gap-2">
                   <span className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-300 text-[10px] font-black uppercase tracking-wider">
                     Prayer & Word
                   </span>
-                  <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center shrink-0">
                     <Heart className="w-5 h-5" />
                   </div>
                 </div>
 
                 <div>
-                  <h3 className="font-serif font-bold text-xl text-slate-900 dark:text-white">
+                  <h3 className="font-serif font-bold text-lg sm:text-xl text-slate-900 dark:text-white">
                     Midweek Prayer & Study
                   </h3>
                   <div className="mt-1 flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-bold">
-                    <Clock className="w-3.5 h-3.5" />
+                    <Clock className="w-3.5 h-3.5 shrink-0" />
                     <span>Wednesdays • 7:00 PM – 8:30 PM</span>
                   </div>
                 </div>
@@ -341,7 +314,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                 </p>
               </div>
 
-              <div className="pt-6 mt-6 border-t border-stone-100 dark:border-slate-800 flex items-center justify-between text-xs">
+              <div className="pt-5 mt-5 border-t border-stone-100 dark:border-slate-800 flex items-center justify-between text-xs">
                 <span className="text-stone-500 dark:text-stone-400">Prayer Hall & Online</span>
                 <span className="text-emerald-500 font-bold">Open to All</span>
               </div>
@@ -352,51 +325,50 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
       </section>
 
       {/* ============================================================== */}
-      {/* 4. PASTORAL WORD & VISION                                      */}
+      {/* 4. PASTORAL WORD & VISION (Aesthetic & Safe Layout)            */}
       {/* ============================================================== */}
-      <section id="pastor" className="py-16 sm:py-24">
+      <section id="pastor" className="py-12 sm:py-20">
         <div className="max-w-5xl mx-auto px-4 sm:px-6">
-          <div className="rounded-3xl sm:rounded-[36px] bg-gradient-to-br from-stone-900 via-stone-900 to-[#221814] text-white p-7 sm:p-12 border border-gold/30 shadow-2xl relative overflow-hidden">
+          <div className="rounded-3xl sm:rounded-[36px] bg-gradient-to-br from-stone-900 via-stone-900 to-[#221814] text-white p-6 sm:p-10 border border-gold/30 shadow-2xl relative overflow-hidden">
             
             {/* Ambient gold glow */}
             <div className="absolute -top-16 -right-16 w-80 h-80 rounded-full bg-gold/15 blur-3xl pointer-events-none" />
 
-            <div className="relative z-10 grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
+            <div className="relative z-10 grid grid-cols-1 md:grid-cols-12 gap-6 sm:gap-8 items-center">
               
               {/* Pastor Portrait */}
-              <div className="md:col-span-4 text-center space-y-3">
-                <div className="w-36 h-36 sm:w-44 sm:h-44 rounded-3xl overflow-hidden mx-auto border-2 border-gold/50 shadow-elevated p-1 bg-gradient-to-tr from-gold to-amber-200">
+              <div className="md:col-span-4 text-center space-y-2.5">
+                <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-3xl overflow-hidden mx-auto border-2 border-gold/50 shadow-elevated p-1 bg-gradient-to-tr from-gold to-amber-200">
                   <img
                     src="/images/pastor-john-eric-manjares.png"
                     alt="Senior Pastor John Erick Manjares"
                     className="w-full h-full rounded-2xl object-cover bg-stone-950"
                     onError={(e) => {
-                      // Fallback if image path differs
                       (e.target as HTMLImageElement).src = '/icons/church-logo.png';
                     }}
                   />
                 </div>
                 <div>
-                  <h3 className="font-serif font-bold text-lg text-amber-100">
+                  <h3 className="font-serif font-bold text-base sm:text-lg text-amber-100">
                     John Erick Manjares
                   </h3>
                   <p className="text-xs text-gold font-bold uppercase tracking-wider">
                     Senior Pastor
                   </p>
-                  <p className="text-[11px] text-stone-400 mt-0.5">
+                  <p className="text-[10px] sm:text-[11px] text-stone-400 mt-0.5">
                     Beholding Jesus Church
                   </p>
                 </div>
               </div>
 
               {/* Pastor's Message */}
-              <div className="md:col-span-8 space-y-5">
+              <div className="md:col-span-8 space-y-4">
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gold/20 text-gold text-[10px] font-bold uppercase tracking-wider">
-                  <Sparkles className="w-3 h-3 text-gold" />
+                  <Sparkles className="w-3 h-3 text-gold shrink-0" />
                   <span>A Pastoral Welcome</span>
                 </div>
 
-                <h2 className="font-serif font-bold text-2xl sm:text-3xl text-amber-50 leading-snug">
+                <h2 className="font-serif font-bold text-xl sm:text-2xl text-amber-50 leading-snug">
                   "You are loved, valued, and welcome in the house of the Lord."
                 </h2>
 
@@ -404,18 +376,19 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                   "Grace and peace be multiplied to you! At Beholding Jesus Church, our deepest prayer is that every soul who steps through our doors—or joins us through our community platform—experiences the tangible, transforming presence of our Lord Jesus Christ. We believe in living out the Gospel with authenticity: loving God wholeheartedly, making faithful disciples, and walking alongside one another in genuine grace."
                 </p>
 
-                <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between gap-4">
+                {/* Safe Flex Box: No Overlapping on Mobile */}
+                <div className="p-3.5 sm:p-4 rounded-2xl bg-white/5 border border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                   <div>
-                    <div className="text-[11px] font-bold text-gold uppercase tracking-wider">
+                    <div className="text-[10px] sm:text-[11px] font-bold text-gold uppercase tracking-wider">
                       Our Guiding Motto
                     </div>
-                    <div className="text-xs text-stone-200 font-serif mt-0.5">
+                    <div className="text-xs text-stone-200 font-serif mt-0.5 leading-snug">
                       {CHURCH_INFO.primaryMotto} • {CHURCH_INFO.secondaryMotto}
                     </div>
                   </div>
                   <button
                     onClick={handleEnterFeed}
-                    className="px-4 py-2 rounded-xl bg-gold hover:bg-gold-light text-slate-950 font-bold text-xs transition shadow-xs shrink-0 cursor-pointer"
+                    className="w-full sm:w-auto px-4 py-2 rounded-xl bg-gold hover:bg-gold-light text-slate-950 font-bold text-xs transition shadow-xs shrink-0 cursor-pointer text-center"
                   >
                     Enter Church Feed
                   </button>
@@ -430,10 +403,10 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
       {/* ============================================================== */}
       {/* 5. MINISTRIES SHOWCASE                                          */}
       {/* ============================================================== */}
-      <section id="ministries" className="py-16 sm:py-20 bg-stone-100/50 dark:bg-slate-900/30 border-y border-stone-200/70 dark:border-slate-800/80">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 space-y-12">
+      <section id="ministries" className="py-12 sm:py-20 bg-stone-100/50 dark:bg-slate-900/30 border-y border-stone-200/70 dark:border-slate-800/80">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 space-y-8 sm:space-y-12">
           
-          <div className="text-center space-y-2">
+          <div className="text-center space-y-1.5">
             <span className="text-xs font-bold uppercase tracking-[0.2em] text-gold">
               Active Church Life
             </span>
@@ -445,58 +418,66 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6 items-stretch">
             
             {/* Ministry 1: Worship */}
-            <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 shadow-card space-y-3 hover:border-gold transition-all duration-300">
-              <div className="w-12 h-12 rounded-2xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center">
-                <Music className="w-6 h-6" />
+            <div className="p-5 sm:p-6 rounded-3xl bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 shadow-card space-y-3 hover:border-gold transition-all duration-300 flex flex-col justify-between">
+              <div className="space-y-3">
+                <div className="w-11 h-11 rounded-2xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+                  <Music className="w-5 h-5" />
+                </div>
+                <h3 className="font-serif font-bold text-base text-stone-900 dark:text-white">
+                  Worship & Creative Arts
+                </h3>
+                <p className="text-xs text-stone-500 dark:text-stone-400 leading-relaxed font-sans">
+                  Ushering the congregation into God's presence through Spirit-led music, vocal keys, choir, and audio-visual media.
+                </p>
               </div>
-              <h3 className="font-serif font-bold text-base text-stone-900 dark:text-white">
-                Worship & Creative Arts
-              </h3>
-              <p className="text-xs text-stone-500 dark:text-stone-400 leading-relaxed">
-                Ushering the congregation into God's presence through Spirit-led music, vocal keys, choir, and audio-visual media.
-              </p>
             </div>
 
             {/* Ministry 2: NextGen Youth */}
-            <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 shadow-card space-y-3 hover:border-gold transition-all duration-300">
-              <div className="w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-                <Users className="w-6 h-6" />
+            <div className="p-5 sm:p-6 rounded-3xl bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 shadow-card space-y-3 hover:border-gold transition-all duration-300 flex flex-col justify-between">
+              <div className="space-y-3">
+                <div className="w-11 h-11 rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                  <Users className="w-5 h-5" />
+                </div>
+                <h3 className="font-serif font-bold text-base text-stone-900 dark:text-white">
+                  NextGen Youth Ministry
+                </h3>
+                <p className="text-xs text-stone-500 dark:text-stone-400 leading-relaxed font-sans">
+                  Raising up young disciples equipped to stand strong in their faith, lead in their schools, and impact the world for Jesus.
+                </p>
               </div>
-              <h3 className="font-serif font-bold text-base text-stone-900 dark:text-white">
-                NextGen Youth Ministry
-              </h3>
-              <p className="text-xs text-stone-500 dark:text-stone-400 leading-relaxed">
-                Raising up young disciples equipped to stand strong in their faith, lead in their schools, and impact the world for Jesus.
-              </p>
             </div>
 
             {/* Ministry 3: Prayer */}
-            <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 shadow-card space-y-3 hover:border-gold transition-all duration-300">
-              <div className="w-12 h-12 rounded-2xl bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center">
-                <Heart className="w-6 h-6" />
+            <div className="p-5 sm:p-6 rounded-3xl bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 shadow-card space-y-3 hover:border-gold transition-all duration-300 flex flex-col justify-between">
+              <div className="space-y-3">
+                <div className="w-11 h-11 rounded-2xl bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center">
+                  <Heart className="w-5 h-5" />
+                </div>
+                <h3 className="font-serif font-bold text-base text-stone-900 dark:text-white">
+                  Prayer & Intercession
+                </h3>
+                <p className="text-xs text-stone-500 dark:text-stone-400 leading-relaxed font-sans">
+                  A committed army of prayer warriors standing in the gap for families, the sick, church leadership, and our nation.
+                </p>
               </div>
-              <h3 className="font-serif font-bold text-base text-stone-900 dark:text-white">
-                Prayer & Intercession
-              </h3>
-              <p className="text-xs text-stone-500 dark:text-stone-400 leading-relaxed">
-                A committed army of prayer warriors standing in the gap for families, the sick, church leadership, and our nation.
-              </p>
             </div>
 
             {/* Ministry 4: Discipleship */}
-            <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 shadow-card space-y-3 hover:border-gold transition-all duration-300">
-              <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
-                <BookOpen className="w-6 h-6" />
+            <div className="p-5 sm:p-6 rounded-3xl bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 shadow-card space-y-3 hover:border-gold transition-all duration-300 flex flex-col justify-between">
+              <div className="space-y-3">
+                <div className="w-11 h-11 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                  <BookOpen className="w-5 h-5" />
+                </div>
+                <h3 className="font-serif font-bold text-base text-stone-900 dark:text-white">
+                  Life Groups & Discipleship
+                </h3>
+                <p className="text-xs text-stone-500 dark:text-stone-400 leading-relaxed font-sans">
+                  Small group gatherings across Cavite for Bible study, intimate prayer, mutual accountability, and Christ-like growth.
+                </p>
               </div>
-              <h3 className="font-serif font-bold text-base text-stone-900 dark:text-white">
-                Life Groups & Discipleship
-              </h3>
-              <p className="text-xs text-stone-500 dark:text-stone-400 leading-relaxed">
-                Small group gatherings across Cavite for Bible study, intimate prayer, mutual accountability, and Christ-like growth.
-              </p>
             </div>
 
           </div>
@@ -506,17 +487,17 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
       {/* ============================================================== */}
       {/* 6. SANCTUARY LOCATION & DIRECTIONS                             */}
       {/* ============================================================== */}
-      <section id="sanctuary" className="py-16 sm:py-24">
+      <section id="sanctuary" className="py-12 sm:py-20">
         <div className="max-w-5xl mx-auto px-4 sm:px-6">
-          <div className="rounded-3xl bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 p-8 sm:p-12 shadow-card space-y-8">
+          <div className="rounded-3xl bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 p-6 sm:p-10 shadow-card space-y-6 sm:space-y-8">
             
-            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 pb-6 border-b border-stone-100 dark:border-slate-800">
-              <div className="space-y-1.5">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-6 border-b border-stone-100 dark:border-slate-800">
+              <div className="space-y-1">
                 <div className="inline-flex items-center gap-1.5 text-xs font-bold text-gold uppercase tracking-wider">
-                  <MapPin className="w-4 h-4 text-gold" />
+                  <MapPin className="w-4 h-4 text-gold shrink-0" />
                   <span>Sanctuary Location</span>
                 </div>
-                <h2 className="font-serif font-bold text-2xl sm:text-3xl text-slate-900 dark:text-white">
+                <h2 className="font-serif font-bold text-xl sm:text-3xl text-slate-900 dark:text-white">
                   Visit Us in Cavite
                 </h2>
                 <p className="text-xs sm:text-sm text-stone-500 dark:text-stone-400">
@@ -524,10 +505,10 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                 </p>
               </div>
 
-              <div className="flex flex-wrap items-center gap-3">
+              <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
                 <button
                   onClick={handleCopyAddress}
-                  className="px-4 py-2.5 rounded-xl border border-stone-200 dark:border-slate-700 hover:border-gold text-stone-700 dark:text-stone-200 font-bold text-xs transition flex items-center gap-2 cursor-pointer"
+                  className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl border border-stone-200 dark:border-slate-700 hover:border-gold text-stone-700 dark:text-stone-200 font-bold text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
                 >
                   {copiedAddress ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4 text-stone-400" />}
                   <span>{copiedAddress ? 'Address Copied!' : 'Copy Address'}</span>
@@ -537,21 +518,21 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                   href={googleMapsUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="px-4 py-2.5 rounded-xl bg-stone-900 hover:bg-stone-800 dark:bg-gold dark:hover:bg-gold-light text-white dark:text-slate-950 font-bold text-xs transition shadow-xs flex items-center gap-2 cursor-pointer"
+                  className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-stone-900 hover:bg-stone-800 dark:bg-gold dark:hover:bg-gold-light text-white dark:text-slate-950 font-bold text-xs transition shadow-xs flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  <span>Open in Google Maps</span>
+                  <span>Google Maps</span>
                   <ExternalLink className="w-3.5 h-3.5" />
                 </a>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
               <div className="space-y-4">
                 <div className="p-4 rounded-2xl bg-stone-50 dark:bg-slate-800/60 border border-stone-100 dark:border-slate-700/60 space-y-1">
                   <div className="text-[11px] font-bold text-gold uppercase tracking-wider">
                     Full Church Address
                   </div>
-                  <p className="text-sm font-semibold text-stone-800 dark:text-stone-100 leading-relaxed font-sans">
+                  <p className="text-xs sm:text-sm font-semibold text-stone-800 dark:text-stone-100 leading-relaxed font-sans">
                     {churchAddress}
                   </p>
                 </div>
@@ -573,18 +554,18 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
               </div>
 
               {/* Call to Action Box */}
-              <div className="p-6 rounded-2xl bg-gradient-to-br from-amber-500/10 via-gold/15 to-transparent border border-gold/30 text-center space-y-3">
+              <div className="p-6 rounded-2xl bg-gradient-to-br from-amber-500/10 via-gold/15 to-transparent border border-gold/30 text-center space-y-3 flex flex-col justify-center items-center">
                 <h4 className="font-serif font-bold text-base text-slate-900 dark:text-white">
                   First Time Visiting?
                 </h4>
-                <p className="text-xs text-stone-600 dark:text-stone-300 leading-relaxed">
+                <p className="text-xs text-stone-600 dark:text-stone-300 leading-relaxed max-w-sm">
                   Our welcoming ushering and hospitality team will greet you at the door. There is no dress code—come as you are!
                 </p>
                 <button
                   onClick={handleEnterFeed}
-                  className="px-5 py-2.5 rounded-xl bg-gold hover:bg-gold-light text-slate-950 font-bold text-xs shadow-gold transition inline-flex items-center gap-1.5 cursor-pointer"
+                  className="px-5 py-2.5 rounded-xl bg-gold hover:bg-gold-light text-slate-950 font-bold text-xs shadow-gold transition inline-flex items-center gap-1.5 cursor-pointer mt-1"
                 >
-                  <span>Connect With Us Today</span>
+                  <span>Connect In Fellowship Feed</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -597,14 +578,14 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
       {/* ============================================================== */}
       {/* 7. FOOTER                                                      */}
       {/* ============================================================== */}
-      <footer className="bg-white dark:bg-slate-950 border-t border-stone-200 dark:border-slate-800 py-12 px-4 sm:px-8 transition-colors">
+      <footer className="bg-white dark:bg-slate-950 border-t border-stone-200 dark:border-slate-800 py-10 px-4 sm:px-8 transition-colors">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6 text-center md:text-left">
           
           <div className="flex items-center gap-3">
             <img 
               src="/icons/church-seal-gold.png" 
               alt="Beholding Jesus Church" 
-              className="w-10 h-10 object-contain drop-shadow-sm" 
+              className="w-10 h-10 object-contain drop-shadow-sm shrink-0" 
             />
             <div>
               <div className="font-serif font-bold text-sm text-slate-900 dark:text-white uppercase tracking-wider">
@@ -620,7 +601,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
             © {new Date().getFullYear()} Beholding Jesus Church. All rights reserved.
           </div>
 
-          <div className="flex items-center gap-4 text-xs font-semibold text-stone-600 dark:text-stone-400">
+          <div className="flex items-center gap-4 text-xs font-semibold text-stone-600 dark:text-stone-400 flex-wrap justify-center">
             <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="hover:text-gold transition cursor-pointer">
               Back to Top ↑
             </button>
@@ -639,17 +620,6 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
       <DownloadAppModal
         isOpen={isDownloadModalOpen}
         onClose={() => setIsDownloadModalOpen(false)}
-      />
-
-      {/* Auth Modal for Guests */}
-      <AuthModal
-        isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
-        initialTab={authTab}
-        onAuthSuccess={() => {
-          setIsAuthModalOpen(false);
-          onNavigate('home');
-        }}
       />
 
     </div>
