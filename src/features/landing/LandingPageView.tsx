@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
   Sparkles, Calendar, Clock, MapPin, Heart, BookOpen, Music, 
   Users, ArrowRight, ShieldCheck, ExternalLink, Copy, Check, 
-  Smartphone, Moon, Sun, ChevronRight
+  Smartphone, Moon, Sun, ChevronRight, Maximize2, Download, X, Camera
 } from 'lucide-react';
 import { CHURCH_INFO } from '../../services/churchInfo';
 import { UserProfile } from '../../types';
@@ -18,6 +18,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
   currentUser
 }) => {
   const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
+  const [isPhotoLightboxOpen, setIsPhotoLightboxOpen] = useState(false);
   const [copiedAddress, setCopiedAddress] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
     return document.documentElement.classList.contains('dark') || localStorage.getItem('bjc_theme') === 'dark';
@@ -48,6 +49,16 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
 
   const handleEnterFeed = () => {
     onNavigate('feed');
+  };
+
+  const handleDownloadPhoto = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const a = document.createElement('a');
+    a.href = '/images/bjc-family-fellowship.jpg';
+    a.download = `bjc-church-family-fellowship-${Date.now()}.jpg`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
 
   return (
@@ -119,39 +130,48 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
       </header>
 
       {/* ============================================================== */}
-      {/* 2. GRAND HERO SECTION                                          */}
+      {/* 2. GRAND HERO SECTION WITH BJC FAMILY FELLOWSHIP BACKGROUND   */}
       {/* ============================================================== */}
-      <section className="relative overflow-hidden pt-10 pb-16 sm:pt-20 sm:pb-24">
+      <section className="relative overflow-hidden min-h-[580px] sm:min-h-[660px] flex items-center justify-center pt-14 pb-20 sm:pt-24 sm:pb-28">
         
-        {/* Ambient Glow Elements (pointer-events-none to prevent touch/click blocking) */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-5xl h-80 bg-gradient-to-b from-amber-500/10 via-gold/5 to-transparent blur-3xl pointer-events-none" />
-        <div className="absolute top-1/4 right-5 w-60 h-60 rounded-full bg-gold/10 blur-3xl pointer-events-none" />
+        {/* Background Image Container with Cinematic Lighting & Fades */}
+        <div className="absolute inset-0 z-0 overflow-hidden">
+          <img 
+            src="/images/bjc-family-fellowship.jpg" 
+            alt="Beholding Jesus Church Family Fellowship" 
+            className="w-full h-full object-cover object-center scale-105 filter brightness-[0.38] contrast-[1.1] saturate-[1.15]"
+          />
+          {/* Dual aesthetic gradient overlays: dark vignette at top/center, smooth fade into page theme at bottom */}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/85 via-black/55 to-[#FAF8F5] dark:to-[#0C0E14]" />
+          <div className="absolute inset-0 bg-radial from-amber-500/15 via-transparent to-black/70 pointer-events-none" />
+          <div className="absolute inset-0 backdrop-blur-[0.5px]" />
+        </div>
 
         <div className="relative max-w-4xl mx-auto px-4 sm:px-6 text-center space-y-6 sm:space-y-8 z-10">
           
           {/* Welcome Pill */}
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gold/15 dark:bg-gold/20 border border-gold/40 text-gold-dark dark:text-gold text-xs font-bold tracking-wider uppercase shadow-xs">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-black/60 backdrop-blur-md border border-gold/50 text-amber-200 text-xs font-bold tracking-wider uppercase shadow-xl">
             <Sparkles className="w-3.5 h-3.5 text-gold animate-pulse shrink-0" />
-            <span>Welcome in the Name of Jesus</span>
+            <span>Welcome to Our Church Family</span>
           </div>
 
           {/* Majestic Hero Headline */}
           <div className="space-y-3 sm:space-y-4">
-            <h1 className="font-serif font-black text-2xl sm:text-5xl lg:text-6xl text-slate-900 dark:text-white tracking-tight uppercase leading-tight sm:leading-tight">
+            <h1 className="font-serif font-black text-3xl sm:text-5xl lg:text-6xl text-white tracking-tight uppercase leading-tight sm:leading-tight drop-shadow-xl">
               Beholding The Glory <br className="hidden sm:inline" />
-              <span className="bg-gradient-to-r from-gold via-amber-400 to-amber-600 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-[#F3E3C3] via-gold to-amber-300 bg-clip-text text-transparent drop-shadow-md">
                 Of The Lord
               </span>
             </h1>
 
-            <p className="max-w-2xl mx-auto text-xs sm:text-base lg:text-lg text-stone-600 dark:text-stone-300 leading-relaxed font-sans px-2">
+            <p className="max-w-2xl mx-auto text-xs sm:text-base lg:text-lg text-stone-200 leading-relaxed font-sans px-2 drop-shadow-md">
               A Christ-centered sanctuary in Cavite dedicated to deep worship, life-giving fellowship, and spirit-led discipleship.
             </p>
           </div>
 
           {/* Scripture Callout Card */}
-          <div className="max-w-2xl mx-auto p-4 sm:p-5 rounded-2xl bg-white/80 dark:bg-slate-900/80 border border-gold/30 shadow-card backdrop-blur-md text-center mx-2 sm:mx-auto">
-            <p className="font-serif italic text-xs sm:text-sm text-stone-700 dark:text-amber-100/90 leading-relaxed">
+          <div className="max-w-2xl mx-auto p-4 sm:p-5 rounded-2xl bg-black/60 dark:bg-black/75 border border-gold/40 shadow-2xl backdrop-blur-md text-center mx-2 sm:mx-auto">
+            <p className="font-serif italic text-xs sm:text-sm text-amber-100/95 leading-relaxed">
               "And we all, with unveiled face, beholding the glory of the Lord, are being transformed into the same image from one degree of glory to another. For this comes from the Lord who is the Spirit."
             </p>
             <div className="mt-2 text-[10px] sm:text-[11px] font-bold tracking-widest text-gold uppercase">
@@ -163,7 +183,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2 w-full max-w-md sm:max-w-none mx-auto">
             <button
               onClick={handleEnterFeed}
-              className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-gradient-to-r from-stone-900 to-[#1e293b] dark:from-gold dark:to-amber-400 text-white dark:text-slate-950 font-bold text-xs sm:text-sm shadow-xl hover:shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-gradient-to-r from-gold to-amber-500 hover:from-amber-400 hover:to-gold text-slate-950 font-bold text-xs sm:text-sm shadow-xl hover:shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition flex items-center justify-center gap-2 cursor-pointer"
             >
               <span>Explore Community Feed</span>
               <ArrowRight className="w-4 h-4" />
@@ -171,24 +191,25 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
 
             <a
               href="#gatherings"
-              className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 hover:border-gold text-stone-800 dark:text-stone-200 font-bold text-xs sm:text-sm shadow-xs hover:shadow-md transition flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-white/15 hover:bg-white/25 backdrop-blur-md border border-white/25 text-white font-bold text-xs sm:text-sm shadow-md transition flex items-center justify-center gap-2 cursor-pointer"
             >
               <Calendar className="w-4 h-4 text-gold" />
               <span>Sunday Gatherings</span>
             </a>
 
             <button
-              onClick={() => setIsDownloadModalOpen(true)}
-              className="w-full sm:w-auto px-5 py-3.5 rounded-2xl bg-stone-100 hover:bg-stone-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-stone-700 dark:text-stone-300 font-bold text-xs sm:text-sm transition flex items-center justify-center gap-2 cursor-pointer"
+              onClick={() => setIsPhotoLightboxOpen(true)}
+              className="w-full sm:w-auto px-5 py-3.5 rounded-2xl bg-black/45 hover:bg-black/65 backdrop-blur-md border border-white/20 text-stone-200 font-bold text-xs sm:text-sm transition flex items-center justify-center gap-2 cursor-pointer shadow-md"
+              title="View High-Resolution Church Family Photo"
             >
-              <Smartphone className="w-4 h-4 text-emerald-500" />
-              <span>Mobile App</span>
+              <Camera className="w-4 h-4 text-amber-400" />
+              <span>View Family Photo</span>
             </button>
           </div>
 
           {/* Live Status Pill Row */}
-          <div className="pt-2 flex flex-wrap items-center justify-center gap-2 sm:gap-4 text-xs text-stone-500 dark:text-stone-400 font-medium">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-stone-100 dark:bg-slate-800/80 border border-stone-200/60 dark:border-slate-700/60">
+          <div className="pt-2 flex flex-wrap items-center justify-center gap-2 sm:gap-4 text-xs text-stone-300 font-medium drop-shadow-sm">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/50 backdrop-blur-md border border-white/15 text-stone-200">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping inline-block" />
               <span>Sanctuary Fellowship Active</span>
             </span>
@@ -321,6 +342,116 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
             </div>
 
           </div>
+        </div>
+      </section>
+
+      {/* ============================================================== */}
+      {/* 3.5. OUR CHURCH FAMILY & FELLOWSHIP MOMENTS                     */}
+      {/* ============================================================== */}
+      <section className="py-12 sm:py-20 relative overflow-hidden">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 space-y-8">
+          
+          <div className="text-center space-y-2">
+            <span className="text-xs font-bold uppercase tracking-[0.2em] text-gold">
+              Living in Covenant & Community
+            </span>
+            <h2 className="font-serif font-black text-2xl sm:text-4xl text-slate-900 dark:text-white uppercase tracking-tight">
+              One Family in Jesus Christ
+            </h2>
+            <p className="text-xs sm:text-sm text-stone-500 dark:text-stone-400 max-w-xl mx-auto">
+              We are more than just a weekly service—we are a loving, multigenerational spiritual family sharing life, prayer, and table fellowship together.
+            </p>
+          </div>
+
+          {/* Majestic Fellowship Showcase Card with Click to Lightbox */}
+          <div className="rounded-3xl sm:rounded-[36px] overflow-hidden bg-white dark:bg-slate-900 border-2 border-gold/40 shadow-2xl relative group">
+            
+            {/* The Photo Container */}
+            <div 
+              onClick={() => setIsPhotoLightboxOpen(true)}
+              className="relative cursor-pointer overflow-hidden min-h-[300px] sm:min-h-[460px] max-h-[580px] bg-black/20 flex items-center justify-center"
+            >
+              <img 
+                src="/images/bjc-family-fellowship.jpg" 
+                alt="Beholding Jesus Church Family Gathering" 
+                className="w-full h-auto max-h-[580px] object-cover object-center group-hover:scale-[1.02] transition-transform duration-700"
+              />
+
+              {/* Action Overlays */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent flex flex-col justify-end p-6 sm:p-10 text-white">
+                <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4">
+                  <div className="space-y-1.5 max-w-xl">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gold/90 text-slate-950 font-black text-[10px] uppercase tracking-wider shadow-md">
+                      <Sparkles className="w-3 h-3 fill-current" />
+                      <span>Church Fellowship Gathering</span>
+                    </span>
+                    <h3 className="font-serif font-bold text-lg sm:text-2xl text-white drop-shadow-md">
+                      Table Fellowship & Genuine Christian Community
+                    </h3>
+                    <p className="text-xs sm:text-sm text-stone-200 font-sans leading-relaxed drop-shadow-sm">
+                      Children, youth, parents, elders, and pastoral leaders gathering in unity, praising God for His goodness and celebrating together.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2.5 shrink-0 w-full sm:w-auto">
+                    <button
+                      type="button"
+                      onClick={() => setIsPhotoLightboxOpen(true)}
+                      className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-white/20 hover:bg-white/30 backdrop-blur-md text-white font-bold text-xs border border-white/30 transition flex items-center justify-center gap-1.5 cursor-pointer shadow-lg active:scale-95"
+                    >
+                      <Maximize2 className="w-4 h-4" />
+                      <span>Full View</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleDownloadPhoto}
+                      className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-gold hover:bg-gold-light text-slate-950 font-bold text-xs transition flex items-center justify-center gap-1.5 cursor-pointer shadow-gold active:scale-95"
+                      title="Save / Download Church Photo"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span>Save Photo</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Fellowship Pillars Row */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-stone-100 dark:divide-slate-800 p-4 sm:p-6 bg-stone-50/80 dark:bg-slate-950/80 text-xs">
+              <div className="p-3 space-y-1">
+                <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                  <Heart className="w-3.5 h-3.5 text-rose-500" />
+                  <span>Multigenerational Love</span>
+                </span>
+                <p className="text-stone-500 dark:text-stone-400 text-[11px] leading-relaxed">
+                  Every generation from young kids to seniors is cherished and nurtured in the faith.
+                </p>
+              </div>
+
+              <div className="p-3 space-y-1">
+                <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-gold" />
+                  <span>Table Fellowship</span>
+                </span>
+                <p className="text-stone-500 dark:text-stone-400 text-[11px] leading-relaxed">
+                  Sharing meals, celebrating milestones, and walking alongside one another through every season.
+                </p>
+              </div>
+
+              <div className="p-3 space-y-1">
+                <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                  <BookOpen className="w-3.5 h-3.5 text-emerald-500" />
+                  <span>Biblical Foundation</span>
+                </span>
+                <p className="text-stone-500 dark:text-stone-400 text-[11px] leading-relaxed">
+                  Steadfast in the Apostles' teaching, prayers, breaking of bread, and Christian discipleship.
+                </p>
+              </div>
+            </div>
+
+          </div>
+
         </div>
       </section>
 
@@ -621,6 +752,42 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
         isOpen={isDownloadModalOpen}
         onClose={() => setIsDownloadModalOpen(false)}
       />
+
+      {/* Church Family Photo Lightbox Modal */}
+      {isPhotoLightboxOpen && (
+        <div 
+          onClick={() => setIsPhotoLightboxOpen(false)}
+          className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 cursor-pointer animate-fadeIn"
+        >
+          <div className="relative max-w-6xl max-h-[92vh] overflow-hidden rounded-3xl" onClick={(e) => e.stopPropagation()}>
+            <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleDownloadPhoto}
+                className="px-4 py-2 rounded-full bg-gold hover:bg-gold-light text-slate-950 text-xs font-bold flex items-center gap-1.5 shadow-xl transition active:scale-95 cursor-pointer"
+                title="Save / Download High-Res Photo"
+              >
+                <Download className="w-4 h-4" />
+                <span>Save Photo</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsPhotoLightboxOpen(false)}
+                className="w-9 h-9 rounded-full bg-black/70 hover:bg-black/90 text-white flex items-center justify-center transition border border-white/25 cursor-pointer"
+                title="Close Lightbox"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <img 
+              src="/images/bjc-family-fellowship.jpg" 
+              alt="Beholding Jesus Church Family Full View" 
+              className="w-auto h-auto max-w-full max-h-[88vh] object-contain rounded-2xl shadow-2xl"
+            />
+          </div>
+        </div>
+      )}
 
     </div>
   );
