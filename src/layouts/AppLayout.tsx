@@ -3,7 +3,7 @@ import {
   Home, BookOpen, MessageSquare, Users, Music, Calendar, 
   Heart, Shield, Bell, Moon, Sun, Search, Menu, X, 
   Sparkles, CheckCircle2, ChevronRight, ChevronDown, MapPin, ExternalLink, Plus,
-  UserPlus, LogIn, LogOut, KeyRound, UserCheck, User, HandHeart
+  UserPlus, LogIn, LogOut, KeyRound, UserCheck, User, HandHeart, Compass
 } from 'lucide-react';
 import { ChurchDataStore } from '../services/churchDataStore';
 import { AuthService } from '../services/authService';
@@ -118,7 +118,8 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   };
 
   const navItems = [
-    { id: 'home', label: 'Home', icon: Home },
+    { id: 'landing', label: 'Church Landing', icon: Compass },
+    { id: 'home', label: 'Community Feed', icon: Home },
     { id: 'bjc-ai', label: 'BJC AI', icon: Sparkles },
     { id: 'bible', label: 'Bible', icon: BookOpen },
     { 

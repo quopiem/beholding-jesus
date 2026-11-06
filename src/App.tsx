@@ -12,6 +12,7 @@ import { ProfileView } from './pages/ProfileView';
 import { BjcAiView } from './features/ai/BjcAiView';
 import { BjcAiFloatingButton } from './features/ai/BjcAiFloatingButton';
 import { AuthPage } from './features/auth/AuthPage';
+import { LandingPageView } from './features/landing/LandingPageView';
 import { ChurchDataStore } from './services/churchDataStore';
 import { AuthService } from './services/authService';
 import { UserProfile } from './types';
@@ -19,6 +20,7 @@ import { UserProfile } from './types';
 export function App() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => ChurchDataStore.getCurrentUser());
   const [currentTab, setCurrentTab] = useState<string>('home');
+  const [authViewMode, setAuthViewMode] = useState<'landing' | 'auth'>('landing');
 
   useEffect(() => {
     AuthService.initializeDefaultCredentials();
@@ -37,21 +39,40 @@ export function App() {
     };
   }, []);
 
-  // Strict Authentication Gate:
-  // If no authenticated session exists, display Login or Registration screen
+  // For unauthenticated visitors: Show the official Church Landing Page
+  // or the Sign In / Registration portal
   if (!currentUser) {
+    if (authViewMode === 'auth') {
+      return (
+        <AuthPage 
+          onAuthSuccess={(user) => {
+            setCurrentUser(user);
+            setCurrentTab('home');
+            setAuthViewMode('landing');
+          }} 
+          onBackToLanding={() => setAuthViewMode('landing')}
+        />
+      );
+    }
+
     return (
-      <AuthPage 
-        onAuthSuccess={(user) => {
-          setCurrentUser(user);
-          setCurrentTab('home');
-        }} 
+      <LandingPageView
+        onNavigate={(tab) => {
+          if (tab === 'home') {
+            setAuthViewMode('auth');
+          } else {
+            setAuthViewMode('auth');
+          }
+        }}
+        onOpenAuth={() => setAuthViewMode('auth')}
       />
     );
   }
 
   const renderContent = () => {
     switch (currentTab) {
+      case 'landing':
+        return <LandingPageView onNavigate={setCurrentTab} currentUser={currentUser} />;
       case 'home':
         return <HomeView onNavigate={setCurrentTab} onOpenQuickAction={() => setCurrentTab('worship')} currentUser={currentUser} />;
       case 'bible':

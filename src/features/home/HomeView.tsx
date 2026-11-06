@@ -193,13 +193,6 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
   const visiblePosts = filteredPosts.slice(0, displayCount);
 
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Good morning';
-    if (hour < 18) return 'Good afternoon';
-    return 'Good evening';
-  };
-
   return (
     <div className="min-h-screen bg-[#FAF8F5] dark:bg-[#0B111E] text-stone-900 dark:text-stone-100 transition-colors">
       
@@ -226,33 +219,36 @@ export const HomeView: React.FC<HomeViewProps> = ({
           {/* ============================================================== */}
           <main className="lg:col-span-6 space-y-6">
             
-            {/* 0. SACRED WELCOME GREETING BANNER */}
-            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-stone-900 via-stone-900 to-amber-950/80 dark:from-slate-900 dark:via-slate-900 dark:to-amber-950/60 border border-gold/30 p-5 sm:p-6 text-white shadow-elevated">
-              {/* Subtle ambient light glow */}
-              <div className="absolute -top-10 -right-10 w-44 h-44 bg-gold/15 rounded-full blur-3xl pointer-events-none" />
-              <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div className="space-y-1.5">
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gold/20 border border-gold/30 text-[11px] font-bold text-gold tracking-wide">
-                    <Sparkles className="w-3.5 h-3.5 text-gold animate-pulse" />
-                    <span>Welcome to Beholding Jesus Church</span>
+            {/* MODERN COMMUNITY FEED HEADER */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-4 sm:p-5 rounded-3xl border border-stone-200/80 dark:border-slate-800/80 shadow-xs">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-gold to-amber-200 p-0.5 shadow-sm flex items-center justify-center shrink-0">
+                  <Sparkles className="w-5 h-5 text-slate-950" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="font-serif font-black text-base sm:text-lg text-stone-900 dark:text-white tracking-wide">
+                      Community Feed
+                    </h2>
+                    <span className="inline-flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      Live Fellowship
+                    </span>
                   </div>
-                  <h2 className="font-serif font-bold text-xl sm:text-2xl text-amber-50">
-                    {getGreeting()}, {currentUser?.name?.split(' ')[0] || 'Beloved'}!
-                  </h2>
-                  <p className="text-xs sm:text-sm text-stone-300 dark:text-slate-300 leading-relaxed font-sans max-w-lg">
-                    We are blessed to gather and fellowship with you today. "Beholding the glory of the Lord, we are being transformed into His image." (2 Corinthians 3:18)
+                  <p className="text-[11px] text-stone-500 dark:text-stone-400">
+                    Testimonies, prayer needs, and pastoral encouragement
                   </p>
                 </div>
-                <div className="flex sm:flex-col items-center sm:items-end gap-1.5 w-full sm:w-auto shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-white/10">
-                  <div className="text-[11px] text-amber-200/90 font-medium flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping inline-block" />
-                    <span>Sanctuary Fellowship Active</span>
-                  </div>
-                  <div className="text-[10px] text-stone-400 font-serif">
-                    Camella Springville Molino 3
-                  </div>
-                </div>
               </div>
+
+              {/* View Church Landing Page pill */}
+              <button
+                onClick={() => onNavigate('landing')}
+                className="px-3.5 py-1.5 rounded-xl border border-gold/30 bg-gold/10 hover:bg-gold/20 text-gold-dark dark:text-gold text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ml-auto sm:ml-0 shadow-xs active:scale-95"
+              >
+                <span>Church Overview</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
             </div>
 
             {/* 1. PINNED ANNOUNCEMENT HERO SECTION */}
@@ -283,12 +279,12 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
             {/* 3. FEED CONTROLS & FILTER TABS */}
             <div className="flex items-center justify-between gap-2 overflow-x-auto pb-1 scrollbar-none">
-              <div className="flex items-center gap-1.5 flex-wrap">
+              <div className="flex items-center gap-2 flex-wrap">
                 {[
                   { id: 'all', label: 'All Feed', icon: Sparkles },
-                  { id: 'announcements', label: 'Pastoral Announcements', icon: Bell },
+                  { id: 'announcements', label: 'Announcements', icon: Bell },
                   { id: 'testimonies', label: 'Testimonies', icon: Heart },
-                  { id: 'reflections', label: 'Scripture Reflections', icon: BookOpen },
+                  { id: 'reflections', label: 'Scriptures', icon: BookOpen },
                   { id: 'my_posts', label: 'My Posts', icon: Users }
                 ].map(tab => {
                   const Icon = tab.icon;
@@ -298,13 +294,13 @@ export const HomeView: React.FC<HomeViewProps> = ({
                     <button
                       key={tab.id}
                       onClick={() => setActiveFilter(tab.id as any)}
-                      className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
+                      className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all duration-200 flex items-center gap-1.5 shrink-0 cursor-pointer active:scale-95 ${
                         isActive
-                          ? 'bg-stone-900 dark:bg-gold text-white dark:text-slate-950 shadow-xs'
-                          : 'bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-slate-800'
+                          ? 'bg-stone-900 dark:bg-gold text-white dark:text-slate-950 shadow-sm ring-1 ring-gold/40'
+                          : 'bg-white/90 dark:bg-slate-900/90 border border-stone-200/80 dark:border-slate-800 text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-slate-800 hover:border-gold/30'
                       }`}
                     >
-                      <Icon className="w-3.5 h-3.5" />
+                      <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-gold dark:text-slate-950' : 'text-stone-400'}`} />
                       <span>{tab.label}</span>
                     </button>
                   );
@@ -315,10 +311,10 @@ export const HomeView: React.FC<HomeViewProps> = ({
               <button
                 onClick={refreshFeed}
                 disabled={isRefreshing}
-                className="p-2 rounded-full bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 text-stone-500 hover:text-stone-900 dark:hover:text-white transition cursor-pointer shrink-0"
+                className="p-2.5 rounded-2xl bg-white/90 dark:bg-slate-900/90 border border-stone-200/80 dark:border-slate-800 text-stone-500 hover:text-stone-900 dark:hover:text-white hover:border-gold/30 transition cursor-pointer shrink-0 shadow-xs active:scale-95"
                 title="Refresh Feed"
               >
-                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-gold' : ''}`} />
+                <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-gold' : ''}`} />
               </button>
             </div>
 

@@ -12,11 +12,13 @@ import { DownloadAppModal } from '../../components/DownloadAppModal';
 interface AuthPageProps {
   onAuthSuccess: (user: UserProfile) => void;
   initialTab?: 'login' | 'register' | 'recovery';
+  onBackToLanding?: () => void;
 }
 
 export const AuthPage: React.FC<AuthPageProps> = ({
   onAuthSuccess,
-  initialTab = 'login'
+  initialTab = 'login',
+  onBackToLanding
 }) => {
   const [tab, setTab] = useState<'login' | 'register' | 'recovery'>(initialTab);
   const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
@@ -182,6 +184,18 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 
       <div className="relative w-full max-w-md space-y-6 z-10">
         
+        {/* Back to Landing Page Button */}
+        {onBackToLanding && (
+          <div className="flex justify-start">
+            <button
+              onClick={onBackToLanding}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/80 dark:bg-slate-900/80 border border-stone-200 dark:border-slate-800 text-xs font-semibold text-stone-600 dark:text-stone-300 hover:text-gold transition cursor-pointer shadow-xs"
+            >
+              <span>← Back to Church Landing</span>
+            </button>
+          </div>
+        )}
+
         {/* Church Branding Header */}
         <div className="text-center space-y-2">
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-white dark:bg-slate-900 shadow-elevated border border-gold/30 dark:border-slate-800 p-2 mx-auto">

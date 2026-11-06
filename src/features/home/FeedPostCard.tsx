@@ -143,12 +143,12 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
   const isAnnouncement = post.postType === 'announcement';
 
   return (
-    <article className={`rounded-3xl bg-white dark:bg-slate-900 border transition-all ${
+    <article className={`rounded-3xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border transition-all duration-200 ${
       post.isHidden
         ? 'opacity-60 border-rose-300 dark:border-rose-900 bg-rose-50/20'
         : isAnnouncement 
           ? 'border-2 border-gold/40 dark:border-gold/30 shadow-md ring-1 ring-gold/20' 
-          : 'border-stone-200 dark:border-slate-800 shadow-card hover:border-stone-300 dark:hover:border-slate-700'
+          : 'border-stone-200/90 dark:border-slate-800/90 shadow-xs hover:shadow-md hover:border-gold/30 dark:hover:border-slate-700'
     }`}>
       
       {/* Post Header */}
@@ -368,62 +368,64 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
 
       {/* Image Gallery (Responsive 1-image, 2-images, 3+ Facebook-style collage) */}
       {post.imageUrls && post.imageUrls.length > 0 && (
-        <div className="mb-3">
-          {post.imageUrls.length === 1 ? (
-            <div 
-              onClick={() => onOpenImageLightbox(post.imageUrls[0])}
-              className="relative aspect-video sm:aspect-16/9 bg-black/10 overflow-hidden cursor-pointer group"
-            >
-              <img
-                src={post.imageUrls[0]}
-                alt="Post attachment"
-                className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
-              />
-              <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                <span className="px-3 py-1.5 rounded-full bg-black/60 text-white text-xs font-semibold flex items-center gap-1.5 backdrop-blur-md">
-                  <Maximize2 className="w-3.5 h-3.5" /> Full View
-                </span>
-              </div>
-            </div>
-          ) : post.imageUrls.length === 2 ? (
-            <div className="grid grid-cols-2 gap-1 bg-black/5">
-              {post.imageUrls.map((url, idx) => (
-                <div 
-                  key={idx} 
-                  onClick={() => onOpenImageLightbox(url)}
-                  className="relative aspect-square overflow-hidden cursor-pointer group"
-                >
-                  <img src={url} alt={`Attachment ${idx + 1}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-1 bg-black/5">
+        <div className="px-4 sm:px-5 mb-3">
+          <div className="rounded-2xl overflow-hidden border border-black/5 dark:border-white/10 shadow-xs">
+            {post.imageUrls.length === 1 ? (
               <div 
                 onClick={() => onOpenImageLightbox(post.imageUrls[0])}
-                className="relative aspect-square overflow-hidden cursor-pointer group col-span-1 row-span-2"
+                className="relative aspect-video sm:aspect-16/9 bg-black/10 overflow-hidden cursor-pointer group"
               >
-                <img src={post.imageUrls[0]} alt="Attachment 1" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                <img
+                  src={post.imageUrls[0]}
+                  alt="Post attachment"
+                  className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
+                />
+                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <span className="px-3 py-1.5 rounded-full bg-black/60 text-white text-xs font-semibold flex items-center gap-1.5 backdrop-blur-md">
+                    <Maximize2 className="w-3.5 h-3.5" /> Full View
+                  </span>
+                </div>
               </div>
-              <div 
-                onClick={() => onOpenImageLightbox(post.imageUrls[1])}
-                className="relative aspect-square overflow-hidden cursor-pointer group"
-              >
-                <img src={post.imageUrls[1]} alt="Attachment 2" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-              </div>
-              <div 
-                onClick={() => onOpenImageLightbox(post.imageUrls[2])}
-                className="relative aspect-square overflow-hidden cursor-pointer group"
-              >
-                <img src={post.imageUrls[2]} alt="Attachment 3" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                {post.imageUrls.length > 3 && (
-                  <div className="absolute inset-0 bg-black/60 text-white font-bold text-lg flex items-center justify-center backdrop-blur-xs">
-                    +{post.imageUrls.length - 3} more
+            ) : post.imageUrls.length === 2 ? (
+              <div className="grid grid-cols-2 gap-1 bg-black/5">
+                {post.imageUrls.map((url, idx) => (
+                  <div 
+                    key={idx} 
+                    onClick={() => onOpenImageLightbox(url)}
+                    className="relative aspect-square overflow-hidden cursor-pointer group"
+                  >
+                    <img src={url} alt={`Attachment ${idx + 1}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                   </div>
-                )}
+                ))}
               </div>
-            </div>
-          )}
+            ) : (
+              <div className="grid grid-cols-2 gap-1 bg-black/5">
+                <div 
+                  onClick={() => onOpenImageLightbox(post.imageUrls[0])}
+                  className="relative aspect-square overflow-hidden cursor-pointer group col-span-1 row-span-2"
+                >
+                  <img src={post.imageUrls[0]} alt="Attachment 1" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                </div>
+                <div 
+                  onClick={() => onOpenImageLightbox(post.imageUrls[1])}
+                  className="relative aspect-square overflow-hidden cursor-pointer group"
+                >
+                  <img src={post.imageUrls[1]} alt="Attachment 2" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                </div>
+                <div 
+                  onClick={() => onOpenImageLightbox(post.imageUrls[2])}
+                  className="relative aspect-square overflow-hidden cursor-pointer group"
+                >
+                  <img src={post.imageUrls[2]} alt="Attachment 3" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                  {post.imageUrls.length > 3 && (
+                    <div className="absolute inset-0 bg-black/60 text-white font-bold text-lg flex items-center justify-center backdrop-blur-xs">
+                      +{post.imageUrls.length - 3} more
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

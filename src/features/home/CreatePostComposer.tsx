@@ -163,12 +163,12 @@ export const CreatePostComposer: React.FC<CreatePostComposerProps> = ({
   const firstName = currentUser.name.split(' ')[0] || 'believer';
 
   return (
-    <div className="rounded-3xl bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 shadow-card p-4 sm:p-5 transition-all">
+    <div className="rounded-3xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border border-stone-200/80 dark:border-slate-800/80 shadow-xs hover:border-gold/30 p-4 sm:p-5 transition-all duration-200">
       
       {/* Top collapsed row */}
       {!isExpanded ? (
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 border border-gold/30">
+          <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 border border-gold/40 shadow-xs">
             <img 
               src={currentUser.avatar || '/icons/church-logo.png'} 
               alt={currentUser.name} 
@@ -178,7 +178,7 @@ export const CreatePostComposer: React.FC<CreatePostComposerProps> = ({
 
           <button
             onClick={() => setIsExpanded(true)}
-            className="flex-1 bg-stone-100 hover:bg-stone-200/80 dark:bg-slate-800 dark:hover:bg-slate-700/80 text-left px-4 py-2.5 rounded-full text-xs sm:text-sm text-stone-500 dark:text-stone-400 transition cursor-pointer"
+            className="flex-1 bg-stone-100/90 hover:bg-stone-200/70 dark:bg-slate-800/80 dark:hover:bg-slate-700/80 text-left px-4 py-2.5 rounded-2xl text-xs sm:text-sm text-stone-500 dark:text-stone-400 border border-transparent hover:border-gold/20 transition cursor-pointer"
           >
             What would you like to share with the church, {firstName}?
           </button>
