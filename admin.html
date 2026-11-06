@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/icons/favicon.png" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#8C5858" />
+    <meta name="description" content="Beholding Jesus Church — Super Administrator Portal & Announcements CMS" />
+    <meta name="robots" content="noindex, nofollow" />
+    
+    <!-- Google Fonts for Sacred & Modern Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <title>BJC Admin Portal — Beholding Jesus Church</title>
+
+    <!-- Suppress Netlify Drawer, Badge and Overlays -->
+    <style>
+      #netlify-drawer-container,
+      [data-netlify-drawer],
+      [data-netlify-badge],
+      .netlify-drawer,
+      #netlify-badge,
+      .netlify-feedback-badge,
+      [class*="netlify-drawer"],
+      [class*="netlify-badge"],
+      [class*="netlify-feedback"],
+      [class*="feedback-badge"],
+      iframe[src*="netlify"],
+      iframe[id*="netlify"],
+      iframe[title*="Netlify"],
+      [aria-label*="Netlify"],
+      [title*="Netlify"],
+      a[href*="netlify.com"] {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+        position: absolute !important;
+        z-index: -99999 !important;
+        width: 0 !important;
+        height: 0 !important;
+        overflow: hidden !important;
+      }
+    </style>
+    <script>
+      (function() {
+        function zapNetlifyBadge() {
+          var sel = [
+            '#netlify-drawer-container',
+            '[data-netlify-drawer]',
+            '[data-netlify-badge]',
+            '.netlify-drawer',
+            '#netlify-badge',
+            '.netlify-feedback-badge',
+            'iframe[src*="netlify"]',
+            'iframe[id*="netlify"]',
+            'iframe[title*="Netlify"]',
+            'div[class*="netlify"]',
+            'a[href*="netlify.com"]'
+          ];
+          sel.forEach(function(s) {
+            try {
+              document.querySelectorAll(s).forEach(function(el) { el.remove(); });
+            } catch(e) {}
+          });
+
+          // Text content matching
+          try {
+            var tags = ['div', 'a', 'button', 'span', 'p'];
+            for (var t = 0; t < tags.length; t++) {
+              var els = document.querySelectorAll(tags[t]);
+              for (var i = 0; i < els.length; i++) {
+                var elem = els[i];
+                var txt = (elem.innerText || elem.textContent || '').trim();
+                if (txt === 'Powered by Netlify' || (txt.indexOf('Powered by Netlify') !== -1 && elem.children.length <= 4)) {
+                  var root = elem;
+                  while (root.parentElement && root.parentElement !== document.body && root.parentElement !== document.documentElement) {
+                    var pos = window.getComputedStyle(root.parentElement).position;
+                    if (pos === 'fixed' || pos === 'absolute') {
+                      root = root.parentElement;
+                    } else {
+                      break;
+                    }
+                  }
+                  root.remove();
+                }
+              }
+            }
+          } catch(e) {}
+        }
+
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', zapNetlifyBadge);
+        } else {
+          zapNetlifyBadge();
+        }
+        var count = 0;
+        var interval = setInterval(function() {
+          zapNetlifyBadge();
+          if (++count > 25) clearInterval(interval);
+        }, 200);
+
+        try {
+          var observer = new MutationObserver(zapNetlifyBadge);
+          observer.observe(document.documentElement, { childList: true, subtree: true });
+        } catch(e) {}
+      })();
+    </script>
+  </head>
+  <body class="bg-[#F8F3F0] text-[#1F1D1D] antialiased selection:bg-[#EBDCD5] selection:text-[#1F1D1D] min-h-screen">
+    <div id="admin-root"></div>
+    <script type="module" src="/src/admin/adminMain.tsx"></script>
+  </body>
+</html>

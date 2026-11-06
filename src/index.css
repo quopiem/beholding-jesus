@@ -1,0 +1,182 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply font-sans;
+  }
+
+  /* Custom subtle spiritual scrollbars */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-slate-300 dark:bg-slate-700 rounded-full hover:bg-slate-400 dark:hover:bg-slate-600;
+  }
+}
+
+@layer utilities {
+  .text-gold-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-gold-dark via-gold to-gold-300;
+  }
+  
+  .glass-card {
+    @apply bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/70 dark:border-slate-800/70 shadow-card;
+  }
+
+  .glass-pill {
+    @apply bg-white/70 dark:bg-slate-900/70 backdrop-blur-md border border-stone-200/60 dark:border-slate-800/60 shadow-xs;
+  }
+
+  .glass-sacred {
+    @apply bg-gradient-to-b from-white/95 to-white/85 dark:from-slate-900/95 dark:to-slate-900/85 backdrop-blur-xl border border-stone-200/80 dark:border-slate-800/80 shadow-card;
+  }
+
+  .card-hover-lift {
+    @apply transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-elevated hover:border-gold/50 active:scale-[0.99];
+  }
+}
+
+/* ============================================================== */
+/* LUXURY SACRED KEYFRAMES & MICRO-INTERACTION ANIMATIONS         */
+/* ============================================================== */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes floatSlow {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-6px) rotate(0.4deg);
+  }
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes shimmerEffect {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes sacredAura {
+  0%, 100% {
+    filter: drop-shadow(0 0 12px rgba(197, 164, 109, 0.25));
+  }
+  50% {
+    filter: drop-shadow(0 0 24px rgba(197, 164, 109, 0.5));
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slide-down {
+  animation: slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-float {
+  animation: floatSlow 5s ease-in-out infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 3s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.18) 50%, rgba(255,255,255,0) 100%);
+  background-size: 200% 100%;
+  animation: shimmerEffect 2.8s infinite;
+}
+
+.animate-shimmer-gold {
+  background: linear-gradient(90deg, rgba(197,164,109,0) 0%, rgba(197,164,109,0.3) 50%, rgba(197,164,109,0) 100%);
+  background-size: 200% 100%;
+  animation: shimmerEffect 3.2s infinite;
+}
+
+.sacred-aura {
+  animation: sacredAura 4.5s ease-in-out infinite;
+}
+
+/* ============================================================== */
+/* SUPPRESS NETLIFY DRAWER, BADGE & FLOATING WIDGETS              */
+/* ============================================================== */
+#netlify-drawer-container,
+[data-netlify-drawer],
+[data-netlify-badge],
+.netlify-drawer,
+#netlify-badge,
+.netlify-feedback-badge,
+div[class*="netlify-drawer"],
+div[class*="netlify-badge"],
+div[class*="netlify-feedback"],
+div[class*="feedback-badge"],
+iframe[src*="netlify"],
+iframe[id*="netlify"],
+[aria-label*="Netlify"],
+[title*="Netlify"],
+div:has(> a[href*="netlify.com"]),
+a[href*="netlify.com"] {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+  max-width: 0 !important;
+  max-height: 0 !important;
+  position: absolute !important;
+  z-index: -99999 !important;
+}

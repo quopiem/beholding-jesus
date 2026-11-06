@@ -1,0 +1,100 @@
+import React, { useState, useEffect } from 'react';
+import { AppLayout } from './layouts/AppLayout';
+import { HomeView } from './features/home/HomeView';
+import { BibleView } from './features/bible/BibleView';
+import { WorshipView } from './features/worship/WorshipView';
+import { CommunityView } from './features/chat/CommunityView';
+import { MinistriesView } from './features/ministries/MinistriesView';
+import { EventsView } from './features/events/EventsView';
+import { PrayerFaithView } from './features/prayer/PrayerFaithView';
+import { AdminDashboardView } from './features/admin/AdminDashboardView';
+import { ProfileView } from './pages/ProfileView';
+import { BjcAiView } from './features/ai/BjcAiView';
+import { BjcAiFloatingButton } from './features/ai/BjcAiFloatingButton';
+import { AuthPage } from './features/auth/AuthPage';
+import { ChurchDataStore } from './services/churchDataStore';
+import { AuthService } from './services/authService';
+import { UserProfile } from './types';
+
+export function App() {
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => ChurchDataStore.getCurrentUser());
+  const [currentTab, setCurrentTab] = useState<string>('home');
+
+  useEffect(() => {
+    AuthService.initializeDefaultCredentials();
+    ChurchDataStore.fetchUsersFromCloud();
+
+    const handleAuthChange = () => {
+      const u = ChurchDataStore.getCurrentUser();
+      setCurrentUser(u);
+    };
+
+    window.addEventListener('bjc_auth_change', handleAuthChange);
+    window.addEventListener('storage', handleAuthChange);
+    return () => {
+      window.removeEventListener('bjc_auth_change', handleAuthChange);
+      window.removeEventListener('storage', handleAuthChange);
+    };
+  }, []);
+
+  // Strict Authentication Gate:
+  // If no authenticated session exists, display Login or Registration screen
+  if (!currentUser) {
+    return (
+      <AuthPage 
+        onAuthSuccess={(user) => {
+          setCurrentUser(user);
+          setCurrentTab('home');
+        }} 
+      />
+    );
+  }
+
+  const renderContent = () => {
+    switch (currentTab) {
+      case 'home':
+        return <HomeView onNavigate={setCurrentTab} onOpenQuickAction={() => setCurrentTab('worship')} currentUser={currentUser} />;
+      case 'bible':
+        return <BibleView onNavigate={setCurrentTab} />;
+      case 'worship':
+        return <WorshipView />;
+      case 'community':
+        return <CommunityView currentUser={currentUser} />;
+      case 'ministries':
+        return <MinistriesView />;
+      case 'events':
+        return <EventsView />;
+      case 'prayer':
+        return <PrayerFaithView />;
+      case 'admin':
+        return <AdminDashboardView />;
+      case 'profile':
+        return <ProfileView currentUser={currentUser} />;
+      case 'bjc-ai':
+        return <BjcAiView onNavigate={setCurrentTab} currentUser={currentUser} />;
+      default:
+        return <HomeView onNavigate={setCurrentTab} currentUser={currentUser} />;
+    }
+  };
+
+  return (
+    <AppLayout 
+      currentTab={currentTab} 
+      onTabChange={setCurrentTab}
+      onOpenQuickAction={() => setCurrentTab('worship')}
+      currentUser={currentUser}
+      onLogout={() => {
+        AuthService.logout();
+        setCurrentUser(null);
+      }}
+    >
+      {renderContent()}
+      {/* Floating BJC AI Assistant Button & Widget (Movable & Unobstructive) */}
+      {currentTab !== 'bjc-ai' && (
+        <BjcAiFloatingButton onOpenFullView={() => setCurrentTab('bjc-ai')} currentTab={currentTab} />
+      )}
+    </AppLayout>
+  );
+}
+
+export default App;

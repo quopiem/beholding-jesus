@@ -1,0 +1,10 @@
+# Domain-level routing for admin.bjcchurch.com
+https://admin.bjcchurch.com/*    /admin.html   200
+https://admin.bjcchurch.com      /admin.html   200
+
+# Path-level routing for /admin
+/admin                           /admin.html   200
+/admin/*                         /admin.html   200
+
+# Default SPA fallback for member application
+/*                               /index.html   200
