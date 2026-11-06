@@ -5,7 +5,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { ChurchDataStore } from './churchDataStore';
 
-const KEY_FEED_POSTS = 'bjc_feed_posts_v6';
+const KEY_FEED_POSTS = 'bjc_feed_posts_v7';
 const KEY_REACTIONS = 'bjc_post_reactions_v5';
 const KEY_COMMENTS = 'bjc_post_comments_v5';
 const KEY_REPORTS = 'bjc_post_reports_v5';
@@ -196,6 +196,9 @@ const INITIAL_REACTIONS: PostReaction[] = [
 ];
 
 export class ChurchFeedStore {
+  // In-memory cache holding full-fidelity cloud posts (including user-uploaded images)
+  private static memoryPosts: FeedPost[] | null = null;
+
   private static load<T>(key: string, fallback: T): T {
     try {
       const item = localStorage.getItem(key);
@@ -206,20 +209,15 @@ export class ChurchFeedStore {
   }
 
   private static save<T>(key: string, data: T): void {
+    if (key === KEY_FEED_POSTS && Array.isArray(data)) {
+      this.memoryPosts = data as FeedPost[];
+    }
     try {
       localStorage.setItem(key, JSON.stringify(data));
       window.dispatchEvent(new CustomEvent('bjc_feed_change'));
     } catch (e) {
-      console.warn(`Failed to save to localStorage (${key}), applying lightweight quota fallback:`, e);
-      try {
-        if (key === KEY_FEED_POSTS && Array.isArray(data)) {
-          const stripped = data.map((p: any) => ({
-            ...p,
-            imageUrls: (p.imageUrls || []).map((img: string) => img.length > 50000 ? '/images/church-service-banner.png' : img)
-          }));
-          localStorage.setItem(key, JSON.stringify(stripped));
-        }
-      } catch {}
+      console.warn(`Failed to save to localStorage (${key}), keeping live data in memory:`, e);
+      window.dispatchEvent(new CustomEvent('bjc_feed_change'));
     }
   }
 
@@ -238,6 +236,9 @@ export class ChurchFeedStore {
   // --- RAW GETTERS ---
   private static getRawPosts(): FeedPost[] {
     const deleted = this.getDeletedIds();
+    if (this.memoryPosts && this.memoryPosts.length > 0) {
+      return this.memoryPosts.filter(p => !deleted.includes(p.id));
+    }
     const posts = this.load<FeedPost[]>(KEY_FEED_POSTS, INITIAL_FEED_POSTS);
     return posts.filter(p => !deleted.includes(p.id));
   }

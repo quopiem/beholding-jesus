@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Bell, Pin, Calendar, Clock, MapPin, ArrowRight, Maximize2, 
   Plus, Edit3, Trash2, PinOff, Heart, MessageSquare, ChevronLeft, ChevronRight,
-  ShieldCheck, Share2, Sparkles
+  ShieldCheck, Share2, Sparkles, Pause, Play
 } from 'lucide-react';
 import { FeedPost, UserProfile, FEED_REACTIONS, FeedReactionType } from '../../types';
 import { isChurchAdmin, ChurchFeedStore } from '../../services/churchFeedStore';
@@ -35,8 +35,20 @@ export const PinnedAnnouncementHero: React.FC<PinnedAnnouncementHeroProps> = ({
   onReact
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
   const [isReactionHovered, setIsReactionHovered] = useState(false);
   const isAdmin = isChurchAdmin(currentUser);
+
+  // Auto-advance every 5 seconds when multiple pinned announcements exist
+  useEffect(() => {
+    if (pinnedPosts.length <= 1 || isPaused) return;
+
+    const timer = setInterval(() => {
+      setCurrentIndex(prev => (prev + 1) % pinnedPosts.length);
+    }, 5000);
+
+    return () => clearInterval(timer);
+  }, [pinnedPosts.length, isPaused]);
 
   if (pinnedPosts.length === 0) {
     if (!isAdmin) return null;
@@ -86,9 +98,27 @@ export const PinnedAnnouncementHero: React.FC<PinnedAnnouncementHeroProps> = ({
   const userReactionMeta = currentAnnouncement.userReaction ? FEED_REACTIONS[currentAnnouncement.userReaction] : null;
 
   return (
-    <section className="relative group/hero">
+    <section 
+      className="relative group/hero"
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+      onTouchStart={() => setIsPaused(true)}
+      onTouchEnd={() => setIsPaused(false)}
+    >
       <div className="relative overflow-hidden rounded-3xl sm:rounded-[32px] p-6 sm:p-8 bg-gradient-to-br from-[#1A1414] via-[#261C1C] to-[#110E0E] text-white border-2 border-[#C5A46D]/50 shadow-2xl">
         
+        {/* 5-second Auto-Rotation Progress Bar */}
+        {pinnedPosts.length > 1 && (
+          <div className="absolute top-0 left-0 right-0 h-1 bg-white/10 z-20 overflow-hidden">
+            <div 
+              key={`${activeIndex}-${isPaused}`}
+              className={`h-full bg-gradient-to-r from-gold via-amber-300 to-gold ${
+                isPaused ? 'w-full opacity-40' : 'animate-progress-5s'
+              }`}
+            />
+          </div>
+        )}
+
         {/* Background Atmospheric Glows */}
         <div className="absolute -right-20 -top-20 w-96 h-96 rounded-full bg-[#8C5858]/20 blur-3xl pointer-events-none" />
         <div className="absolute left-10 bottom-0 w-80 h-80 rounded-full bg-[#C5A46D]/15 blur-3xl pointer-events-none" />
@@ -108,9 +138,31 @@ export const PinnedAnnouncementHero: React.FC<PinnedAnnouncementHeroProps> = ({
               </span>
 
               {pinnedPosts.length > 1 && (
-                <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/10 text-stone-300 font-mono">
-                  {activeIndex + 1} of {pinnedPosts.length}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/10 text-stone-300 font-mono">
+                    {activeIndex + 1} of {pinnedPosts.length}
+                  </span>
+                  
+                  {/* Indicator Dots */}
+                  <div className="flex items-center gap-1.5">
+                    {pinnedPosts.map((_, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setCurrentIndex(idx)}
+                        className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer ${
+                          idx === activeIndex ? 'w-5 bg-gold shadow-sm' : 'w-1.5 bg-white/30 hover:bg-white/60'
+                        }`}
+                        title={`Announcement ${idx + 1}`}
+                      />
+                    ))}
+                  </div>
+
+                  {isPaused && (
+                    <span className="text-[10px] text-amber-300/80 uppercase tracking-widest font-semibold flex items-center gap-1">
+                      <Pause className="w-2.5 h-2.5" /> Paused
+                    </span>
+                  )}
+                </div>
               )}
             </div>
 
@@ -154,7 +206,7 @@ export const PinnedAnnouncementHero: React.FC<PinnedAnnouncementHeroProps> = ({
                   <button
                     onClick={nextSlide}
                     className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition cursor-pointer"
-                    title="Next Pinned"
+                    title="Next Pinned (Auto-advances every 5s)"
                   >
                     <ChevronRight className="w-4 h-4" />
                   </button>
@@ -164,7 +216,7 @@ export const PinnedAnnouncementHero: React.FC<PinnedAnnouncementHeroProps> = ({
           </div>
 
           {/* Main Hero Body: Split Layout with Cover Image and Announcement Text */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+          <div key={currentAnnouncement.id} className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center transition-all duration-500 animate-fadeIn">
             
             {/* Left Content (Title, Description, Event Metadata, Author) */}
             <div className={`${coverImage ? 'lg:col-span-7' : 'lg:col-span-12'} space-y-4`}>

@@ -45,6 +45,14 @@
 /* ============================================================== */
 /* LUXURY SACRED KEYFRAMES & MICRO-INTERACTION ANIMATIONS         */
 /* ============================================================== */
+@keyframes progress5s {
+  from { width: 0%; }
+  to { width: 100%; }
+}
+.animate-progress-5s {
+  animation: progress5s 5s linear forwards;
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;
