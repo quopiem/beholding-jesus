@@ -67,7 +67,7 @@ export function App() {
       case 'community':
         return <CommunityView currentUser={currentUser} />;
       case 'ministries':
-        return <MinistriesView />;
+        return <MinistriesView currentUser={currentUser} onNavigate={setCurrentTab} />;
       case 'events':
         return <EventsView />;
       case 'prayer':

@@ -1,238 +1,324 @@
 import React, { useState } from 'react';
 import { 
   Users, Sparkles, MapPin, Clock, CheckCircle2, ChevronRight, 
-  Send, FileText, ArrowRight, X, ShieldAlert 
+  Send, FileText, ArrowRight, X, ShieldAlert, Music, Video,
+  Calendar, Layers, ShieldCheck, Heart, UserPlus, ExternalLink
 } from 'lucide-react';
 import { ChurchDataStore } from '../../services/churchDataStore';
-import { Ministry, MinistryJoinRequest, UserProfile } from '../../types';
+import { 
+  MinistryStore, MinistryItem, MinistryId 
+} from '../../services/ministryStore';
+import { UserProfile } from '../../types';
+import { SharedWorkspaceLayout } from './SharedWorkspaceLayout';
+import { UnifiedSundayServicePlanner } from './UnifiedSundayServicePlanner';
 
-export const MinistriesView: React.FC = () => {
-  const [ministries, setMinistries] = useState<Ministry[]>(ChurchDataStore.getMinistries());
-  const [selectedMinistry, setSelectedMinistry] = useState<Ministry | null>(ministries[0] || null);
+interface MinistriesViewProps {
+  currentUser?: UserProfile | null;
+  onNavigate?: (tab: string) => void;
+}
+
+export const MinistriesView: React.FC<MinistriesViewProps> = ({
+  currentUser: propUser,
+  onNavigate
+}) => {
+  const currentUser: UserProfile = propUser || ChurchDataStore.getCurrentUser();
+  const [ministries, setMinistries] = useState<MinistryItem[]>(() => MinistryStore.getMinistries());
+  const [activeWorkspaceMinistry, setActiveWorkspaceMinistry] = useState<MinistryItem | null>(null);
+  const [viewMode, setViewMode] = useState<'cards' | 'planner'>('cards');
+  
+  // Volunteer join request modal
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
+  const [targetMinistryForJoin, setTargetMinistryForJoin] = useState<MinistryItem | null>(null);
   const [experienceText, setExperienceText] = useState('');
   const [submittedSuccess, setSubmittedSuccess] = useState(false);
-  
-  const currentUser: UserProfile = ChurchDataStore.getCurrentUser();
-  const joinRequests = ChurchDataStore.getJoinRequests();
+
+  const handleOpenJoinModal = (m: MinistryItem) => {
+    setTargetMinistryForJoin(m);
+    setIsJoinModalOpen(true);
+  };
 
   const handleApply = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedMinistry) return;
-    ChurchDataStore.submitJoinRequest(selectedMinistry.id, experienceText);
+    if (!targetMinistryForJoin) return;
+    ChurchDataStore.submitJoinRequest(targetMinistryForJoin.id, experienceText);
     setSubmittedSuccess(true);
     setTimeout(() => {
       setSubmittedSuccess(false);
       setIsJoinModalOpen(false);
       setExperienceText('');
+      setTargetMinistryForJoin(null);
     }, 1500);
   };
 
-  const isMember = selectedMinistry?.memberIds?.includes(currentUser.id);
-  const pendingRequest = joinRequests.find(r => r.ministryId === selectedMinistry?.id && r.userId === currentUser.id && r.status === 'pending');
+  // If a ministry workspace is active, render the dedicated workspace
+  if (activeWorkspaceMinistry) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <SharedWorkspaceLayout
+          ministry={activeWorkspaceMinistry}
+          currentUser={currentUser}
+          onBack={() => setActiveWorkspaceMinistry(null)}
+          onOpenWorshipHub={() => onNavigate && onNavigate('worship')}
+        />
+      </div>
+    );
+  }
+
+  // If user selected Unified Sunday Service Planner view
+  if (viewMode === 'planner') {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => setViewMode('cards')}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 text-stone-700 dark:text-stone-300 font-bold text-xs hover:border-gold transition shadow-soft cursor-pointer"
+          >
+            <span>← Back to Ministry Teams</span>
+          </button>
+
+          <span className="text-xs text-stone-500 font-semibold">
+            Unified Church-Wide Operations
+          </span>
+        </div>
+
+        <UnifiedSundayServicePlanner
+          currentUser={currentUser}
+          onNavigateToMinistry={(id) => {
+            const m = ministries.find(item => item.id === id);
+            if (m) setActiveWorkspaceMinistry(m);
+          }}
+          onOpenWorshipHub={() => onNavigate && onNavigate('worship')}
+        />
+      </div>
+    );
+  }
+
+  // Next Sunday service plan summary for banner
+  const nextSundayPlan = MinistryStore.getServicePlanByDate('2026-11-08');
+  const worshipDone = Object.values(nextSundayPlan.worship.checklist).filter(Boolean).length;
+  const usherDone = Object.values(nextSundayPlan.ushering.checklist).filter(Boolean).length;
+  const multiDone = Object.values(nextSundayPlan.multimedia.checklist).filter(Boolean).length;
+  const totalChecks = 8 + 6 + 6;
+  const prepScore = Math.round(((worshipDone + usherDone + multiDone) / totalChecks) * 100);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-8">
       
       {/* Top Banner */}
-      <div className="rounded-3xl bg-primary text-white border border-slate-800 p-6 sm:p-8 shadow-elevated relative overflow-hidden">
-        <div className="relative z-10 max-w-2xl space-y-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gold/20 border border-gold/30 text-gold-300 text-xs font-semibold uppercase tracking-wider">
-            <Users className="w-3.5 h-3.5 text-gold" />
-            <span>Serve with Purpose</span>
+      <div className="rounded-3xl bg-gradient-to-r from-[#12141D] via-[#1B1E2B] to-[#12141D] text-white p-6 sm:p-8 border border-white/10 shadow-elevated relative overflow-hidden">
+        <div className="absolute right-0 top-0 w-96 h-96 bg-gold/10 rounded-full blur-3xl pointer-events-none" />
+        
+        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          <div className="space-y-3 max-w-2xl">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-gold/20 border border-gold/40 text-gold-300 text-xs font-bold uppercase tracking-wider">
+              <Sparkles className="w-3.5 h-3.5 text-gold" />
+              <span>Ministry Management System</span>
+            </div>
+            <h1 className="text-2xl sm:text-4xl font-serif font-bold text-white tracking-tight">
+              Church Ministry Teams & Workspaces
+            </h1>
+            <p className="text-xs sm:text-sm text-stone-300 leading-relaxed">
+              Equipping every servant of Beholding Jesus Church to minister with spiritual excellence, coordinated schedules, and shared servant-hearted stewardship.
+            </p>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-serif font-bold text-white">
-            Church Ministry Teams & Departments
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-            Discover opportunities to exercise your spiritual gifts, build discipleship bonds, and advance the Kingdom of God in Beholding Jesus Church.
-          </p>
+
+          {/* Quick Trigger to Unified Sunday Planner */}
+          <div className="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/15 w-full md:w-auto shrink-0 space-y-2.5">
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-stone-300">
+                Sunday Prep: Nov 8
+              </span>
+              <span className="text-xs font-black text-gold">{prepScore}% Ready</span>
+            </div>
+            <div className="w-full bg-white/10 h-1.5 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-gradient-to-r from-amber-500 to-emerald-400 rounded-full"
+                style={{ width: `${prepScore}%` }}
+              />
+            </div>
+            <button
+              onClick={() => setViewMode('planner')}
+              className="w-full py-2.5 px-4 rounded-xl bg-gold hover:bg-[#d8b883] text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 transition shadow-soft cursor-pointer"
+            >
+              <Calendar className="w-3.5 h-3.5" />
+              <span>Open Sunday Service Planner</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Grid: Ministries Cards (3-Column Layout) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6">
-        {ministries.map(m => {
-          const isSelected = selectedMinistry?.id === m.id;
-          return (
-            <div
-              key={m.id}
-              onClick={() => setSelectedMinistry(m)}
-              className={`rounded-2xl p-5 border cursor-pointer transition flex flex-col justify-between h-56 ${
-                isSelected
-                  ? 'bg-primary text-white border-primary shadow-soft ring-2 ring-gold/40'
-                  : 'bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800 hover:border-gold/50 shadow-card'
-              }`}
-            >
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
-                    isSelected ? 'bg-gold/20 text-gold-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
-                  }`}>
-                    {m.category || 'Ministry'}
-                  </span>
-                  <span className="text-[11px] opacity-75">{m.membersCount || 10} members</span>
+      {/* 3 MINISTRY CARDS (Worship Team, Ushering Team, Multimedia Team) */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg sm:text-xl font-serif font-bold text-stone-900 dark:text-white">
+              The Three Core Ministry Teams
+            </h2>
+            <p className="text-xs text-stone-500 dark:text-stone-400">
+              Select a ministry to access schedules, rosters, tasks, attendance, and team resources.
+            </p>
+          </div>
+
+          <button
+            onClick={() => setViewMode('planner')}
+            className="text-xs font-bold text-gold hover:underline flex items-center gap-1"
+          >
+            <span>View Unified Planner</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {ministries.map(m => {
+            const Icon = m.icon === 'Music' ? Music : m.icon === 'Users' ? Users : Video;
+            const isWorship = m.id === 'ministry-worship';
+            const isUsher = m.id === 'ministry-usher';
+
+            return (
+              <div
+                key={m.id}
+                className="group rounded-3xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 hover:border-gold/60 shadow-card hover:shadow-elevated transition-all duration-300 flex flex-col justify-between overflow-hidden"
+              >
+                {/* Ministry Cover Header */}
+                <div className="relative h-44 overflow-hidden bg-stone-900">
+                  <img
+                    src={m.coverImage}
+                    alt={m.name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-80"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-stone-950 via-stone-950/40 to-transparent" />
+                  
+                  <div className="absolute top-4 left-4">
+                    <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-black/60 backdrop-blur-md text-white border border-white/20">
+                      {m.category}
+                    </span>
+                  </div>
+
+                  <div className="absolute top-4 right-4">
+                    <div className="w-9 h-9 rounded-2xl bg-white/15 backdrop-blur-md text-gold flex items-center justify-center font-bold border border-white/20">
+                      <Icon className="w-5 h-5" />
+                    </div>
+                  </div>
+
+                  <div className="absolute bottom-4 left-4 right-4">
+                    <h3 className="font-serif font-bold text-xl text-white tracking-wide">
+                      {m.name}
+                    </h3>
+                    <div className="text-[11px] text-stone-300 flex items-center gap-2 mt-0.5">
+                      <span>Lead: <strong className="text-white">{m.leaderName}</strong></span>
+                      <span>•</span>
+                      <span className="text-gold font-semibold">{m.membersCount} Active Members</span>
+                    </div>
+                  </div>
                 </div>
 
-                <h3 className="font-bold text-base leading-snug">
-                  {m.name}
-                </h3>
+                {/* Ministry Body */}
+                <div className="p-5 space-y-4 flex-1 flex flex-col justify-between">
+                  <div className="space-y-3">
+                    <p className="text-xs text-stone-600 dark:text-stone-300 leading-relaxed line-clamp-3">
+                      {m.description}
+                    </p>
 
-                <p className={`text-xs line-clamp-3 leading-relaxed ${isSelected ? 'text-slate-300' : 'text-slate-500 dark:text-slate-400'}`}>
-                  {m.description}
+                    {/* Upcoming Schedule Badge */}
+                    <div className="p-3 rounded-2xl bg-stone-50 dark:bg-stone-800/60 border border-stone-100 dark:border-stone-800 space-y-1">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-stone-400 flex items-center gap-1.5">
+                        <Clock className="w-3 h-3 text-gold" />
+                        <span>Upcoming Schedule</span>
+                      </div>
+                      <div className="text-xs font-semibold text-stone-800 dark:text-stone-200 leading-tight">
+                        {m.upcomingSchedule}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="pt-3 border-t border-stone-100 dark:border-stone-800 flex items-center gap-2">
+                    <button
+                      onClick={() => setActiveWorkspaceMinistry(m)}
+                      className="flex-1 py-2.5 px-4 rounded-xl bg-primary hover:bg-slate-800 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition shadow-soft cursor-pointer active:scale-95"
+                    >
+                      <span>View Ministry</span>
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+
+                    <button
+                      onClick={() => handleOpenJoinModal(m)}
+                      title="Request to volunteer"
+                      className="py-2.5 px-3 rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 text-stone-700 dark:text-stone-300 font-semibold text-xs flex items-center justify-center transition cursor-pointer"
+                    >
+                      <UserPlus className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Volunteer Modal */}
+      {isJoinModalOpen && targetMinistryForJoin && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-3xl p-6 w-full max-w-md shadow-2xl space-y-4">
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="font-bold text-base text-stone-900 dark:text-white">
+                  Volunteer for {targetMinistryForJoin.name}
+                </h3>
+                <p className="text-xs text-stone-500">
+                  Lead: {targetMinistryForJoin.leaderName}
                 </p>
               </div>
-
-              <div className="pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs">
-                <span className="font-medium truncate opacity-80">
-                  Lead: {m.leaderName || 'Pastoral Team'}
-                </span>
-                <ChevronRight className="w-4 h-4 shrink-0" />
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Active Ministry Details Canvas */}
-      {selectedMinistry && (
-        <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-6 sm:p-10 shadow-card space-y-6">
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 pb-6 border-b border-slate-100 dark:border-slate-800">
-            <div className="space-y-2 max-w-2xl">
-              <span className="text-xs font-bold uppercase tracking-wider text-gold">
-                Department Overview
-              </span>
-              <h2 className="font-serif font-bold text-2xl sm:text-3xl text-slate-900 dark:text-white">
-                {selectedMinistry.name}
-              </h2>
-              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                {selectedMinistry.description}
-              </p>
-            </div>
-
-            {/* Join / Status Action */}
-            <div className="shrink-0">
-              {isMember ? (
-                <div className="px-4 py-2 rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 font-bold text-xs flex items-center gap-2 border border-emerald-200 dark:border-emerald-800">
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>Assigned Ministry Member</span>
-                </div>
-              ) : pendingRequest ? (
-                <div className="px-4 py-2 rounded-xl bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 font-bold text-xs flex items-center gap-2 border border-amber-200 dark:border-amber-800">
-                  <Clock className="w-4 h-4" />
-                  <span>Join Request Pending Leader Review</span>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setIsJoinModalOpen(true)}
-                  className="px-5 py-2.5 rounded-xl bg-primary text-white hover:bg-slate-800 font-bold text-xs shadow-soft transition"
-                >
-                  Request to Join Ministry
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Details Row: Meeting & Schedule */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 space-y-1">
-              <div className="text-[10px] font-bold uppercase text-slate-400">Regular Meeting</div>
-              <div className="text-xs font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-gold" />
-                <span>{selectedMinistry.meetingTime || selectedMinistry.meetingSchedule || 'Weekly Service Meetings'}</span>
-              </div>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 space-y-1">
-              <div className="text-[10px] font-bold uppercase text-slate-400">Location / Venue</div>
-              <div className="text-xs font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-gold" />
-                <span>{selectedMinistry.location || 'Church Main Campus'}</span>
-              </div>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 space-y-1">
-              <div className="text-[10px] font-bold uppercase text-slate-400">Leadership Oversight</div>
-              <div className="text-xs font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
-                <Users className="w-3.5 h-3.5 text-gold" />
-                <span>{selectedMinistry.leaderName || 'Mica Ramos'} ({selectedMinistry.leaderTitle || 'Ministry Lead'})</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Activities List */}
-          {selectedMinistry.activities && (
-            <div className="space-y-3 pt-4">
-              <h4 className="font-bold text-sm text-slate-900 dark:text-white">
-                Core Activities & Responsibilities
-              </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {selectedMinistry.activities.map((act, i) => (
-                  <div key={i} className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300 p-2 rounded-lg bg-slate-50 dark:bg-slate-800/40">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-sage" />
-                    <span>{act}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Join Ministry Modal */}
-      {isJoinModalOpen && selectedMinistry && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-elevated border border-slate-200 dark:border-slate-800 p-6 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <h3 className="font-serif font-bold text-base text-slate-900 dark:text-white">
-                Join {selectedMinistry.name}
-              </h3>
-              <button onClick={() => setIsJoinModalOpen(false)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-4 h-4" />
+              <button 
+                onClick={() => setIsJoinModalOpen(false)}
+                className="text-stone-400 hover:text-stone-600"
+              >
+                <X className="w-5 h-5" />
               </button>
             </div>
 
             {submittedSuccess ? (
-              <div className="py-6 text-center space-y-2">
-                <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto" />
-                <h4 className="font-bold text-sm">Request Submitted!</h4>
-                <p className="text-xs text-slate-500">
-                  Your request has been forwarded to the ministry leader and pastor.
-                </p>
+              <div className="p-4 rounded-2xl bg-emerald-50 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 text-xs font-bold flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                <span>Request sent! The ministry leader will contact you.</span>
               </div>
             ) : (
-              <form onSubmit={handleApply} className="space-y-3">
-                <p className="text-xs text-slate-500">
-                  Please share any relevant experience, instruments played, or your heart for serving in this area.
-                </p>
-
+              <form onSubmit={handleApply} className="space-y-3 text-xs">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                    Your Experience & Ministry Heart
-                  </label>
-                  <textarea
-                    rows={4}
-                    placeholder="e.g. I have served on praise and worship teams for 2 years as alto / acoustic..."
-                    value={experienceText}
-                    onChange={(e) => setExperienceText(e.target.value)}
-                    required
-                    className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-gold/30"
+                  <label className="font-semibold block mb-1">Your Name</label>
+                  <input 
+                    type="text" 
+                    value={currentUser.name} 
+                    disabled 
+                    className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-100 dark:bg-stone-800 text-stone-500"
                   />
                 </div>
-
-                <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
-                  <button
-                    type="button"
+                <div>
+                  <label className="font-semibold block mb-1">
+                    Your Heart to Serve / Relevant Experience
+                  </label>
+                  <textarea 
+                    value={experienceText} 
+                    onChange={e => setExperienceText(e.target.value)} 
+                    placeholder="Tell us what instruments you play, your passion for greeting, or technical background..."
+                    className="w-full p-2.5 rounded-xl border border-stone-200 dark:border-stone-700 bg-transparent text-stone-900 dark:text-white h-24"
+                    required
+                  />
+                </div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <button 
+                    type="button" 
                     onClick={() => setIsJoinModalOpen(false)}
-                    className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold"
+                    className="px-4 py-2 rounded-xl text-stone-600 dark:text-stone-400 font-bold hover:bg-stone-100"
                   >
                     Cancel
                   </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 rounded-xl bg-primary text-white text-xs font-semibold hover:bg-slate-800"
+                  <button 
+                    type="submit" 
+                    className="px-4 py-2 rounded-xl bg-primary text-white font-bold"
                   >
-                    Submit Request
+                    Send Volunteer Application
                   </button>
                 </div>
               </form>

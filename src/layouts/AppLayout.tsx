@@ -712,13 +712,13 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         {/* ============================================================== */}
         <nav 
           aria-label="Mobile Navigation"
-          className={`fixed bottom-3 sm:bottom-5 left-1/2 -translate-x-1/2 z-[999999] w-[calc(100%-20px)] max-w-[430px] md:hidden select-none transition-all duration-300 ease-in-out ${
+          className={`fixed bottom-3 sm:bottom-5 left-1/2 -translate-x-1/2 z-[999999] w-[calc(100%-16px)] max-w-[460px] md:hidden select-none transition-all duration-300 ease-in-out ${
             isNavVisible 
               ? 'translate-y-0 opacity-100 pointer-events-auto' 
               : 'translate-y-28 opacity-0 pointer-events-none'
           }`}
         >
-          <div className="relative flex items-center justify-around px-1.5 py-1.5 rounded-[26px] bg-[#12131A]/94 dark:bg-[#0B0D14]/96 backdrop-blur-2xl border border-white/15 dark:border-[#C5A46D]/35 shadow-[0_14px_45px_rgba(0,0,0,0.55)] ring-1 ring-white/10">
+          <div className="relative flex items-center justify-between px-1 sm:px-1.5 py-1.5 rounded-[26px] bg-[#12131A]/94 dark:bg-[#0B0D14]/96 backdrop-blur-2xl border border-white/15 dark:border-[#C5A46D]/35 shadow-[0_14px_45px_rgba(0,0,0,0.55)] ring-1 ring-white/10 gap-0.5">
             {([
               { id: 'home', label: 'Home', icon: Home },
               { id: 'feed', label: 'Feed', icon: Sparkles },
@@ -729,6 +729,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                 icon: MessageSquare,
                 badge: unreadChatCount > 0 ? (unreadChatCount > 99 ? '99+' : String(unreadChatCount)) : undefined
               },
+              { id: 'ministries', label: 'Ministry', icon: Users },
               { id: 'profile', label: 'Profile', icon: User }
             ] as Array<{ id: string; label: string; icon: any; badge?: string }>).map(item => {
               const Icon = item.icon;
@@ -740,7 +741,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                     onTabChange(item.id);
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
-                  className={`relative flex flex-col items-center justify-center flex-1 py-1.5 px-1 rounded-2xl transition-all duration-300 cursor-pointer active:scale-95 ${
+                  className={`relative flex flex-col items-center justify-center flex-1 py-1.5 px-0.5 rounded-2xl transition-all duration-300 cursor-pointer active:scale-95 ${
                     isActive 
                       ? 'bg-white/20 dark:bg-gradient-to-r dark:from-[#C5A46D]/25 dark:to-[#B59157]/20 text-white dark:text-gold border border-white/20 dark:border-gold/40 shadow-inner' 
                       : 'text-stone-400 hover:text-white dark:text-stone-400 dark:hover:text-stone-200'
@@ -749,14 +750,14 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                   title={item.label}
                 >
                   <div className="relative flex items-center justify-center">
-                    <Icon className={`w-5 h-5 transition-transform duration-300 ${isActive ? 'stroke-[2.5] scale-105' : 'stroke-[1.8]'}`} />
+                    <Icon className={`w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-300 ${isActive ? 'stroke-[2.5] scale-105' : 'stroke-[1.8]'}`} />
                     {item.badge && (
                       <span className="absolute -top-1.5 -right-2.5 min-w-4 h-4 px-1 rounded-full bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-black text-[9px] flex items-center justify-center shadow-md shadow-amber-500/40 ring-1 ring-[#12131A] animate-pulse">
                         {item.badge}
                       </span>
                     )}
                   </div>
-                  <span className={`text-[10px] mt-0.5 tracking-tight transition-colors ${
+                  <span className={`text-[9px] sm:text-[10px] mt-0.5 tracking-tight transition-colors whitespace-nowrap ${
                     isActive ? 'font-bold text-white dark:text-gold' : 'font-medium text-stone-400 dark:text-stone-400'
                   }`}>
                     {item.label}
