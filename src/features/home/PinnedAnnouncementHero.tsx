@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Bell, Pin, Calendar, Clock, MapPin, ArrowRight, Maximize2, 
   Plus, Edit3, Trash2, PinOff, Heart, MessageSquare, ChevronLeft, ChevronRight,
-  ShieldCheck, Share2, Sparkles, Pause, Play
+  ShieldCheck, Share2, Sparkles, Pause, Play, Download
 } from 'lucide-react';
 import { FeedPost, UserProfile, FEED_REACTIONS, FeedReactionType } from '../../types';
 import { isChurchAdmin, ChurchFeedStore } from '../../services/churchFeedStore';
@@ -37,9 +37,10 @@ export const PinnedAnnouncementHero: React.FC<PinnedAnnouncementHeroProps> = ({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [isReactionHovered, setIsReactionHovered] = useState(false);
+  const touchResumeTimerRef = useRef<any>(null);
   const isAdmin = isChurchAdmin(currentUser);
 
-  // Auto-advance every 5 seconds when multiple pinned announcements exist
+  // Auto-advance / slide to right every 5 seconds when multiple pinned announcements exist
   useEffect(() => {
     if (pinnedPosts.length <= 1 || isPaused) return;
 
@@ -49,6 +50,32 @@ export const PinnedAnnouncementHero: React.FC<PinnedAnnouncementHeroProps> = ({
 
     return () => clearInterval(timer);
   }, [pinnedPosts.length, isPaused]);
+
+  // Touch handlers that pause temporarily but auto-resume after 4 seconds
+  const handleTouchStart = () => {
+    setIsPaused(true);
+    if (touchResumeTimerRef.current) clearTimeout(touchResumeTimerRef.current);
+    touchResumeTimerRef.current = setTimeout(() => {
+      setIsPaused(false);
+    }, 4500);
+  };
+
+  const handleTouchEnd = () => {
+    if (touchResumeTimerRef.current) clearTimeout(touchResumeTimerRef.current);
+    touchResumeTimerRef.current = setTimeout(() => {
+      setIsPaused(false);
+    }, 2500);
+  };
+
+  const handleDownloadImage = (e: React.MouseEvent, url: string, title?: string) => {
+    e.stopPropagation();
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `bjc-${(title || 'announcement').toLowerCase().replace(/[^a-z0-9]/g, '-')}-${Date.now()}.jpg`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
 
   if (pinnedPosts.length === 0) {
     if (!isAdmin) return null;
@@ -102,8 +129,8 @@ export const PinnedAnnouncementHero: React.FC<PinnedAnnouncementHeroProps> = ({
       className="relative group/hero"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
-      onTouchStart={() => setIsPaused(true)}
-      onTouchEnd={() => setIsPaused(false)}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
     >
       <div className="relative overflow-hidden rounded-3xl sm:rounded-[32px] p-6 sm:p-8 bg-gradient-to-br from-[#1A1414] via-[#261C1C] to-[#110E0E] text-white border-2 border-[#C5A46D]/50 shadow-2xl">
         
@@ -303,23 +330,32 @@ export const PinnedAnnouncementHero: React.FC<PinnedAnnouncementHeroProps> = ({
 
             </div>
 
-            {/* Right Media (Cover Image with Click to Lightbox) */}
+            {/* Right Media (Cover Image with Click to Lightbox & Save Photo) */}
             {coverImage && (
               <div className="lg:col-span-5 relative group/img">
                 <div 
                   onClick={() => onOpenImageLightbox(coverImage)}
-                  className="relative rounded-2xl overflow-hidden aspect-video sm:aspect-4/3 cursor-pointer shadow-2xl border border-white/20 bg-black/40"
+                  className="relative rounded-2xl overflow-hidden cursor-pointer shadow-2xl border border-white/20 bg-stone-900/60 flex items-center justify-center p-2 min-h-[220px] max-h-[380px]"
                 >
                   <img
                     src={coverImage}
                     alt={currentAnnouncement.announcementTitle || 'Announcement cover'}
-                    className="w-full h-full object-cover group-hover/img:scale-105 transition-transform duration-500"
+                    className="w-full max-h-[360px] h-auto object-contain rounded-xl group-hover/img:scale-[1.02] transition-transform duration-500"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
-                    <span className="px-3 py-1.5 rounded-full bg-black/70 backdrop-blur-md text-white text-xs font-semibold flex items-center gap-1.5 border border-white/30">
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/30 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center gap-2 p-3">
+                    <span className="px-3 py-1.5 rounded-full bg-black/75 backdrop-blur-md text-white text-xs font-semibold flex items-center gap-1.5 border border-white/30 hover:bg-black/90 transition shadow-lg">
                       <Maximize2 className="w-3.5 h-3.5" />
                       <span>Full View</span>
                     </span>
+                    <button
+                      type="button"
+                      onClick={(e) => handleDownloadImage(e, coverImage, currentAnnouncement.announcementTitle)}
+                      className="px-3 py-1.5 rounded-full bg-[#C5A46D] hover:bg-[#d8b982] text-slate-950 text-xs font-bold flex items-center gap-1.5 shadow-lg transition active:scale-95 cursor-pointer"
+                      title="Save / Download Photo"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Save Photo</span>
+                    </button>
                   </div>
                 </div>
               </div>

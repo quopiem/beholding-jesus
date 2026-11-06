@@ -17,11 +17,23 @@ export const BjcAiFloatingButton: React.FC<BjcAiFloatingButtonProps> = ({ onOpen
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [hasApiKey, setHasApiKey] = useState(() => BjcAiService.hasApiKey());
 
-  // Movable / Draggable Button Position
+  // Movable / Draggable Button Position (Safely bounded so it never covers Hero cards or text)
   const [customPos, setCustomPos] = useState<{ x: number; y: number } | null>(() => {
     try {
+      // On mobile screens (< 640px), keep docked at bottom corner to avoid overlapping hero/feed text
+      if (typeof window !== 'undefined' && window.innerWidth < 640) {
+        return null;
+      }
       const saved = localStorage.getItem('bjc_ai_fab_pos');
-      return saved ? JSON.parse(saved) : null;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Clamp so it never covers header or pinned announcement zone
+        if (parsed && typeof parsed.y === 'number' && parsed.y < 280) {
+          return null;
+        }
+        return parsed;
+      }
+      return null;
     } catch {
       return null;
     }
@@ -74,8 +86,9 @@ export const BjcAiFloatingButton: React.FC<BjcAiFloatingButtonProps> = ({ onOpen
 
     if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
       hasMovedRef.current = true;
+      const minY = window.innerWidth < 640 ? Math.max(150, window.innerHeight - 180) : 80;
       const newX = Math.max(10, Math.min(window.innerWidth - 110, dragStartRef.current.origX + dx));
-      const newY = Math.max(10, Math.min(window.innerHeight - 70, dragStartRef.current.origY + dy));
+      const newY = Math.max(minY, Math.min(window.innerHeight - 70, dragStartRef.current.origY + dy));
       setCustomPos({ x: newX, y: newY });
     }
   };

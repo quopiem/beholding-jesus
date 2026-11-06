@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Sparkles, Bell, Heart, BookOpen, Music, Users, Calendar, 
   Filter, Plus, RefreshCw, X, Shield, ArrowUp, ChevronRight,
-  Clock, MapPin, Smartphone
+  Clock, MapPin, Smartphone, Download
 } from 'lucide-react';
 import { UserProfile, FeedPost, FeedReactionType } from '../../types';
 import { ChurchDataStore } from '../../services/churchDataStore';
@@ -569,12 +569,31 @@ export const HomeView: React.FC<HomeViewProps> = ({
           className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 cursor-pointer"
         >
           <div className="relative max-w-4xl max-h-[90vh] overflow-hidden rounded-2xl" onClick={(e) => e.stopPropagation()}>
-            <button
-              onClick={() => setSelectedLightboxImage(null)}
-              className="absolute top-4 right-4 z-10 w-9 h-9 rounded-full bg-black/60 hover:bg-black/90 text-white flex items-center justify-center transition border border-white/20 cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const a = document.createElement('a');
+                  a.href = selectedLightboxImage;
+                  a.download = `bjc-photo-${Date.now()}.jpg`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                }}
+                className="px-3.5 py-1.5 rounded-full bg-[#C5A46D] hover:bg-[#d8b982] text-slate-950 text-xs font-bold flex items-center gap-1.5 shadow-lg transition active:scale-95 cursor-pointer"
+                title="Save Photo to Device"
+              >
+                <Download className="w-4 h-4" />
+                <span>Save Photo</span>
+              </button>
+              <button
+                onClick={() => setSelectedLightboxImage(null)}
+                className="w-9 h-9 rounded-full bg-black/60 hover:bg-black/90 text-white flex items-center justify-center transition border border-white/20 cursor-pointer"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
             <img 
               src={selectedLightboxImage} 
               alt="Full view" 

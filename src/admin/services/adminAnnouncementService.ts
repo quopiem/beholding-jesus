@@ -46,11 +46,11 @@ export class AdminAnnouncementService {
     } catch (err) {
       console.warn('Local storage quota warning while caching announcements, applying lightweight quota fallback:', err);
       try {
-        // Strip oversized base64 images from the local cache so storage quota is never exceeded
-        const lightweight = list.map(a => ({
+        // Keep newest 15 announcements, preserve top 3 with images, lightweight for older
+        const lightweight = list.slice(0, 15).map((a, idx) => ({
           ...a,
-          cover_image: (a.cover_image && a.cover_image.length > 50000) ? undefined : a.cover_image,
-          image_url: (a.image_url && a.image_url.length > 50000) ? undefined : a.image_url
+          cover_image: (idx > 2 && a.cover_image && a.cover_image.startsWith('data:')) ? undefined : a.cover_image,
+          image_url: (idx > 2 && a.image_url && a.image_url.startsWith('data:')) ? undefined : a.image_url
         }));
         localStorage.setItem(KEY_LOCAL_ANNOUNCEMENTS, JSON.stringify(lightweight));
       } catch (innerErr) {
@@ -147,14 +147,18 @@ export class AdminAnnouncementService {
       updated_at: now
     };
 
-    // Update local list
+    // Update local list safely
     const existingIndex = list.findIndex(a => a.id === id);
     if (existingIndex >= 0) {
       list[existingIndex] = announcement;
     } else {
       list.unshift(announcement);
     }
-    this.saveLocalAnnouncements(list);
+    try {
+      this.saveLocalAnnouncements(list);
+    } catch (e) {
+      console.warn('saveLocalAnnouncements error suppressed:', e);
+    }
 
     // Sync to Supabase Cloud
     if (supabase) {
@@ -163,11 +167,8 @@ export class AdminAnnouncementService {
           id: announcement.id,
           title: announcement.title,
           content: announcement.description || announcement.content,
-          description: announcement.description || announcement.content,
           category: announcement.category,
           date: announcement.date,
-          event_date: announcement.event_date || null,
-          expiration_date: announcement.expiration_date || null,
           status: announcement.status,
           priority: announcement.status === 'draft' ? 'draft' : announcement.priority,
           is_important: announcement.is_important,
@@ -175,66 +176,31 @@ export class AdminAnnouncementService {
           author_name: announcement.author_name,
           author_role: announcement.author_role,
           target_audience: announcement.target_audience,
-          cover_image: announcement.cover_image || announcement.image_url || null,
-          image_url: announcement.image_url || announcement.cover_image || null,
-          created_by: announcement.created_by,
-          updated_at: announcement.updated_at
+          cover_image: announcement.cover_image || announcement.image_url || null
         };
 
         const { error: fullErr } = await supabase.from('church_announcements').upsert(fullPayload);
-
-        // Fallback if schema does not yet have created_by, status, or description
         if (fullErr) {
-          console.warn('Full church_announcements upsert rejected by schema, applying compatible fallback:', fullErr.message);
-
-          const basePayload = {
-            id: announcement.id,
-            title: announcement.title,
-            content: announcement.status === 'draft' ? `[DRAFT] ${announcement.description || announcement.content}` : (announcement.description || announcement.content),
-            category: announcement.category,
-            date: announcement.date,
-            priority: announcement.status === 'draft' ? 'draft' : announcement.priority,
-            is_important: announcement.is_important,
-            is_read: false,
-            author_name: announcement.author_name,
-            author_role: announcement.author_role,
-            target_audience: announcement.target_audience,
-            cover_image: announcement.cover_image || announcement.image_url || null
-          };
-
-          const { error: baseErr } = await supabase.from('church_announcements').upsert(basePayload);
-          if (baseErr) {
-            console.error('Base fallback upsert also failed:', baseErr);
-            throw new Error(baseErr.message);
-          }
-        }
-
-        // Also sync to optional secondary announcements table
-        try {
-          await supabase.from('announcements').upsert({
-            title: announcement.title,
-            description: announcement.description || announcement.content,
-            image_url: announcement.image_url || announcement.cover_image || null,
-            category: announcement.category,
-            status: announcement.status,
-            priority: announcement.priority,
-            target_audience: announcement.target_audience
-          });
-        } catch {
-          // ignore optional secondary table
+          console.warn('Supabase church_announcements upsert error:', fullErr.message);
         }
       } catch (err: any) {
-        console.error('Supabase announcement upsert error:', err);
-        throw err;
+        console.warn('Supabase announcement upsert error:', err);
       }
     }
 
+    // Immediately trigger feed sync event so Home feed & Pinned hero update instantly
+    try {
+      window.dispatchEvent(new CustomEvent('bjc_feed_change'));
+    } catch {}
+
     // Log Activity
-    await this.logActivity(
-      isNew ? 'CREATE_ANNOUNCEMENT' : 'EDIT_ANNOUNCEMENT',
-      `${isNew ? 'Created' : 'Updated'} announcement: "${announcement.title}" (${announcement.status})`,
-      announcement.id
-    );
+    try {
+      await this.logActivity(
+        isNew ? 'CREATE_ANNOUNCEMENT' : 'EDIT_ANNOUNCEMENT',
+        `${isNew ? 'Created' : 'Updated'} announcement: "${announcement.title}" (${announcement.status})`,
+        announcement.id
+      );
+    } catch {}
 
     return announcement;
   }
@@ -337,7 +303,7 @@ export class AdminAnnouncementService {
         }
         const img = new Image();
         img.onload = () => {
-          const maxDim = 1200;
+          const maxDim = 850;
           let w = img.width;
           let h = img.height;
           if (w > maxDim || h > maxDim) {
@@ -355,7 +321,7 @@ export class AdminAnnouncementService {
           const ctx = canvas.getContext('2d');
           if (ctx) {
             ctx.drawImage(img, 0, 0, w, h);
-            resolve(canvas.toDataURL('image/jpeg', 0.8));
+            resolve(canvas.toDataURL('image/jpeg', 0.7));
           } else {
             resolve(raw);
           }

@@ -315,15 +315,34 @@ export class ChurchFeedStore {
         Object.assign(counts, post.reactionCounts);
       }
 
-      // Sort comments chronologically
+      // Sort comments chronologically & enrich comment reactions
       postComments.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      const enrichedComments = postComments.map(c => {
+        const cReactions = c.reactions || {};
+        const cCounts: Record<FeedReactionType, number> = {
+          like: 0,
+          love: 0,
+          care: 0,
+          celebrate: 0,
+          pray: 0
+        };
+        for (const rType of Object.values(cReactions)) {
+          if (cCounts[rType] !== undefined) cCounts[rType]++;
+        }
+        return {
+          ...c,
+          reactions: cReactions,
+          reactionCounts: cCounts,
+          userReaction: (currentUserId && cReactions[currentUserId]) ? cReactions[currentUserId] : null
+        };
+      });
 
       return {
         ...post,
         reactions: postReactions,
         reactionCounts: counts,
         userReaction,
-        comments: postComments,
+        comments: enrichedComments,
         commentsCount: Math.max(postComments.length, post.commentsCount || 0)
       };
     });
@@ -433,8 +452,33 @@ export class ChurchFeedStore {
         }
       }
 
-      // Merge cloud announcements and community posts with any local non-deleted posts
+      // Merge cloud announcements and community posts with local admin cache and community posts
       const localCommunity = this.getRawPosts().filter(p => p.postType === 'community' && !deletedIds.includes(p.id));
+
+      // Check local admin announcements cache for newly added or high-res cover photos
+      const localAdminMap = new Map<string, any>();
+      try {
+        const rawLocalAnn = localStorage.getItem('bjc_admin_announcements_cache_v1');
+        if (rawLocalAnn) {
+          const parsed = JSON.parse(rawLocalAnn);
+          if (Array.isArray(parsed)) {
+            for (const a of parsed) {
+              if (a.id) localAdminMap.set(a.id, a);
+            }
+          }
+        }
+      } catch {}
+
+      // If cloud announcement has no cover image or local has a specific image, apply local image
+      for (const ann of mappedAnnouncements) {
+        const local = localAdminMap.get(ann.id);
+        if (local && (local.cover_image || local.image_url)) {
+          const localImg = local.cover_image || local.image_url;
+          if (ann.imageUrls.length === 0 || !ann.imageUrls[0]) {
+            ann.imageUrls = [localImg];
+          }
+        }
+      }
 
       const seenIds = new Set<string>();
       const combined: FeedPost[] = [];
@@ -957,6 +1001,46 @@ export class ChurchFeedStore {
       supabase.from('church_post_comments').delete().or(`id.eq.${commentId},parent_comment_id.eq.${commentId}`).then();
     }
 
+    return true;
+  }
+
+  static toggleCommentReaction(
+    commentId: string, 
+    user: UserProfile, 
+    reactionType: FeedReactionType = 'pray'
+  ): boolean {
+    const allComments = this.getRawComments();
+    const comment = allComments.find(c => c.id === commentId);
+    if (!comment) return false;
+
+    if (!comment.reactions) {
+      comment.reactions = {};
+    }
+
+    const currentReaction = comment.reactions[user.id];
+    if (currentReaction === reactionType) {
+      delete comment.reactions[user.id];
+    } else {
+      comment.reactions[user.id] = reactionType;
+    }
+
+    // Recalculate reactionCounts
+    const counts: Record<FeedReactionType, number> = {
+      like: 0,
+      love: 0,
+      care: 0,
+      celebrate: 0,
+      pray: 0
+    };
+    for (const r of Object.values(comment.reactions)) {
+      if (counts[r] !== undefined) {
+        counts[r]++;
+      }
+    }
+    comment.reactionCounts = counts;
+    comment.userReaction = comment.reactions[user.id] || null;
+
+    this.save(KEY_COMMENTS, allComments);
     return true;
   }
 

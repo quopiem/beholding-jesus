@@ -477,6 +477,9 @@ export interface PostComment {
   content: string;
   createdAt: string;
   updatedAt?: string;
+  reactions?: Record<string, FeedReactionType>;
+  reactionCounts?: Record<FeedReactionType, number>;
+  userReaction?: FeedReactionType | null;
 }
 
 export interface PostReport {

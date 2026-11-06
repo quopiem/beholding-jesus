@@ -3,7 +3,7 @@ import {
   MoreHorizontal, Heart, MessageSquare, Share2, Pin, PinOff, 
   Trash2, Edit3, EyeOff, Eye, MessageSquareOff, MessageSquarePlus,
   Flag, Send, CornerDownRight, Check, X, Bell, Clock, Calendar, MapPin, 
-  Maximize2, Sparkles, CheckCircle2, ChevronRight, ShieldCheck
+  Maximize2, Sparkles, CheckCircle2, ChevronRight, ShieldCheck, Download
 } from 'lucide-react';
 import { 
   FeedPost, UserProfile, PostComment, FeedReactionType, 
@@ -125,6 +125,20 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
       ChurchFeedStore.deleteComment(commentId, currentUser);
       onCommentAdded();
     }
+  };
+
+  const handleCommentReact = (commentId: string, reactionType: FeedReactionType) => {
+    ChurchFeedStore.toggleCommentReaction(commentId, currentUser, reactionType);
+    onCommentAdded();
+  };
+
+  const handleDownloadImage = (url: string) => {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `bjc-church-photo-${Date.now()}.jpg`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
 
   const totalReactions = Object.values(post.reactionCounts).reduce((a, b) => a + b, 0);
@@ -302,6 +316,20 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
                   </button>
                 )}
 
+                {/* Save Attached Photo */}
+                {post.imageUrls && post.imageUrls.length > 0 && (
+                  <button
+                    onClick={() => {
+                      setIsMenuOpen(false);
+                      handleDownloadImage(post.imageUrls[0]);
+                    }}
+                    className="w-full px-3.5 py-2 text-left hover:bg-stone-100 dark:hover:bg-slate-700 text-stone-700 dark:text-stone-200 flex items-center gap-2 transition cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5 text-stone-500" />
+                    <span>Save Photo</span>
+                  </button>
+                )}
+
                 {/* Delete post (Author or Admin) */}
                 {(isAuthor || isAdmin) && (
                   <div className="pt-1 border-t border-stone-100 dark:border-slate-700">
@@ -373,17 +401,29 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
             {post.imageUrls.length === 1 ? (
               <div 
                 onClick={() => onOpenImageLightbox(post.imageUrls[0])}
-                className="relative aspect-video sm:aspect-16/9 bg-black/10 overflow-hidden cursor-pointer group"
+                className="relative bg-stone-900/5 dark:bg-black/30 overflow-hidden cursor-pointer group flex items-center justify-center p-1 sm:p-2 min-h-[220px] max-h-[660px]"
               >
                 <img
                   src={post.imageUrls[0]}
                   alt="Post attachment"
-                  className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
+                  className="w-full max-h-[640px] h-auto object-contain rounded-xl group-hover:scale-[1.01] transition-transform duration-300"
                 />
-                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <span className="px-3 py-1.5 rounded-full bg-black/60 text-white text-xs font-semibold flex items-center gap-1.5 backdrop-blur-md">
+                <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 p-3">
+                  <span className="px-3 py-1.5 rounded-full bg-black/75 text-white text-xs font-semibold flex items-center gap-1.5 backdrop-blur-md shadow-md">
                     <Maximize2 className="w-3.5 h-3.5" /> Full View
                   </span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDownloadImage(post.imageUrls[0]);
+                    }}
+                    className="px-3 py-1.5 rounded-full bg-[#C5A46D] hover:bg-[#d8b982] text-slate-950 text-xs font-bold flex items-center gap-1.5 shadow-md transition active:scale-95 cursor-pointer"
+                    title="Save Photo"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Save Photo</span>
+                  </button>
                 </div>
               </div>
             ) : post.imageUrls.length === 2 ? (
@@ -622,8 +662,51 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
                         )}
 
                         {/* Comment sub-actions */}
-                        <div className="flex items-center gap-3 mt-1 ml-2 text-[11px] text-stone-500 dark:text-stone-400">
+                        <div className="flex items-center gap-3 mt-1 ml-2 text-[11px] text-stone-500 dark:text-stone-400 flex-wrap">
                           <span>{formatRelativeTime(comment.createdAt)}</span>
+
+                          {/* Comment React Button with Quick Sacred Reaction Picker */}
+                          <div className="relative group/creact">
+                            <button
+                              type="button"
+                              onClick={() => handleCommentReact(comment.id, comment.userReaction === 'pray' ? 'love' : 'pray')}
+                              className={`font-semibold hover:underline cursor-pointer flex items-center gap-1 transition ${
+                                comment.userReaction ? 'text-[#C5A46D] font-bold' : 'text-stone-600 dark:text-stone-300'
+                              }`}
+                            >
+                              <span>{comment.userReaction ? FEED_REACTIONS[comment.userReaction].emoji : '🙏'}</span>
+                              <span>{comment.userReaction ? FEED_REACTIONS[comment.userReaction].label : 'React'}</span>
+                            </button>
+
+                            {/* Floating hover sacred reactions bar */}
+                            <div className="absolute left-0 bottom-full mb-1 hidden group-hover/creact:flex items-center gap-1 bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-700 shadow-xl rounded-full px-2 py-1 z-30 animate-fadeIn">
+                              {(['pray', 'love', 'celebrate', 'like', 'care'] as FeedReactionType[]).map((rType) => (
+                                <button
+                                  key={rType}
+                                  type="button"
+                                  onClick={() => handleCommentReact(comment.id, rType)}
+                                  className={`p-1 text-sm hover:scale-130 transition-transform ${
+                                    comment.userReaction === rType ? 'scale-110 bg-gold/20 rounded-full' : ''
+                                  }`}
+                                  title={FEED_REACTIONS[rType].label}
+                                >
+                                  {FEED_REACTIONS[rType].emoji}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Reaction Count Badge on Comment */}
+                          {comment.reactionCounts && Object.values(comment.reactionCounts).reduce((a, b) => a + b, 0) > 0 && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-stone-100 dark:bg-slate-700 text-[10px] text-stone-700 dark:text-stone-200 font-semibold shadow-2xs">
+                              {comment.reactionCounts.pray > 0 && <span>🙏</span>}
+                              {comment.reactionCounts.love > 0 && <span>❤️</span>}
+                              {comment.reactionCounts.celebrate > 0 && <span>🎉</span>}
+                              {comment.reactionCounts.like > 0 && <span>👍</span>}
+                              {comment.reactionCounts.care > 0 && <span>🤗</span>}
+                              <span>{Object.values(comment.reactionCounts).reduce((a, b) => a + b, 0)}</span>
+                            </span>
+                          )}
                           
                           {post.commentsEnabled && (
                             <button
@@ -691,8 +774,44 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
                                 </p>
                               </div>
 
-                              <div className="flex items-center gap-2.5 mt-0.5 ml-2 text-[10px] text-stone-400">
+                              <div className="flex items-center gap-2.5 mt-0.5 ml-2 text-[10px] text-stone-400 flex-wrap">
                                 <span>{formatRelativeTime(reply.createdAt)}</span>
+
+                                {/* Reply React Button */}
+                                <div className="relative group/rreact">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCommentReact(reply.id, reply.userReaction === 'pray' ? 'love' : 'pray')}
+                                    className={`font-semibold hover:underline cursor-pointer flex items-center gap-1 transition ${
+                                      reply.userReaction ? 'text-[#C5A46D] font-bold' : 'text-stone-500 dark:text-stone-300'
+                                    }`}
+                                  >
+                                    <span>{reply.userReaction ? FEED_REACTIONS[reply.userReaction].emoji : '🙏'}</span>
+                                    <span>{reply.userReaction ? FEED_REACTIONS[reply.userReaction].label : 'React'}</span>
+                                  </button>
+
+                                  <div className="absolute left-0 bottom-full mb-1 hidden group-hover/rreact:flex items-center gap-1 bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-700 shadow-xl rounded-full px-2 py-0.5 z-30 animate-fadeIn">
+                                    {(['pray', 'love', 'celebrate', 'like', 'care'] as FeedReactionType[]).map((rType) => (
+                                      <button
+                                        key={rType}
+                                        type="button"
+                                        onClick={() => handleCommentReact(reply.id, rType)}
+                                        className="p-1 text-xs hover:scale-130 transition-transform"
+                                        title={FEED_REACTIONS[rType].label}
+                                      >
+                                        {FEED_REACTIONS[rType].emoji}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+
+                                {reply.reactionCounts && Object.values(reply.reactionCounts).reduce((a, b) => a + b, 0) > 0 && (
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-stone-100 dark:bg-slate-700 text-[9px] text-stone-700 dark:text-stone-200 font-semibold shadow-2xs">
+                                    <span>🙏</span>
+                                    <span>{Object.values(reply.reactionCounts).reduce((a, b) => a + b, 0)}</span>
+                                  </span>
+                                )}
+
                                 {(currentUser.id === reply.userId || isAdmin) && (
                                   <button
                                     onClick={() => handleDeleteComment(reply.id)}
