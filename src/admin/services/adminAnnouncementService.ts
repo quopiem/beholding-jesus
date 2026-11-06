@@ -41,7 +41,22 @@ export class AdminAnnouncementService {
   }
 
   private static saveLocalAnnouncements(list: AdminAnnouncement[]): void {
-    localStorage.setItem(KEY_LOCAL_ANNOUNCEMENTS, JSON.stringify(list));
+    try {
+      localStorage.setItem(KEY_LOCAL_ANNOUNCEMENTS, JSON.stringify(list));
+    } catch (err) {
+      console.warn('Local storage quota warning while caching announcements, applying lightweight quota fallback:', err);
+      try {
+        // Strip oversized base64 images from the local cache so storage quota is never exceeded
+        const lightweight = list.map(a => ({
+          ...a,
+          cover_image: (a.cover_image && a.cover_image.length > 50000) ? undefined : a.cover_image,
+          image_url: (a.image_url && a.image_url.length > 50000) ? undefined : a.image_url
+        }));
+        localStorage.setItem(KEY_LOCAL_ANNOUNCEMENTS, JSON.stringify(lightweight));
+      } catch (innerErr) {
+        console.warn('Could not save lightweight announcements to localStorage:', innerErr);
+      }
+    }
   }
 
   /**
@@ -311,13 +326,44 @@ export class AdminAnnouncementService {
       }
     }
 
-    // Graceful fallback to Data URL
-    return new Promise((resolve, reject) => {
+    // Graceful fallback to lightweight compressed Data URL
+    return new Promise((resolve) => {
       const reader = new FileReader();
-      reader.onload = () => {
-        resolve(reader.result as string);
+      reader.onload = (e) => {
+        const raw = e.target?.result as string;
+        if (!raw) {
+          resolve('');
+          return;
+        }
+        const img = new Image();
+        img.onload = () => {
+          const maxDim = 1200;
+          let w = img.width;
+          let h = img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) {
+              h = Math.round((h * maxDim) / w);
+              w = maxDim;
+            } else {
+              w = Math.round((w * maxDim) / h);
+              h = maxDim;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, w, h);
+            resolve(canvas.toDataURL('image/jpeg', 0.8));
+          } else {
+            resolve(raw);
+          }
+        };
+        img.onerror = () => resolve(raw);
+        img.src = raw;
       };
-      reader.onerror = () => reject(new Error('Failed to read image file'));
+      reader.onerror = () => resolve('');
       reader.readAsDataURL(file);
     });
   }

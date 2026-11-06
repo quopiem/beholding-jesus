@@ -210,7 +210,16 @@ export class ChurchFeedStore {
       localStorage.setItem(key, JSON.stringify(data));
       window.dispatchEvent(new CustomEvent('bjc_feed_change'));
     } catch (e) {
-      console.warn(`Failed to save to localStorage (${key}):`, e);
+      console.warn(`Failed to save to localStorage (${key}), applying lightweight quota fallback:`, e);
+      try {
+        if (key === KEY_FEED_POSTS && Array.isArray(data)) {
+          const stripped = data.map((p: any) => ({
+            ...p,
+            imageUrls: (p.imageUrls || []).map((img: string) => img.length > 50000 ? '/images/church-service-banner.png' : img)
+          }));
+          localStorage.setItem(key, JSON.stringify(stripped));
+        }
+      } catch {}
     }
   }
 

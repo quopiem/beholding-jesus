@@ -54,17 +54,44 @@ export const CreatePostComposer: React.FC<CreatePostComposerProps> = ({
     if (!files || files.length === 0) return;
 
     Array.from(files).forEach(file => {
-      // Basic size check (5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        alert(`File ${file.name} is larger than 5MB. Please choose a smaller image.`);
+      // Basic size check (15MB)
+      if (file.size > 15 * 1024 * 1024) {
+        alert(`File ${file.name} is larger than 15MB. Please choose a smaller image.`);
         return;
       }
 
       const reader = new FileReader();
       reader.onload = (event) => {
-        if (event.target?.result) {
-          setImageUrls(prev => [...prev, event.target!.result as string]);
-        }
+        const raw = event.target?.result as string;
+        if (!raw) return;
+
+        const img = new Image();
+        img.onload = () => {
+          const maxDim = 1200;
+          let w = img.width;
+          let h = img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) {
+              h = Math.round((h * maxDim) / w);
+              w = maxDim;
+            } else {
+              w = Math.round((w * maxDim) / h);
+              h = maxDim;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, w, h);
+            setImageUrls(prev => [...prev, canvas.toDataURL('image/jpeg', 0.8)]);
+          } else {
+            setImageUrls(prev => [...prev, raw]);
+          }
+        };
+        img.onerror = () => setImageUrls(prev => [...prev, raw]);
+        img.src = raw;
       };
       reader.readAsDataURL(file);
     });
