@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Heart, Sparkles } from 'lucide-react';
 import { FeedPost, FeedReactionType, FEED_REACTIONS } from '../../types';
 
@@ -10,20 +11,20 @@ interface WhoReactedModalProps {
 export const WhoReactedModal: React.FC<WhoReactedModalProps> = ({ post, onClose }) => {
   const [selectedFilter, setSelectedFilter] = useState<'all' | FeedReactionType>('all');
 
-  if (!post) return null;
+  if (!post || typeof document === 'undefined') return null;
 
   const reactions = post.reactions || [];
   const filteredReactions = selectedFilter === 'all'
     ? reactions
     : reactions.filter(r => r.reactionType === selectedFilter);
 
-  return (
+  return createPortal(
     <div 
-      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+      className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 pt-[max(env(safe-area-inset-top),16px)] pb-[max(env(safe-area-inset-bottom),16px)] animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div 
-        className="w-full max-w-md bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+        className="w-full max-w-md bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-[calc(100dvh-2.5rem)] sm:max-h-[85vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -116,6 +117,7 @@ export const WhoReactedModal: React.FC<WhoReactedModalProps> = ({ post, onClose 
         </div>
 
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

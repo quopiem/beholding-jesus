@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Flag, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { UserProfile, PostReport } from '../../types';
 import { ChurchFeedStore } from '../../services/churchFeedStore';
@@ -22,7 +23,7 @@ export const ReportPostModal: React.FC<ReportPostModalProps> = ({
   const [detailText, setDetailText] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
 
-  if (!reportInfo) return null;
+  if (!reportInfo || typeof document === 'undefined') return null;
 
   const REASONS: Array<{ id: PostReport['reason']; title: string; desc: string }> = [
     {
@@ -68,13 +69,13 @@ export const ReportPostModal: React.FC<ReportPostModalProps> = ({
     }, 2000);
   };
 
-  return (
+  return createPortal(
     <div 
-      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+      className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 pt-[max(env(safe-area-inset-top),16px)] pb-[max(env(safe-area-inset-bottom),16px)] animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div 
-        className="w-full max-w-md bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 rounded-3xl shadow-2xl p-5 space-y-4 animate-in fade-in zoom-in-95 duration-200"
+        className="w-full max-w-md bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 rounded-3xl shadow-2xl p-5 space-y-4 animate-in fade-in zoom-in-95 duration-200 max-h-[calc(100dvh-2.5rem)] sm:max-h-[85vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {isSubmitted ? (
@@ -177,6 +178,7 @@ export const ReportPostModal: React.FC<ReportPostModalProps> = ({
           </form>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

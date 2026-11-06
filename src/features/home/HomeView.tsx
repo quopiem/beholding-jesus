@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Sparkles, Bell, Heart, BookOpen, Music, Users, Calendar, 
   Filter, Plus, RefreshCw, X, Shield, ArrowUp, ChevronRight,
@@ -56,6 +57,27 @@ export const HomeView: React.FC<HomeViewProps> = ({
   const [editContent, setEditContent] = useState('');
   const [editTitle, setEditTitle] = useState('');
   const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
+
+  // Lock body scroll whenever any modal, lightbox, or composer modal is open
+  const isAnyModalActive = Boolean(
+    isCreateAnnouncementOpen ||
+    editingPost ||
+    selectedLightboxImage ||
+    selectedMomentIndex !== null ||
+    whoReactedPost ||
+    reportingPostInfo ||
+    isAdminModerationOpen ||
+    isDownloadModalOpen
+  );
+
+  useEffect(() => {
+    if (!isAnyModalActive) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [isAnyModalActive]);
 
   // Sync and Realtime Listener
   const refreshFeed = async () => {
@@ -622,13 +644,13 @@ export const HomeView: React.FC<HomeViewProps> = ({
       {/* ============================================================== */}
       
       {/* Image Lightbox Modal */}
-      {selectedLightboxImage && (
+      {selectedLightboxImage && typeof document !== 'undefined' && createPortal(
         <div 
           onClick={() => setSelectedLightboxImage(null)}
-          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 cursor-pointer"
+          className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex items-center justify-center p-3 sm:p-6 pt-[max(env(safe-area-inset-top),20px)] pb-[max(env(safe-area-inset-bottom),16px)] cursor-pointer animate-fadeIn"
         >
-          <div className="relative max-w-4xl max-h-[90vh] overflow-hidden rounded-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+          <div className="relative max-w-4xl max-h-[90vh] overflow-hidden rounded-2xl cursor-default" onClick={(e) => e.stopPropagation()}>
+            <div className="absolute top-3 right-3 sm:top-4 sm:right-4 z-20 flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => {
@@ -643,14 +665,15 @@ export const HomeView: React.FC<HomeViewProps> = ({
                 title="Save Photo to Device"
               >
                 <Download className="w-4 h-4" />
-                <span>Save Photo</span>
+                <span className="hidden sm:inline">Save Photo</span>
               </button>
               <button
                 onClick={() => setSelectedLightboxImage(null)}
-                className="w-9 h-9 rounded-full bg-black/60 hover:bg-black/90 text-white flex items-center justify-center transition border border-white/20 cursor-pointer"
+                className="min-w-[44px] min-h-[44px] w-11 h-11 sm:w-10 sm:h-10 rounded-full bg-stone-900/90 hover:bg-stone-800 text-white flex items-center justify-center transition border border-white/30 cursor-pointer shadow-xl active:scale-95"
                 title="Close"
+                aria-label="Close"
               >
-                <X className="w-5 h-5" />
+                <X className="w-5 h-5 text-white" />
               </button>
             </div>
             <img 
@@ -659,7 +682,8 @@ export const HomeView: React.FC<HomeViewProps> = ({
               className="w-auto h-auto max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl"
             />
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Who Reacted Modal */}
@@ -684,12 +708,12 @@ export const HomeView: React.FC<HomeViewProps> = ({
       />
 
       {/* Admin Create Announcement Modal */}
-      {isCreateAnnouncementOpen && (
+      {isCreateAnnouncementOpen && typeof document !== 'undefined' && createPortal(
         <div 
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+          className="fixed inset-0 z-[100] bg-black/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 pt-[max(env(safe-area-inset-top),16px)] pb-[max(env(safe-area-inset-bottom),16px)] animate-in fade-in duration-200"
           onClick={() => setIsCreateAnnouncementOpen(false)}
         >
-          <div className="w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-lg flex flex-col max-h-full" onClick={(e) => e.stopPropagation()}>
             <CreatePostComposer
               currentUser={currentUser}
               isOpenAsModal={true}
@@ -701,17 +725,18 @@ export const HomeView: React.FC<HomeViewProps> = ({
               }}
             />
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Edit Post Modal */}
-      {editingPost && (
+      {editingPost && typeof document !== 'undefined' && createPortal(
         <div 
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+          className="fixed inset-0 z-[100] bg-black/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 pt-[max(env(safe-area-inset-top),16px)] pb-[max(env(safe-area-inset-bottom),16px)] animate-in fade-in duration-200"
           onClick={() => setEditingPost(null)}
         >
           <div 
-            className="w-full max-w-lg bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 rounded-3xl shadow-2xl p-5 space-y-4"
+            className="w-full max-w-lg bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 rounded-3xl shadow-2xl p-5 space-y-4 max-h-[calc(100dvh-2.5rem)] sm:max-h-[85vh] overflow-y-auto overscroll-contain"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-3 border-b border-stone-100 dark:border-slate-800">
@@ -720,9 +745,11 @@ export const HomeView: React.FC<HomeViewProps> = ({
               </h3>
               <button 
                 onClick={() => setEditingPost(null)}
-                className="p-1 rounded-full text-stone-400 hover:text-stone-700 dark:hover:text-stone-200"
+                className="min-w-[40px] min-h-[40px] w-10 h-10 rounded-full flex items-center justify-center text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                title="Close"
+                aria-label="Close"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
@@ -767,7 +794,8 @@ export const HomeView: React.FC<HomeViewProps> = ({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Download App Modal */}

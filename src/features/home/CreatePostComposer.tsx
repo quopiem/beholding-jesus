@@ -163,7 +163,11 @@ export const CreatePostComposer: React.FC<CreatePostComposerProps> = ({
   const firstName = currentUser.name.split(' ')[0] || 'believer';
 
   return (
-    <div className="rounded-none sm:rounded-xl bg-white dark:bg-slate-900 border-y sm:border border-stone-200/90 dark:border-slate-800/90 shadow-none sm:shadow-2xs p-3.5 sm:p-4 transition-colors">
+    <div className={
+      isOpenAsModal
+        ? "w-full max-w-lg bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-stone-200 dark:border-slate-800 flex flex-col max-h-[calc(100dvh-2.5rem)] sm:max-h-[88vh] overflow-hidden transition-colors"
+        : "rounded-none sm:rounded-xl bg-white dark:bg-slate-900 border-y sm:border border-stone-200/90 dark:border-slate-800/90 shadow-none sm:shadow-2xs p-3.5 sm:p-4 transition-colors"
+    }>
       
       {/* Top collapsed row */}
       {!isExpanded ? (
@@ -196,10 +200,17 @@ export const CreatePostComposer: React.FC<CreatePostComposerProps> = ({
         </div>
       ) : (
         /* Expanded Composer Form */
-        <form onSubmit={handleSubmit} className="space-y-4 animate-in fade-in duration-200">
+        <form 
+          onSubmit={handleSubmit} 
+          className={isOpenAsModal ? "flex-1 flex flex-col min-h-0 overflow-hidden" : "space-y-4 animate-in fade-in duration-200"}
+        >
           
           {/* Header */}
-          <div className="flex items-center justify-between pb-3 border-b border-stone-100 dark:border-slate-800">
+          <div className={
+            isOpenAsModal
+              ? "shrink-0 px-4 py-3.5 border-b border-stone-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between z-10"
+              : "flex items-center justify-between pb-3 border-b border-stone-100 dark:border-slate-800"
+          }>
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 border border-gold/40">
                 <img 
@@ -224,11 +235,16 @@ export const CreatePostComposer: React.FC<CreatePostComposerProps> = ({
                 setIsExpanded(false);
                 if (onCloseModal) onCloseModal();
               }}
-              className="p-1.5 rounded-full hover:bg-stone-100 dark:hover:bg-slate-800 text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 transition cursor-pointer"
+              className="min-w-[36px] min-h-[36px] w-9 h-9 rounded-full hover:bg-stone-100 dark:hover:bg-slate-800 text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 flex items-center justify-center transition cursor-pointer"
+              title="Close"
+              aria-label="Close"
             >
-              <X className="w-4 h-4" />
+              <X className="w-5 h-5" />
             </button>
           </div>
+
+          {/* Form scrollable body */}
+          <div className={isOpenAsModal ? "flex-1 overflow-y-auto p-4 space-y-4 overscroll-contain" : "space-y-4"}>
 
           {/* Admin Post Type Toggle: Official Announcement vs Community Post */}
           {isAdmin && (
@@ -430,13 +446,19 @@ export const CreatePostComposer: React.FC<CreatePostComposerProps> = ({
             </div>
           )}
 
+          </div>
+
           {/* Footer controls: Attachments + Cancel + Post Button */}
-          <div className="flex items-center justify-between pt-2 border-t border-stone-100 dark:border-slate-800">
+          <div className={
+            isOpenAsModal
+              ? "shrink-0 p-3.5 border-t border-stone-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md flex items-center justify-between z-10"
+              : "flex items-center justify-between pt-2 border-t border-stone-100 dark:border-slate-800"
+          }>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="px-3 py-1.5 rounded-xl bg-stone-100 hover:bg-stone-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-stone-700 dark:text-stone-300 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
+                className="px-3.5 py-2 rounded-xl bg-stone-100 hover:bg-stone-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-stone-700 dark:text-stone-300 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
               >
                 <ImageIcon className="w-4 h-4 text-emerald-500" />
                 <span>Add Photos</span>
@@ -467,7 +489,7 @@ export const CreatePostComposer: React.FC<CreatePostComposerProps> = ({
               <button
                 type="submit"
                 disabled={isUploading || (!content.trim() && imageUrls.length === 0)}
-                className="px-5 py-2 rounded-xl bg-gradient-to-r from-gold to-[#b09058] hover:brightness-105 disabled:opacity-50 text-slate-950 font-bold text-xs shadow-gold flex items-center gap-2 transition cursor-pointer"
+                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-gold to-[#b09058] hover:brightness-105 disabled:opacity-50 text-slate-950 font-bold text-xs shadow-gold flex items-center gap-2 transition cursor-pointer"
               >
                 <Send className="w-3.5 h-3.5" />
                 <span>{isUploading ? 'Publishing...' : 'Post to Church'}</span>

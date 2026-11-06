@@ -712,7 +712,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         {/* ============================================================== */}
         <nav 
           aria-label="Mobile Navigation"
-          className={`fixed bottom-3 sm:bottom-5 left-1/2 -translate-x-1/2 z-[999999] w-[calc(100%-16px)] max-w-[460px] md:hidden select-none transition-all duration-300 ease-in-out ${
+          className={`fixed bottom-3 sm:bottom-5 left-1/2 -translate-x-1/2 z-35 w-[calc(100%-16px)] max-w-[460px] md:hidden select-none transition-all duration-300 ease-in-out ${
             isNavVisible 
               ? 'translate-y-0 opacity-100 pointer-events-auto' 
               : 'translate-y-28 opacity-0 pointer-events-none'

@@ -1,5 +1,6 @@
 import React, { useEffect, useCallback } from 'react';
-import { X, ChevronLeft, ChevronRight, Download, Sparkles, BookOpen, Heart, Eye } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { X, ChevronLeft, ChevronRight, Download, BookOpen } from 'lucide-react';
 import { ChurchMomentPhoto } from '../features/landing/churchMomentsData';
 
 interface ChurchMomentsLightboxModalProps {
@@ -17,7 +18,17 @@ export const ChurchMomentsLightboxModal: React.FC<ChurchMomentsLightboxModalProp
   onClose,
   onNavigateIndex
 }) => {
-  if (!isOpen || photos.length === 0) return null;
+  // Lock body scroll while modal is open
+  useEffect(() => {
+    if (!isOpen) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [isOpen]);
+
+  if (!isOpen || photos.length === 0 || typeof document === 'undefined') return null;
 
   const currentPhoto = photos[currentIndex] || photos[0];
   const total = photos.length;
@@ -55,17 +66,17 @@ export const ChurchMomentsLightboxModal: React.FC<ChurchMomentsLightboxModalProp
     document.body.removeChild(a);
   };
 
-  return (
+  return createPortal(
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 bg-black/95 backdrop-blur-xl flex items-center justify-center p-2 sm:p-5 overflow-y-auto animate-fadeIn cursor-pointer"
+      className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-2xl flex items-center justify-center p-2 sm:p-5 pt-[max(env(safe-area-inset-top),20px)] pb-[max(env(safe-area-inset-bottom),16px)] overflow-y-auto animate-fadeIn cursor-pointer"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-5xl bg-stone-950 text-white rounded-3xl border border-gold/30 shadow-2xl overflow-hidden flex flex-col my-auto cursor-default"
+        className="relative w-full max-w-5xl bg-stone-950 text-white rounded-3xl border border-gold/40 shadow-2xl overflow-hidden flex flex-col my-auto max-h-[calc(100dvh-2.5rem)] sm:max-h-[92vh] cursor-default"
       >
         {/* Top Header Bar */}
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 border-b border-stone-800 bg-stone-950/80 backdrop-blur-md z-10">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-stone-800 bg-stone-950/95 backdrop-blur-md shrink-0 z-20">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${currentPhoto.badgeBg} ${currentPhoto.badgeText} ${currentPhoto.badgeBorder}`}>
               {currentPhoto.categoryLabel}
@@ -75,11 +86,11 @@ export const ChurchMomentsLightboxModal: React.FC<ChurchMomentsLightboxModalProp
             </span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <button
               type="button"
               onClick={handleDownload}
-              className="px-3 sm:px-4 py-1.5 rounded-full bg-gold hover:bg-gold-light text-slate-950 text-xs font-bold flex items-center gap-1.5 shadow-md transition active:scale-95 cursor-pointer"
+              className="px-3.5 sm:px-4 py-2 rounded-full bg-gold hover:bg-gold-light text-slate-950 text-xs font-bold flex items-center gap-1.5 shadow-md transition active:scale-95 cursor-pointer"
               title="Save Photo to Device"
             >
               <Download className="w-3.5 h-3.5" />
@@ -89,29 +100,31 @@ export const ChurchMomentsLightboxModal: React.FC<ChurchMomentsLightboxModalProp
             <button
               type="button"
               onClick={onClose}
-              className="w-8 h-8 rounded-full bg-stone-800 hover:bg-stone-700 text-stone-200 hover:text-white flex items-center justify-center transition border border-stone-700 cursor-pointer"
+              className="min-w-[44px] min-h-[44px] w-11 h-11 sm:w-10 sm:h-10 rounded-full bg-stone-800 hover:bg-stone-700 active:scale-90 text-white flex items-center justify-center transition border-2 border-gold/50 hover:border-gold shadow-lg cursor-pointer"
               title="Close (Esc)"
+              aria-label="Close"
             >
-              <X className="w-4 h-4" />
+              <X className="w-5 h-5 text-white stroke-[2.5]" />
             </button>
           </div>
         </div>
 
         {/* Center Photo Display with Navigation Arrows */}
-        <div className="relative bg-black flex items-center justify-center min-h-[300px] sm:min-h-[460px] max-h-[64vh] overflow-hidden group">
+        <div className="relative bg-black flex-1 min-h-[220px] sm:min-h-[360px] max-h-[48vh] sm:max-h-[58vh] flex items-center justify-center overflow-hidden group">
           <img
             key={currentPhoto.id}
             src={currentPhoto.imageUrl}
             alt={currentPhoto.title}
-            className="w-auto h-auto max-w-full max-h-[64vh] object-contain mx-auto select-none transition-all duration-300"
+            className="w-auto h-auto max-w-full max-h-full object-contain mx-auto select-none transition-all duration-300"
           />
 
           {/* Left Arrow */}
           <button
             type="button"
             onClick={handlePrev}
-            className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-black/60 hover:bg-black/85 text-white flex items-center justify-center transition border border-white/20 backdrop-blur-md shadow-xl active:scale-95 cursor-pointer z-10"
+            className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 min-w-[44px] min-h-[44px] w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-black/70 hover:bg-black/90 text-white flex items-center justify-center transition border border-white/20 backdrop-blur-md shadow-xl active:scale-95 cursor-pointer z-10"
             title="Previous Photo (←)"
+            aria-label="Previous Photo"
           >
             <ChevronLeft className="w-6 h-6 text-gold" />
           </button>
@@ -120,15 +133,16 @@ export const ChurchMomentsLightboxModal: React.FC<ChurchMomentsLightboxModalProp
           <button
             type="button"
             onClick={handleNext}
-            className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-black/60 hover:bg-black/85 text-white flex items-center justify-center transition border border-white/20 backdrop-blur-md shadow-xl active:scale-95 cursor-pointer z-10"
+            className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 min-w-[44px] min-h-[44px] w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-black/70 hover:bg-black/90 text-white flex items-center justify-center transition border border-white/20 backdrop-blur-md shadow-xl active:scale-95 cursor-pointer z-10"
             title="Next Photo (→)"
+            aria-label="Next Photo"
           >
             <ChevronRight className="w-6 h-6 text-gold" />
           </button>
         </div>
 
         {/* Bottom Story & Scripture Details Banner */}
-        <div className="p-4 sm:p-6 bg-gradient-to-b from-stone-950 to-stone-900 border-t border-stone-800/80 space-y-3">
+        <div className="p-3.5 sm:p-5 bg-gradient-to-b from-stone-950 to-stone-900 border-t border-stone-800/80 space-y-2.5 overflow-y-auto shrink-0 max-h-[38vh] overscroll-contain">
           <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1 sm:gap-4">
             <div>
               <h3 className="font-serif font-bold text-base sm:text-xl text-white tracking-wide">
@@ -184,6 +198,7 @@ export const ChurchMomentsLightboxModal: React.FC<ChurchMomentsLightboxModalProp
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
