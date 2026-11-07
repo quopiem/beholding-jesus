@@ -903,13 +903,13 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         {/* ============================================================== */}
         <nav 
           aria-label="Mobile Navigation"
-          className={`fixed bottom-3 sm:bottom-5 left-1/2 -translate-x-1/2 z-35 w-[calc(100%-12px)] max-w-[500px] md:hidden select-none transition-all duration-300 ease-in-out ${
+          className={`fixed bottom-3 sm:bottom-5 left-1/2 -translate-x-1/2 z-35 w-[calc(100%-12px)] max-w-[520px] md:hidden select-none transition-all duration-300 ease-in-out ${
             !isBottomNavHidden 
               ? 'translate-y-0 opacity-100 pointer-events-auto' 
               : 'translate-y-36 opacity-0 pointer-events-none'
           }`}
         >
-          <div className="relative flex items-center justify-between px-1 sm:px-1.5 py-1.5 rounded-[26px] bg-[#12131A]/94 dark:bg-[#0B0D14]/96 backdrop-blur-2xl border border-white/15 dark:border-[#C5A46D]/35 shadow-[0_14px_45px_rgba(0,0,0,0.55)] ring-1 ring-white/10 gap-0.5 overflow-x-auto scrollbar-none no-scrollbar">
+          <div className="relative flex items-center justify-between px-1.5 sm:px-2 py-2 sm:py-2.5 rounded-[28px] bg-[#12131A]/95 dark:bg-[#0A0C14]/96 backdrop-blur-2xl border border-white/20 dark:border-[#C5A46D]/40 shadow-[0_16px_50px_rgba(0,0,0,0.65)] ring-1 ring-white/10 gap-0.5 sm:gap-1 overflow-x-auto scrollbar-none no-scrollbar">
             {([
               { id: 'home', label: 'Home', icon: Home },
               { id: 'feed', label: 'Feed', icon: Sparkles },
@@ -933,24 +933,24 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                     onTabChange(item.id);
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
-                  className={`relative flex flex-col items-center justify-center min-w-[48px] sm:min-w-[56px] flex-1 py-1.5 px-0.5 rounded-2xl transition-all duration-300 cursor-pointer active:scale-95 shrink-0 ${
+                  className={`relative flex flex-col items-center justify-center min-w-[46px] sm:min-w-[58px] flex-1 py-2 sm:py-2.5 px-1 rounded-[20px] transition-all duration-300 cursor-pointer active:scale-95 shrink-0 group ${
                     isActive 
-                      ? 'bg-white/20 dark:bg-gradient-to-r dark:from-[#C5A46D]/25 dark:to-[#B59157]/20 text-white dark:text-gold border border-white/20 dark:border-gold/40 shadow-inner' 
-                      : 'text-stone-400 hover:text-white dark:text-stone-400 dark:hover:text-stone-200'
+                      ? 'bg-white/20 dark:bg-gradient-to-b dark:from-[#C5A46D]/30 dark:to-[#9E7C44]/20 text-white dark:text-[#E8D4A8] border border-white/25 dark:border-[#C5A46D]/50 shadow-[0_3px_14px_rgba(197,164,109,0.25)]' 
+                      : 'text-stone-400 hover:text-white dark:text-stone-400 dark:hover:text-stone-200 hover:bg-white/5 border border-transparent'
                   }`}
                   aria-label={item.label}
                   title={item.label}
                 >
                   <div className="relative flex items-center justify-center">
-                    <Icon className={`w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-300 ${isActive ? 'stroke-[2.5] scale-105' : 'stroke-[1.8]'}`} />
+                    <Icon className={`w-5 h-5 sm:w-[22px] sm:h-[22px] transition-all duration-300 ${isActive ? 'stroke-[2.4] scale-110 drop-shadow-[0_2px_8px_rgba(197,164,109,0.35)]' : 'stroke-[1.8] group-hover:scale-105'}`} />
                     {item.badge && (
-                      <span className="absolute -top-1.5 -right-2.5 min-w-4 h-4 px-1 rounded-full bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-black text-[9px] flex items-center justify-center shadow-md shadow-amber-500/40 ring-1 ring-[#12131A] animate-pulse">
+                      <span className="absolute -top-1 -right-2 min-w-[17px] h-[17px] px-1 rounded-full bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-black text-[9.5px] flex items-center justify-center shadow-md shadow-amber-500/40 ring-1.5 ring-[#12131A] animate-pulse">
                         {item.badge}
                       </span>
                     )}
                   </div>
-                  <span className={`text-[9px] sm:text-[10px] mt-0.5 tracking-tight transition-colors whitespace-nowrap ${
-                    isActive ? 'font-bold text-white dark:text-gold' : 'font-medium text-stone-400 dark:text-stone-400'
+                  <span className={`text-[10px] sm:text-[11px] mt-1 tracking-tight transition-colors whitespace-nowrap leading-tight ${
+                    isActive ? 'font-bold text-white dark:text-[#E8D4A8]' : 'font-medium text-stone-400 dark:text-stone-400 group-hover:text-stone-200'
                   }`}>
                     {item.label}
                   </span>
