@@ -173,11 +173,13 @@ const INITIAL_DEFAULT_FELLOWSHIP: ConversationItem = {
 interface CommunityViewProps {
   currentUser?: UserProfile;
   onDirectChatStateChange?: (isOpen: boolean) => void;
+  onConversationActiveChange?: (isActive: boolean) => void;
 }
 
 export const CommunityView: React.FC<CommunityViewProps> = ({ 
   currentUser: userProp,
-  onDirectChatStateChange 
+  onDirectChatStateChange,
+  onConversationActiveChange
 }) => {
   const currentUser: UserProfile = userProp || ChurchDataStore.getCurrentUser() || ChurchDataStore.getRequiredCurrentUser();
   const [filterTab, setFilterTab] = useState<'all' | 'groups' | 'direct'>('all');
@@ -341,7 +343,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
             left: `${vv.offsetLeft}px`,
             width: `${vv.width}px`,
             height: `${vv.height}px`,
-            zIndex: 40
+            zIndex: 45
           });
         } else {
           setChatViewportStyle({
@@ -350,7 +352,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
             left: 0,
             width: '100%',
             height: '100dvh',
-            zIndex: 40
+            zIndex: 45
           });
         }
       } else {
@@ -498,6 +500,43 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
 
   const activeConversation = conversations.find(c => c.id === activeRoomId) || conversations[0];
   const currentMessages = activeRoomId ? (roomMessages[activeRoomId] || []) : [];
+
+  // Active Conversation Tracker (Hides bottom nav and BJC AI button when inside any conversation: DM or GC)
+  useEffect(() => {
+    const isChatActive = mobileActiveView === 'chat';
+    onConversationActiveChange?.(isChatActive);
+    onDirectChatStateChange?.(isChatActive);
+
+    const eventDetail = {
+      isOpen: isChatActive,
+      isDirect: activeConversation?.type === 'direct',
+      isGroup: activeConversation?.type === 'group',
+      roomId: activeRoomId
+    };
+
+    window.dispatchEvent(new CustomEvent('bjc_chat_conversation_view', { detail: eventDetail }));
+    window.dispatchEvent(new CustomEvent('bjc_direct_chat_view', { detail: eventDetail }));
+
+    return () => {
+      onConversationActiveChange?.(false);
+      onDirectChatStateChange?.(false);
+      window.dispatchEvent(new CustomEvent('bjc_chat_conversation_view', { detail: { isOpen: false } }));
+      window.dispatchEvent(new CustomEvent('bjc_direct_chat_view', { detail: { isOpen: false } }));
+    };
+  }, [mobileActiveView, activeConversation?.type, activeRoomId, onConversationActiveChange, onDirectChatStateChange]);
+
+  // Lock background scrolling on mobile when viewing conversation
+  useEffect(() => {
+    if (mobileActiveView === 'chat' && typeof window !== 'undefined' && window.innerWidth < 768) {
+      window.scrollTo(0, 0);
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [mobileActiveView]);
 
   // Sync registered users from Supabase Cloud
   useEffect(() => {
@@ -1753,6 +1792,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
         {/* RIGHT COLUMN: MESSENGER CHAT ROOM (Exact Match to Image 2)  */}
         {/* ============================================================ */}
         <div 
+          data-no-swipe="true"
           style={mobileActiveView === 'chat' && typeof window !== 'undefined' && window.innerWidth < 768 ? chatViewportStyle : undefined}
           className={`${
             mobileActiveView === 'list' ? 'hidden md:flex' : 'flex'
@@ -2392,7 +2432,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
           {/* ============================================================ */}
           {/* BOTTOM CHAT INPUT BAR (MESSENGER CAPSULE LAYOUT)             */}
           {/* ============================================================ */}
-          <div className="shrink-0 p-2.5 sm:p-3 sm:px-4 pb-[max(env(safe-area-inset-bottom),10px)] bg-white dark:bg-[#0c0e14] border-t border-slate-200/80 dark:border-slate-800/80 relative z-10">
+          <div className="shrink-0 p-2.5 sm:p-3 sm:px-4 pb-[max(env(safe-area-inset-bottom),12px)] bg-white dark:bg-[#0c0e14] border-t border-slate-200/80 dark:border-slate-800/80 relative z-20">
             
             {/* Active Quoted Reply Preview Bar */}
             {replyingTo && (
@@ -2586,7 +2626,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
               </div>
 
               {/* Center Pill Capsule with Aa placeholder & inside action icons */}
-              <div className="flex-1 flex items-center bg-slate-100 dark:bg-[#1a2332] rounded-2xl sm:rounded-full px-3 sm:px-3.5 py-1 sm:py-1.5 border border-slate-200/80 dark:border-slate-800 focus-within:ring-2 focus-within:ring-gold/40 transition">
+              <div className="flex-1 min-w-0 flex items-center bg-slate-100 dark:bg-[#1a2332] rounded-2xl sm:rounded-full px-3 sm:px-3.5 py-1 sm:py-1.5 border border-slate-200/80 dark:border-slate-800 focus-within:ring-2 focus-within:ring-gold/40 transition">
                 <textarea
                   ref={textareaRef}
                   rows={1}

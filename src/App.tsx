@@ -26,7 +26,19 @@ export function App() {
   const [currentTab, setCurrentTab] = useState<string>('home');
   const [bibleTarget, setBibleTarget] = useState<{ bookId: string; chapter: number } | null>(null);
   const [visitedTabs, setVisitedTabs] = useState<Set<string>>(() => new Set(['home', currentTab]));
-  const [isDirectChatOpen, setIsDirectChatOpen] = useState(false);
+  const [isChatConversationOpen, setIsChatConversationOpen] = useState(false);
+
+  useEffect(() => {
+    const handleChatState = (e: any) => {
+      setIsChatConversationOpen(Boolean(e.detail?.isOpen));
+    };
+    window.addEventListener('bjc_chat_conversation_view', handleChatState);
+    window.addEventListener('bjc_direct_chat_view', handleChatState);
+    return () => {
+      window.removeEventListener('bjc_chat_conversation_view', handleChatState);
+      window.removeEventListener('bjc_direct_chat_view', handleChatState);
+    };
+  }, []);
 
   useEffect(() => {
     AuthService.initializeDefaultCredentials();
@@ -120,7 +132,8 @@ export function App() {
           <div style={{ display: currentTab === 'community' ? 'block' : 'none' }}>
             <CommunityView 
               currentUser={currentUser} 
-              onDirectChatStateChange={setIsDirectChatOpen}
+              onDirectChatStateChange={setIsChatConversationOpen}
+              onConversationActiveChange={setIsChatConversationOpen}
             />
           </div>
         )}
@@ -156,13 +169,15 @@ export function App() {
     );
   };
 
+  const isInsideChat = currentTab === 'community' && isChatConversationOpen;
+
   return (
     <AppLayout 
       currentTab={currentTab} 
       onTabChange={setCurrentTab}
       onOpenQuickAction={() => setCurrentTab('worship')}
       currentUser={currentUser}
-      isDirectChatOpen={isDirectChatOpen}
+      isChatConversationOpen={isInsideChat}
       onLogout={() => {
         PresenceService.cleanup();
         AuthService.logout();
@@ -170,8 +185,8 @@ export function App() {
       }}
     >
       {renderContent()}
-      {/* Floating BJC AI Assistant Button & Widget (Movable & Unobstructive) */}
-      {currentTab !== 'bjc-ai' && (
+      {/* Floating BJC AI Assistant Button & Widget (Movable & Unobstructive; hidden when inside conversation with someone or GC) */}
+      {currentTab !== 'bjc-ai' && !isInsideChat && (
         <BjcAiFloatingButton onOpenFullView={() => setCurrentTab('bjc-ai')} currentTab={currentTab} />
       )}
     </AppLayout>

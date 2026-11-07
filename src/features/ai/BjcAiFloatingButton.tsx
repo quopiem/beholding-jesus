@@ -7,10 +7,16 @@ import { BjcAiService, BjcAiMessage } from '../../services/bjcAiService';
 interface BjcAiFloatingButtonProps {
   onOpenFullView: () => void;
   currentTab?: string;
+  isHiddenInChat?: boolean;
 }
 
-export const BjcAiFloatingButton: React.FC<BjcAiFloatingButtonProps> = ({ onOpenFullView, currentTab }) => {
+export const BjcAiFloatingButton: React.FC<BjcAiFloatingButtonProps> = ({ 
+  onOpenFullView, 
+  currentTab,
+  isHiddenInChat 
+}) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isChatActive, setIsChatActive] = useState(false);
   const [messages, setMessages] = useState<BjcAiMessage[]>(() => BjcAiService.getHistory());
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -58,6 +64,21 @@ export const BjcAiFloatingButton: React.FC<BjcAiFloatingButtonProps> = ({ onOpen
     const handleKey = () => setHasApiKey(BjcAiService.hasApiKey());
     window.addEventListener('bjc_gemini_key_change', handleKey);
     return () => window.removeEventListener('bjc_gemini_key_change', handleKey);
+  }, []);
+
+  useEffect(() => {
+    const handleChat = (e: any) => {
+      setIsChatActive(Boolean(e.detail?.isOpen));
+      if (e.detail?.isOpen) {
+        setIsOpen(false);
+      }
+    };
+    window.addEventListener('bjc_chat_conversation_view', handleChat);
+    window.addEventListener('bjc_direct_chat_view', handleChat);
+    return () => {
+      window.removeEventListener('bjc_chat_conversation_view', handleChat);
+      window.removeEventListener('bjc_direct_chat_view', handleChat);
+    };
   }, []);
 
   // Pointer drag listeners for FAB
@@ -160,6 +181,11 @@ export const BjcAiFloatingButton: React.FC<BjcAiFloatingButtonProps> = ({ onOpen
   const defaultPosClass = currentTab === 'community' 
     ? 'bottom-36 md:bottom-6 right-4 sm:right-6' 
     : 'bottom-20 md:bottom-6 right-4 sm:right-6';
+
+  // If hidden or inside active conversation with someone or GC, do not render to keep message input fully visible
+  if (isHiddenInChat || (currentTab === 'community' && isChatActive)) {
+    return null;
+  }
 
   return (
     <>

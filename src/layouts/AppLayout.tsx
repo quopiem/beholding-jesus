@@ -19,6 +19,7 @@ interface AppLayoutProps {
   currentUser?: UserProfile;
   onLogout?: () => void;
   isDirectChatOpen?: boolean;
+  isChatConversationOpen?: boolean;
 }
 
 const MAIN_SWIPE_SECTIONS: string[] = [
@@ -38,7 +39,8 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   onOpenQuickAction,
   currentUser: currentUserProp,
   onLogout,
-  isDirectChatOpen: isDirectChatOpenProp
+  isDirectChatOpen: isDirectChatOpenProp,
+  isChatConversationOpen: isChatConversationOpenProp
 }) => {
   const [currentUser, setCurrentUser] = useState<UserProfile>(() => {
     return currentUserProp || ChurchDataStore.getCurrentUser() || ChurchDataStore.getRequiredCurrentUser();
@@ -121,18 +123,26 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
     return () => window.removeEventListener('bjc_unread_chat_count', handleCount);
   }, []);
 
-  // Active Direct Chat state (Part 5: Hides bottom navigation during DM conversation)
-  const [isDirectChatActive, setIsDirectChatActive] = useState<boolean>(false);
+  // Active Chat State (Hides bottom navigation and disables swiping when inside any conversation: DM or GC)
+  const [isChatViewActive, setIsChatViewActive] = useState<boolean>(false);
 
   useEffect(() => {
-    const handleDirectChat = (e: any) => {
-      setIsDirectChatActive(Boolean(e.detail?.isOpen));
+    const handleChatEvent = (e: any) => {
+      setIsChatViewActive(Boolean(e.detail?.isOpen));
     };
-    window.addEventListener('bjc_direct_chat_view', handleDirectChat);
-    return () => window.removeEventListener('bjc_direct_chat_view', handleDirectChat);
+    window.addEventListener('bjc_chat_conversation_view', handleChatEvent);
+    window.addEventListener('bjc_direct_chat_view', handleChatEvent);
+    return () => {
+      window.removeEventListener('bjc_chat_conversation_view', handleChatEvent);
+      window.removeEventListener('bjc_direct_chat_view', handleChatEvent);
+    };
   }, []);
 
-  const effectiveIsDirectChatOpen = Boolean(isDirectChatOpenProp || isDirectChatActive);
+  const isInsideConversation = (currentTab === 'community') && Boolean(
+    isChatConversationOpenProp || 
+    isDirectChatOpenProp || 
+    isChatViewActive
+  );
 
   // Mobile Floating Navigation Visibility on Scroll (Disappears on scroll down, reappears on scroll up)
   const [isNavVisible, setIsNavVisible] = useState(true);
@@ -175,19 +185,33 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
     lastScrollYRef.current = 0;
   }, [currentTab]);
 
-  const isBottomNavHidden = effectiveIsDirectChatOpen || !isNavVisible;
+  const isBottomNavHidden = isInsideConversation || !isNavVisible;
 
-  // Instagram-style horizontal swipe navigation (Part 6)
+  // Instagram-style horizontal swipe navigation & smooth side-by-side animation (Part 6)
   const touchStartXRef = useRef<number | null>(null);
   const touchStartYRef = useRef<number | null>(null);
   const touchStartTimeRef = useRef<number>(0);
   const isHorizontalSwipeRef = useRef<boolean | null>(null);
   const [swipeDragOffset, setSwipeDragOffset] = useState<number>(0);
   const [isSwipingDrag, setIsSwipingDrag] = useState<boolean>(false);
+  const [slideDirection, setSlideDirection] = useState<'right' | 'left' | 'fade'>('fade');
+  const prevTabRef = useRef<string>(currentTab);
+
+  useEffect(() => {
+    const prevIndex = MAIN_SWIPE_SECTIONS.indexOf(prevTabRef.current);
+    const nextIndex = MAIN_SWIPE_SECTIONS.indexOf(currentTab);
+
+    if (prevIndex !== -1 && nextIndex !== -1 && prevIndex !== nextIndex) {
+      setSlideDirection(nextIndex > prevIndex ? 'right' : 'left');
+    } else {
+      setSlideDirection('fade');
+    }
+    prevTabRef.current = currentTab;
+  }, [currentTab]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    // CRITICAL EXCEPTION (Part 6): Completely disable when in direct conversation
-    if (effectiveIsDirectChatOpen) return;
+    // CRITICAL REQUIREMENT: Completely disable horizontal side-by-side scrolling when inside conversation with someone or GC
+    if (isInsideConversation) return;
 
     // Only apply swipe navigation on the 7 main application sections
     if (!MAIN_SWIPE_SECTIONS.includes(currentTab)) return;
@@ -213,7 +237,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (effectiveIsDirectChatOpen || touchStartXRef.current === null || touchStartYRef.current === null) return;
+    if (isInsideConversation || touchStartXRef.current === null || touchStartYRef.current === null) return;
 
     const currentX = e.touches[0].clientX;
     const currentY = e.touches[0].clientY;
@@ -231,7 +255,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         return;
       }
 
-      if (absX > 10 && absX > absY * 1.4) {
+      if (absX > 8 && absX > absY * 1.2) {
         // User is swiping horizontally!
         isHorizontalSwipeRef.current = true;
         setIsSwipingDrag(true);
@@ -246,21 +270,21 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
       const isAtLast = currentIndex === MAIN_SWIPE_SECTIONS.length - 1 && deltaX < 0;
 
       // Add elastic resistance at endpoints
-      const offset = (isAtFirst || isAtLast) ? deltaX * 0.2 : deltaX;
+      const offset = (isAtFirst || isAtLast) ? deltaX * 0.18 : deltaX * 0.95;
       setSwipeDragOffset(offset);
     }
   };
 
   const handleTouchEnd = () => {
-    if (effectiveIsDirectChatOpen) return;
+    if (isInsideConversation) return;
 
     if (isHorizontalSwipeRef.current === true && touchStartXRef.current !== null) {
-      const threshold = 55; // minimum px for section transition
+      const threshold = 45; // Smooth natural threshold
       const elapsed = Date.now() - touchStartTimeRef.current;
       const velocity = Math.abs(swipeDragOffset) / Math.max(elapsed, 1);
       const currentIndex = MAIN_SWIPE_SECTIONS.indexOf(currentTab);
 
-      if ((Math.abs(swipeDragOffset) > threshold || velocity > 0.3) && currentIndex !== -1) {
+      if ((Math.abs(swipeDragOffset) > threshold || velocity > 0.22) && currentIndex !== -1) {
         if (swipeDragOffset < 0 && currentIndex < MAIN_SWIPE_SECTIONS.length - 1) {
           // Swipe Left -> Next Section
           onTabChange(MAIN_SWIPE_SECTIONS[currentIndex + 1]);
@@ -843,10 +867,31 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
           onTouchCancel={handleTouchCancel}
-          style={isSwipingDrag ? { transform: `translateX(${swipeDragOffset}px)`, transition: 'none' } : { transition: 'transform 200ms ease-out' }}
-          className={`flex-1 overflow-x-hidden ${effectiveIsDirectChatOpen ? 'pb-0' : (currentTab === 'home' || currentTab === 'feed' ? 'pb-28 md:pb-6' : 'pb-24 md:pb-0')}`}
+          style={
+            isSwipingDrag
+              ? {
+                  transform: `translate3d(${swipeDragOffset}px, 0, 0)`,
+                  transition: 'none',
+                  willChange: 'transform'
+                }
+              : {
+                  transform: 'translate3d(0, 0, 0)',
+                  transition: 'transform 260ms cubic-bezier(0.16, 1, 0.3, 1)',
+                  willChange: 'transform'
+                }
+          }
+          className={`flex-1 overflow-x-hidden ${isInsideConversation ? 'pb-0' : (currentTab === 'home' || currentTab === 'feed' ? 'pb-28 md:pb-6' : 'pb-24 md:pb-0')}`}
         >
-          <div key={currentTab} className="animate-fade-in">
+          <div 
+            key={currentTab} 
+            className={
+              slideDirection === 'right' 
+                ? 'animate-slide-in-right' 
+                : slideDirection === 'left' 
+                ? 'animate-slide-in-left' 
+                : 'animate-fade-in'
+            }
+          >
             {children}
           </div>
         </main>
