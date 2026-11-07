@@ -18,7 +18,18 @@ interface AppLayoutProps {
   onOpenQuickAction?: (action: string) => void;
   currentUser?: UserProfile;
   onLogout?: () => void;
+  isDirectChatOpen?: boolean;
 }
+
+const MAIN_SWIPE_SECTIONS: string[] = [
+  'home',
+  'feed',
+  'bible',
+  'stories',
+  'community',
+  'ministries',
+  'profile'
+];
 
 export const AppLayout: React.FC<AppLayoutProps> = ({
   currentTab,
@@ -26,7 +37,8 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   children,
   onOpenQuickAction,
   currentUser: currentUserProp,
-  onLogout
+  onLogout,
+  isDirectChatOpen: isDirectChatOpenProp
 }) => {
   const [currentUser, setCurrentUser] = useState<UserProfile>(() => {
     return currentUserProp || ChurchDataStore.getCurrentUser() || ChurchDataStore.getRequiredCurrentUser();
@@ -109,6 +121,19 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
     return () => window.removeEventListener('bjc_unread_chat_count', handleCount);
   }, []);
 
+  // Active Direct Chat state (Part 5: Hides bottom navigation during DM conversation)
+  const [isDirectChatActive, setIsDirectChatActive] = useState<boolean>(false);
+
+  useEffect(() => {
+    const handleDirectChat = (e: any) => {
+      setIsDirectChatActive(Boolean(e.detail?.isOpen));
+    };
+    window.addEventListener('bjc_direct_chat_view', handleDirectChat);
+    return () => window.removeEventListener('bjc_direct_chat_view', handleDirectChat);
+  }, []);
+
+  const effectiveIsDirectChatOpen = Boolean(isDirectChatOpenProp || isDirectChatActive);
+
   // Mobile Floating Navigation Visibility on Scroll (Disappears on scroll down, reappears on scroll up)
   const [isNavVisible, setIsNavVisible] = useState(true);
   const lastScrollYRef = useRef(0);
@@ -149,6 +174,117 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
     setIsNavVisible(true);
     lastScrollYRef.current = 0;
   }, [currentTab]);
+
+  const isBottomNavHidden = effectiveIsDirectChatOpen || !isNavVisible;
+
+  // Instagram-style horizontal swipe navigation (Part 6)
+  const touchStartXRef = useRef<number | null>(null);
+  const touchStartYRef = useRef<number | null>(null);
+  const touchStartTimeRef = useRef<number>(0);
+  const isHorizontalSwipeRef = useRef<boolean | null>(null);
+  const [swipeDragOffset, setSwipeDragOffset] = useState<number>(0);
+  const [isSwipingDrag, setIsSwipingDrag] = useState<boolean>(false);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    // CRITICAL EXCEPTION (Part 6): Completely disable when in direct conversation
+    if (effectiveIsDirectChatOpen) return;
+
+    // Only apply swipe navigation on the 7 main application sections
+    if (!MAIN_SWIPE_SECTIONS.includes(currentTab)) return;
+
+    // Avoid hijacking interactive elements or elements with explicit horizontal scroll
+    const target = e.target as HTMLElement | null;
+    if (target) {
+      if (target.closest('input, textarea, select, button, [data-no-swipe], .no-swipe')) {
+        return;
+      }
+      const scrollable = target.closest('.overflow-x-auto, .overflow-x-scroll');
+      if (scrollable && scrollable.scrollWidth > scrollable.clientWidth) {
+        return;
+      }
+    }
+
+    touchStartXRef.current = e.touches[0].clientX;
+    touchStartYRef.current = e.touches[0].clientY;
+    touchStartTimeRef.current = Date.now();
+    isHorizontalSwipeRef.current = null;
+    setIsSwipingDrag(false);
+    setSwipeDragOffset(0);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (effectiveIsDirectChatOpen || touchStartXRef.current === null || touchStartYRef.current === null) return;
+
+    const currentX = e.touches[0].clientX;
+    const currentY = e.touches[0].clientY;
+    const deltaX = currentX - touchStartXRef.current;
+    const deltaY = currentY - touchStartYRef.current;
+
+    // Detect direction on initial movement
+    if (isHorizontalSwipeRef.current === null) {
+      const absX = Math.abs(deltaX);
+      const absY = Math.abs(deltaY);
+
+      if (absY > 8 && absY >= absX) {
+        // User is scrolling vertically! Lock out horizontal swipe for this gesture.
+        isHorizontalSwipeRef.current = false;
+        return;
+      }
+
+      if (absX > 10 && absX > absY * 1.4) {
+        // User is swiping horizontally!
+        isHorizontalSwipeRef.current = true;
+        setIsSwipingDrag(true);
+      } else {
+        return;
+      }
+    }
+
+    if (isHorizontalSwipeRef.current === true) {
+      const currentIndex = MAIN_SWIPE_SECTIONS.indexOf(currentTab);
+      const isAtFirst = currentIndex === 0 && deltaX > 0;
+      const isAtLast = currentIndex === MAIN_SWIPE_SECTIONS.length - 1 && deltaX < 0;
+
+      // Add elastic resistance at endpoints
+      const offset = (isAtFirst || isAtLast) ? deltaX * 0.2 : deltaX;
+      setSwipeDragOffset(offset);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (effectiveIsDirectChatOpen) return;
+
+    if (isHorizontalSwipeRef.current === true && touchStartXRef.current !== null) {
+      const threshold = 55; // minimum px for section transition
+      const elapsed = Date.now() - touchStartTimeRef.current;
+      const velocity = Math.abs(swipeDragOffset) / Math.max(elapsed, 1);
+      const currentIndex = MAIN_SWIPE_SECTIONS.indexOf(currentTab);
+
+      if ((Math.abs(swipeDragOffset) > threshold || velocity > 0.3) && currentIndex !== -1) {
+        if (swipeDragOffset < 0 && currentIndex < MAIN_SWIPE_SECTIONS.length - 1) {
+          // Swipe Left -> Next Section
+          onTabChange(MAIN_SWIPE_SECTIONS[currentIndex + 1]);
+        } else if (swipeDragOffset > 0 && currentIndex > 0) {
+          // Swipe Right -> Previous Section
+          onTabChange(MAIN_SWIPE_SECTIONS[currentIndex - 1]);
+        }
+      }
+    }
+
+    touchStartXRef.current = null;
+    touchStartYRef.current = null;
+    isHorizontalSwipeRef.current = null;
+    setIsSwipingDrag(false);
+    setSwipeDragOffset(0);
+  };
+
+  const handleTouchCancel = () => {
+    touchStartXRef.current = null;
+    touchStartYRef.current = null;
+    isHorizontalSwipeRef.current = null;
+    setIsSwipingDrag(false);
+    setSwipeDragOffset(0);
+  };
 
   const handleRoleChange = (role: UserRole) => {
     const users = ChurchDataStore.getUsers();
@@ -702,7 +838,14 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         )}
 
         {/* Main Content Area */}
-        <main className={`flex-1 overflow-x-hidden ${currentTab === 'home' || currentTab === 'feed' ? 'pb-28 md:pb-6' : 'pb-24 md:pb-0'}`}>
+        <main 
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          onTouchCancel={handleTouchCancel}
+          style={isSwipingDrag ? { transform: `translateX(${swipeDragOffset}px)`, transition: 'none' } : { transition: 'transform 200ms ease-out' }}
+          className={`flex-1 overflow-x-hidden ${effectiveIsDirectChatOpen ? 'pb-0' : (currentTab === 'home' || currentTab === 'feed' ? 'pb-28 md:pb-6' : 'pb-24 md:pb-0')}`}
+        >
           <div key={currentTab} className="animate-fade-in">
             {children}
           </div>
@@ -714,9 +857,9 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         <nav 
           aria-label="Mobile Navigation"
           className={`fixed bottom-3 sm:bottom-5 left-1/2 -translate-x-1/2 z-35 w-[calc(100%-12px)] max-w-[500px] md:hidden select-none transition-all duration-300 ease-in-out ${
-            isNavVisible 
+            !isBottomNavHidden 
               ? 'translate-y-0 opacity-100 pointer-events-auto' 
-              : 'translate-y-28 opacity-0 pointer-events-none'
+              : 'translate-y-36 opacity-0 pointer-events-none'
           }`}
         >
           <div className="relative flex items-center justify-between px-1 sm:px-1.5 py-1.5 rounded-[26px] bg-[#12131A]/94 dark:bg-[#0B0D14]/96 backdrop-blur-2xl border border-white/15 dark:border-[#C5A46D]/35 shadow-[0_14px_45px_rgba(0,0,0,0.55)] ring-1 ring-white/10 gap-0.5 overflow-x-auto scrollbar-none no-scrollbar">

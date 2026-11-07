@@ -11,6 +11,7 @@ import { ChurchDataStore } from '../../services/churchDataStore';
 import { UserProfile } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { NotificationService } from '../../services/notificationService';
+import { PresenceService, formatLastSeenTimestamp } from '../../services/presenceService';
 
 // Available faith & community reaction emojis
 const COMMUNITY_EMOJIS = [
@@ -148,6 +149,7 @@ interface ConversationItem {
   unreadCount?: number;
   isDirectCheck?: boolean;
   memberCountText?: string;
+  otherUserId?: string;
 }
 
 const KEY_CACHED_CONVERSATIONS = 'bjc_cached_conversations_v3';
@@ -170,9 +172,13 @@ const INITIAL_DEFAULT_FELLOWSHIP: ConversationItem = {
 
 interface CommunityViewProps {
   currentUser?: UserProfile;
+  onDirectChatStateChange?: (isOpen: boolean) => void;
 }
 
-export const CommunityView: React.FC<CommunityViewProps> = ({ currentUser: userProp }) => {
+export const CommunityView: React.FC<CommunityViewProps> = ({ 
+  currentUser: userProp,
+  onDirectChatStateChange 
+}) => {
   const currentUser: UserProfile = userProp || ChurchDataStore.getCurrentUser() || ChurchDataStore.getRequiredCurrentUser();
   const [filterTab, setFilterTab] = useState<'all' | 'groups' | 'direct'>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -285,7 +291,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ currentUser: userP
   // Refs
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const prevMessageCountRef = useRef<number>(0);
 
@@ -300,48 +306,83 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ currentUser: userP
   })());
 
   // Accurate Active Users Tracking via Supabase Realtime Presence
-  const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(() => new Set([currentUser.id]));
+  const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(() => PresenceService.getOnlineUserIds());
 
   useEffect(() => {
-    if (!supabase) return;
+    // Initialize presence for current user session
+    PresenceService.init(currentUser);
+    setOnlineUserIds(PresenceService.getOnlineUserIds());
 
-    try {
-      const presenceChannel = supabase.channel('bjc-active-presence', {
-        config: { presence: { key: currentUser.id } }
-      });
+    const handlePresenceUpdate = () => {
+      setOnlineUserIds(PresenceService.getOnlineUserIds());
+    };
 
-      presenceChannel.on('presence', { event: 'sync' }, () => {
-        const state = presenceChannel.presenceState();
-        const currentActiveIds = new Set<string>();
-        currentActiveIds.add(currentUser.id);
+    window.addEventListener('bjc_presence_change', handlePresenceUpdate);
+    return () => {
+      window.removeEventListener('bjc_presence_change', handlePresenceUpdate);
+    };
+  }, [currentUser]);
 
-        Object.keys(state).forEach(key => {
-          currentActiveIds.add(key);
-        });
+  // Mobile Visual Viewport Handling for iOS & Android Virtual Keyboard (Part 2 & Part 5)
+  const [chatViewportStyle, setChatViewportStyle] = useState<React.CSSProperties>({});
 
-        setOnlineUserIds(currentActiveIds);
-      });
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
 
-      presenceChannel.subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-          await presenceChannel.track({
-            id: currentUser.id,
-            name: currentUser.name,
-            role: currentUser.roleTitle,
-            online_at: new Date().toISOString()
+    const updateViewport = () => {
+      const isMobile = window.innerWidth < 768;
+      if (isMobile && mobileActiveView === 'chat') {
+        const vv = window.visualViewport;
+        if (vv) {
+          // Precisely pin conversation viewport to the visual viewport above virtual keyboard
+          setChatViewportStyle({
+            position: 'fixed',
+            top: `${vv.offsetTop}px`,
+            left: `${vv.offsetLeft}px`,
+            width: `${vv.width}px`,
+            height: `${vv.height}px`,
+            zIndex: 40
+          });
+        } else {
+          setChatViewportStyle({
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100dvh',
+            zIndex: 40
           });
         }
-      });
+      } else {
+        setChatViewportStyle({});
+      }
+    };
 
-      return () => {
-        try {
-          supabase.removeChannel(presenceChannel);
-        } catch {}
-      };
-    } catch (err) {
-      console.warn('Presence channel error:', err);
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', updateViewport);
+      window.visualViewport.addEventListener('scroll', updateViewport);
     }
-  }, [currentUser.id, currentUser.name, currentUser.roleTitle]);
+    window.addEventListener('resize', updateViewport);
+    updateViewport();
+
+    return () => {
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', updateViewport);
+        window.visualViewport.removeEventListener('scroll', updateViewport);
+      }
+      window.removeEventListener('resize', updateViewport);
+    };
+  }, [mobileActiveView]);
+
+  // Auto-scroll to latest message when mobile view or keyboard opens
+  useEffect(() => {
+    if (mobileActiveView === 'chat') {
+      const timer = setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 90);
+      return () => clearTimeout(timer);
+    }
+  }, [mobileActiveView, chatViewportStyle.height]);
 
   // Conversations and Room Messages with instant local-first cache (0ms instant display)
   const [conversations, setConversations] = useState<ConversationItem[]>(() => {
@@ -653,7 +694,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ currentUser: userP
           unreadCount: (activeRoomId === 'fellowship') ? 0 : (fellowshipActivity?.unreadCount || 0),
           isDirectCheck: fellowshipActivity?.latestMsg ? fellowshipActivity.latestMsg.sender_id === currentUser.id : false,
           memberCountText: 'Church Fellowship Group',
-          isOnline: true
+          isOnline: PresenceService.getOnlineCount() > 0
         };
 
         if (cloudRooms && cloudRooms.length > 0) {
@@ -687,6 +728,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ currentUser: userP
 
               const otherUserId = (currentUser.id === id1) ? id2 : id1;
               const otherUser = allUsers.find(u => u.id === otherUserId);
+              const isOtherOnline = otherUserId ? PresenceService.isUserOnline(otherUserId) : false;
 
               mapped.push({
                 id: r.id,
@@ -700,7 +742,8 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ currentUser: userP
                 unreadCount,
                 isDirectCheck,
                 memberCountText: otherUser?.roleTitle || 'Personal Message',
-                isOnline: true
+                isOnline: isOtherOnline,
+                otherUserId: otherUserId
               });
             } else {
               if (r.id === 'fellowship') {
@@ -951,6 +994,24 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ currentUser: userP
     };
     reader.readAsDataURL(file);
     e.target.value = '';
+    textareaRef.current?.focus();
+  };
+
+  // Auto-expanding message textarea handler (Part 3)
+  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInputText(e.target.value);
+    const target = e.target;
+    target.style.height = 'auto';
+    target.style.height = `${Math.min(target.scrollHeight, 112)}px`;
+  };
+
+  const handleTextareaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey && typeof window !== 'undefined' && window.innerWidth >= 768) {
+      e.preventDefault();
+      if (inputText.trim() || attachedImage || attachedVideo) {
+        handleSendMessage(e as any);
+      }
+    }
   };
 
   // Send message handler with Reply, Photo, and Video support
@@ -1024,6 +1085,12 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ currentUser: userP
     setAttachedVideoName(null);
     setReplyingTo(null);
     setIsEmojiPickerOpen(false);
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+    }
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 60);
 
     // Broadcast to Supabase Cloud
     ChurchDataStore.sendChatMessageToCloud({
@@ -1194,7 +1261,8 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ currentUser: userP
         lastMessageTimestamp: Date.now(),
         unreadCount: 0,
         memberCountText: targetUser.roleTitle || 'Personal Message',
-        isOnline: true
+        isOnline: PresenceService.isUserOnline(targetUser.id),
+        otherUserId: targetUser.id
       };
 
       setConversations(prev => [newDm, ...prev]);
@@ -1249,7 +1317,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ currentUser: userP
       text: preview.slice(0, 80)
     });
 
-    inputRef.current?.focus();
+    textareaRef.current?.focus();
   };
 
   // Create new group chat
@@ -1300,11 +1368,13 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ currentUser: userP
 
   // Truly active church members only (verified online presence or current session)
   const activeMembers = registeredUsers
-    .filter(u => onlineUserIds.has(u.id) || u.id === currentUser.id)
+    .filter(u => PresenceService.isUserOnline(u.id))
     .map(user => ({
       ...user,
       isOnline: true,
-      activityBadge: user.role === 'pastor' ? 'Pastor Online' : (user.id === currentUser.id ? 'You (Active)' : 'Active Now')
+      activityBadge: user.id === currentUser.id 
+        ? 'You (Active)' 
+        : (user.role === 'pastor' ? 'Pastor Online' : 'Active Now')
     }));
 
   // Faith thought note generator for Messenger-style story bubbles
@@ -1618,9 +1688,17 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ currentUser: userP
                             : 'border border-slate-200/80 dark:border-slate-700/80 shadow-xs'
                         }`}
                       />
-                      {conv.isOnline && (
-                        <span className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 shadow-xs"></span>
-                      )}
+                      {(() => {
+                        const directId = conv.type === 'direct'
+                          ? (conv.otherUserId || conv.id.replace('dm_', '').split('_').find(id => id !== currentUser.id))
+                          : null;
+                        const isOnline = conv.type === 'direct'
+                          ? PresenceService.isUserOnline(directId)
+                          : (PresenceService.getOnlineCount() > 0);
+                        return isOnline ? (
+                          <span className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 shadow-xs"></span>
+                        ) : null;
+                      })()}
                     </div>
 
                     {/* Conversation Title & Preview */}
@@ -1674,7 +1752,14 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ currentUser: userP
         {/* ============================================================ */}
         {/* RIGHT COLUMN: MESSENGER CHAT ROOM (Exact Match to Image 2)  */}
         {/* ============================================================ */}
-        <div className={`${mobileActiveView === 'list' ? 'hidden md:flex' : 'flex'} md:col-span-7 lg:col-span-8 flex-col h-full min-h-0 overflow-hidden bg-white dark:bg-slate-950`}>
+        <div 
+          style={mobileActiveView === 'chat' && typeof window !== 'undefined' && window.innerWidth < 768 ? chatViewportStyle : undefined}
+          className={`${
+            mobileActiveView === 'list' ? 'hidden md:flex' : 'flex'
+          } md:col-span-7 lg:col-span-8 flex-col h-full min-h-0 overflow-hidden bg-white dark:bg-slate-950 ${
+            mobileActiveView === 'chat' ? 'fixed inset-0 z-40 md:relative md:inset-auto md:z-auto' : ''
+          }`}
+        >
           
           {!activeConversation ? (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-400 my-auto">
@@ -1697,13 +1782,13 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ currentUser: userP
           ) : (
             <>
           {/* Top Chat Header */}
-          <div className="shrink-0 p-3.5 sm:px-6 bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between z-10">
+          <div className="shrink-0 p-3 sm:px-6 pt-[max(env(safe-area-inset-top),12px)] bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between z-10">
             <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
               
               {/* Back button on mobile */}
               <button
                 onClick={() => setMobileActiveView('list')}
-                className="md:hidden p-1.5 -ml-1 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition shrink-0 flex items-center gap-1"
+                className="md:hidden p-1.5 -ml-1 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition shrink-0 flex items-center gap-1 cursor-pointer"
                 title="Back to conversations"
               >
                 <ChevronLeft className="w-5 h-5 text-gold" />
@@ -1716,7 +1801,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ currentUser: userP
                   alt={activeConversation.title}
                   onClick={() => {
                     if (activeConversation.type === 'direct') {
-                      const memberId = activeConversation.id.replace('dm_', '').split('_').find(id => id !== currentUser.id);
+                      const memberId = activeConversation.otherUserId || activeConversation.id.replace('dm_', '').split('_').find(id => id !== currentUser.id);
                       if (memberId) {
                         const u = registeredUsers.find(ru => ru.id === memberId);
                         if (u) setViewingProfileUser(u);
@@ -1725,7 +1810,19 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ currentUser: userP
                   }}
                   className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover border border-slate-200 dark:border-slate-700 shadow-xs cursor-pointer hover:ring-2 hover:ring-gold/40 transition"
                 />
-                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900"></span>
+                {(() => {
+                  const directId = activeConversation.type === 'direct'
+                    ? (activeConversation.otherUserId || activeConversation.id.replace('dm_', '').split('_').find(id => id !== currentUser.id))
+                    : null;
+                  const isOnline = activeConversation.type === 'direct'
+                    ? PresenceService.isUserOnline(directId)
+                    : PresenceService.getOnlineCount() > 0;
+                  return (
+                    <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-slate-900 ${
+                      isOnline ? 'bg-emerald-500' : 'bg-slate-400'
+                    }`}></span>
+                  );
+                })()}
               </div>
 
               <div className="truncate">
@@ -1733,7 +1830,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ currentUser: userP
                   <h2 
                     onClick={() => {
                       if (activeConversation.type === 'direct') {
-                        const memberId = activeConversation.id.replace('dm_', '').split('_').find(id => id !== currentUser.id);
+                        const memberId = activeConversation.otherUserId || activeConversation.id.replace('dm_', '').split('_').find(id => id !== currentUser.id);
                         if (memberId) {
                           const u = registeredUsers.find(ru => ru.id === memberId);
                           if (u) setViewingProfileUser(u);
@@ -1753,10 +1850,24 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ currentUser: userP
                     </span>
                   )}
                 </div>
-                <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 truncate flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                  <span>Active Now • Cross-Device Cloud Sync</span>
-                </p>
+                {(() => {
+                  const directId = activeConversation.type === 'direct'
+                    ? (activeConversation.otherUserId || activeConversation.id.replace('dm_', '').split('_').find(id => id !== currentUser.id))
+                    : null;
+                  const isOnline = activeConversation.type === 'direct'
+                    ? PresenceService.isUserOnline(directId)
+                    : PresenceService.getOnlineCount() > 0;
+                  const statusText = activeConversation.type === 'direct'
+                    ? (isOnline ? 'Active Now' : PresenceService.getLastSeenText(directId))
+                    : `${PresenceService.getOnlineCount()} Active Now • Church Group`;
+
+                  return (
+                    <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 truncate flex items-center gap-1.5">
+                      <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`}></span>
+                      <span>{statusText}</span>
+                    </p>
+                  );
+                })()}
               </div>
             </div>
 
@@ -2281,7 +2392,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ currentUser: userP
           {/* ============================================================ */}
           {/* BOTTOM CHAT INPUT BAR (MESSENGER CAPSULE LAYOUT)             */}
           {/* ============================================================ */}
-          <div className="shrink-0 p-3 sm:px-4 bg-white dark:bg-[#0c0e14] border-t border-slate-200/80 dark:border-slate-800/80 relative z-10">
+          <div className="shrink-0 p-2.5 sm:p-3 sm:px-4 pb-[max(env(safe-area-inset-bottom),10px)] bg-white dark:bg-[#0c0e14] border-t border-slate-200/80 dark:border-slate-800/80 relative z-10">
             
             {/* Active Quoted Reply Preview Bar */}
             {replyingTo && (
@@ -2366,7 +2477,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ currentUser: userP
                     onClick={() => {
                       setInputText(prev => prev + ' ' + em.emoji);
                       setIsEmojiPickerOpen(false);
-                      inputRef.current?.focus();
+                      textareaRef.current?.focus();
                     }}
                     className="p-1.5 text-lg hover:scale-125 transition"
                     title={em.label}
@@ -2463,7 +2574,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ currentUser: userP
                       onClick={() => {
                         setInputText(prev => prev + ' 🎙️ [Voice note: God bless you]');
                         setIsAttachMenuOpen(false);
-                        inputRef.current?.focus();
+                        textareaRef.current?.focus();
                       }}
                       className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition text-left"
                     >
@@ -2475,12 +2586,13 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ currentUser: userP
               </div>
 
               {/* Center Pill Capsule with Aa placeholder & inside action icons */}
-              <div className="flex-1 flex items-center bg-slate-100 dark:bg-[#1a2332] rounded-full px-3.5 py-1.5 border border-slate-200/80 dark:border-slate-800 focus-within:ring-2 focus-within:ring-gold/40 transition">
-                <input
-                  ref={inputRef}
-                  type="text"
+              <div className="flex-1 flex items-center bg-slate-100 dark:bg-[#1a2332] rounded-2xl sm:rounded-full px-3 sm:px-3.5 py-1 sm:py-1.5 border border-slate-200/80 dark:border-slate-800 focus-within:ring-2 focus-within:ring-gold/40 transition">
+                <textarea
+                  ref={textareaRef}
+                  rows={1}
                   value={inputText}
-                  onChange={(e) => setInputText(e.target.value)}
+                  onChange={handleTextareaChange}
+                  onKeyDown={handleTextareaKeyDown}
                   placeholder={
                     replyingTo
                       ? `Replying to ${replyingTo.senderName}...`
@@ -2490,7 +2602,8 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ currentUser: userP
                       ? "Add a caption for this photo..."
                       : "Aa"
                   }
-                  className="flex-1 bg-transparent py-1 text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none"
+                  className="flex-1 bg-transparent py-1 text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none resize-none max-h-28 overflow-y-auto leading-relaxed"
+                  style={{ minHeight: '26px' }}
                 />
                 
                 {/* Inside Right: Smiley Face */}
@@ -2508,7 +2621,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({ currentUser: userP
                   type="button"
                   onClick={() => {
                     setInputText(prev => prev + ' 🎙️ [Voice note: God bless you]');
-                    inputRef.current?.focus();
+                    textareaRef.current?.focus();
                   }}
                   className="p-1 text-slate-400 hover:text-gold transition shrink-0"
                   title="Send Voice Fellowship Note"
