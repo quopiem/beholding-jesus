@@ -25,7 +25,7 @@ export function App() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => ChurchDataStore.getCurrentUser());
   const [currentTab, setCurrentTab] = useState<string>('home');
   const [bibleTarget, setBibleTarget] = useState<{ bookId: string; chapter: number } | null>(null);
-  const [visitedTabs, setVisitedTabs] = useState<Set<string>>(() => new Set(['home', currentTab]));
+  const [visitedTabs, setVisitedTabs] = useState<Set<string>>(() => new Set(['home', 'community', currentTab]));
   const [isChatConversationOpen, setIsChatConversationOpen] = useState(false);
 
   useEffect(() => {

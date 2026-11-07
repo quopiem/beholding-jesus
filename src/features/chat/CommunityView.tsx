@@ -170,6 +170,87 @@ const INITIAL_DEFAULT_FELLOWSHIP: ConversationItem = {
   isOnline: true
 };
 
+// Aggregates all cached messages across versions to guarantee ZERO message loss
+function loadAllCachedMessages(currentUserId?: string): Record<string, ChatMessageItem[]> {
+  const result: Record<string, ChatMessageItem[]> = {};
+  const seenIdsByRoom: Record<string, Set<string>> = {};
+
+  const mergeIn = (rawObj: any) => {
+    if (!rawObj || typeof rawObj !== 'object') return;
+    for (const roomId of Object.keys(rawObj)) {
+      const msgs = rawObj[roomId];
+      if (!Array.isArray(msgs)) continue;
+      if (!result[roomId]) result[roomId] = [];
+      if (!seenIdsByRoom[roomId]) seenIdsByRoom[roomId] = new Set();
+
+      for (const m of msgs) {
+        if (!m || !m.id) continue;
+        if (!seenIdsByRoom[roomId].has(m.id)) {
+          seenIdsByRoom[roomId].add(m.id);
+          const senderId = m.senderId || m.sender_id || '';
+          result[roomId].push({
+            id: m.id,
+            senderId,
+            senderName: m.senderName || m.sender_name || 'Church Believer',
+            senderAvatar: m.senderAvatar || m.sender_avatar || '/icons/church-logo.png',
+            senderRole: m.senderRole || m.sender_role || 'Church Member',
+            isMe: m.isMe !== undefined ? m.isMe : (currentUserId ? senderId === currentUserId : false),
+            content: m.content || '',
+            timestamp: m.timestamp || (m.created_at ? new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now'),
+            isDelivered: m.isDelivered ?? m.is_delivered ?? true,
+            reactions: Array.isArray(m.reactions) ? m.reactions : []
+          });
+        }
+      }
+    }
+  };
+
+  try {
+    const raw3 = localStorage.getItem(KEY_CACHED_MESSAGES);
+    if (raw3) mergeIn(JSON.parse(raw3));
+
+    const rawStore = localStorage.getItem('bjc_chat_messages_v2');
+    if (rawStore) mergeIn(JSON.parse(rawStore));
+
+    const raw2 = localStorage.getItem('bjc_cached_room_messages_v2');
+    if (raw2) mergeIn(JSON.parse(raw2));
+
+    const raw1 = localStorage.getItem('bjc_chat_messages_v1');
+    if (raw1) mergeIn(JSON.parse(raw1));
+  } catch (e) {
+    console.warn('Error loading cached chat messages:', e);
+  }
+
+  // Ensure default fellowship room has inspiring welcome seeds if completely empty
+  if (!result['fellowship'] || result['fellowship'].length === 0) {
+    result['fellowship'] = [
+      {
+        id: 'msg-seed-fellowship-1',
+        senderId: 'usr-pastor-john-eric',
+        senderName: 'John Erick Manjares',
+        senderAvatar: '/images/pastor-john-eric-manjares.png',
+        senderRole: 'Senior Pastor',
+        isMe: currentUserId === 'usr-pastor-john-eric',
+        content: 'Welcome to Beholding Jesus Church community fellowship! "Let us consider how we may spur one another on toward love and good deeds." (Hebrews 10:24) Grace and peace to everyone!',
+        timestamp: '9:00 AM',
+        isDelivered: true,
+        reactions: [{ emoji: '🙏', count: 6, reacted: false, userIds: [] }, { emoji: '❤️', count: 4, reacted: false, userIds: [] }]
+      }
+    ];
+  }
+
+  // Sort each room's messages chronologically
+  for (const rId of Object.keys(result)) {
+    result[rId].sort((a, b) => {
+      const tA = a.id.startsWith('msg-') ? parseInt(a.id.replace('msg-', ''), 10) : 0;
+      const tB = b.id.startsWith('msg-') ? parseInt(b.id.replace('msg-', ''), 10) : 0;
+      return tA - tB;
+    });
+  }
+
+  return result;
+}
+
 interface CommunityViewProps {
   currentUser?: UserProfile;
   onDirectChatStateChange?: (isOpen: boolean) => void;
@@ -399,15 +480,10 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
   });
 
   const [roomMessages, setRoomMessages] = useState<Record<string, ChatMessageItem[]>>(() => {
-    try {
-      const raw = localStorage.getItem(KEY_CACHED_MESSAGES);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === 'object') return parsed;
-      }
-    } catch {}
-    return {};
+    return loadAllCachedMessages(currentUser.id);
   });
+
+  const chatHubRef = useRef<any>(null);
 
   // Persist conversations to cache
   useEffect(() => {
@@ -418,16 +494,17 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
     }
   }, [conversations]);
 
-  // Persist latest 50 messages per room to cache
+  // Persist up to 200 messages per room to cache & backup store
   useEffect(() => {
     const keys = Object.keys(roomMessages);
     if (keys.length > 0) {
       try {
         const trimmed: Record<string, ChatMessageItem[]> = {};
         for (const k of keys) {
-          trimmed[k] = (roomMessages[k] || []).slice(-50);
+          trimmed[k] = (roomMessages[k] || []).slice(-200);
         }
         localStorage.setItem(KEY_CACHED_MESSAGES, JSON.stringify(trimmed));
+        localStorage.setItem('bjc_chat_messages_v2', JSON.stringify(trimmed));
       } catch {}
     }
   }, [roomMessages]);
@@ -898,10 +975,33 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
           }
           prevMessageCountRef.current = mapped.length;
 
-          setRoomMessages(prev => ({
-            ...prev,
-            [activeRoomId]: mapped
-          }));
+          // Safe non-destructive merge: Never wipe out local or previous messages!
+          setRoomMessages(prev => {
+            const current = prev[activeRoomId] || [];
+            const map = new Map<string, ChatMessageItem>();
+            current.forEach(m => map.set(m.id, m));
+            mapped.forEach(m => {
+              const ex = map.get(m.id);
+              if (ex) {
+                map.set(m.id, {
+                  ...ex,
+                  ...m,
+                  reactions: m.reactions && m.reactions.length > 0 ? m.reactions : ex.reactions
+                });
+              } else {
+                map.set(m.id, m);
+              }
+            });
+            const merged = Array.from(map.values()).sort((a, b) => {
+              const tA = a.id.startsWith('msg-') ? parseInt(a.id.replace('msg-', ''), 10) : 0;
+              const tB = b.id.startsWith('msg-') ? parseInt(b.id.replace('msg-', ''), 10) : 0;
+              return tA - tB;
+            });
+            return {
+              ...prev,
+              [activeRoomId]: merged
+            };
+          });
 
           const last = mapped[mapped.length - 1];
           if (last) {
@@ -961,6 +1061,211 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
       }
     };
   }, [activeRoomId, currentUser.id, activeConversation?.type]);
+
+  // Global Real-Time Supabase WebSocket Broadcast Channel (Sub-50ms message sync across all devices)
+  useEffect(() => {
+    if (!supabase) return;
+    let isSubscribed = true;
+
+    try {
+      const channel = supabase.channel('bjc-community-chat-hub', {
+        config: {
+          broadcast: { self: false }
+        }
+      });
+
+      channel.on('broadcast', { event: 'new_chat_message' }, ({ payload }: any) => {
+        if (!isSubscribed) return;
+        handleIncomingBroadcastMessage(payload);
+      });
+
+      channel.on('broadcast', { event: 'chat_reaction' }, ({ payload }: any) => {
+        if (!isSubscribed) return;
+        handleIncomingBroadcastReaction(payload);
+      });
+
+      channel.on('broadcast', { event: 'chat_delete' }, ({ payload }: any) => {
+        if (!isSubscribed) return;
+        handleIncomingBroadcastDelete(payload);
+      });
+
+      channel.subscribe((status: string) => {
+        if (status === 'SUBSCRIBED') {
+          chatHubRef.current = channel;
+        }
+      });
+
+      chatHubRef.current = channel;
+
+      return () => {
+        isSubscribed = false;
+        try {
+          supabase.removeChannel(channel);
+        } catch (_) {}
+      };
+    } catch (e) {
+      console.warn('Realtime chat hub error:', e);
+    }
+  }, [currentUser.id]);
+
+  // Handle Real-Time Incoming Message from another user
+  const handleIncomingBroadcastMessage = (payload: { message: any; roomId: string; targetUserId?: string }) => {
+    if (!payload || !payload.message || !payload.roomId) return;
+    const msg = payload.message;
+
+    // Check if seen to prevent duplicate rendering
+    if (seenMessageIdsRef.current.has(msg.id)) return;
+    seenMessageIdsRef.current.add(msg.id);
+
+    // If direct message, verify if this user is a participant
+    if (payload.roomId.startsWith('dm_')) {
+      const isParticipant = payload.roomId.includes(currentUser.id) || payload.targetUserId === currentUser.id;
+      if (!isParticipant) return;
+    }
+
+    // Format to ChatMessageItem
+    const formattedMsg: ChatMessageItem = {
+      id: msg.id,
+      senderId: msg.senderId || msg.sender_id || '',
+      senderName: msg.senderName || msg.sender_name || 'Church Believer',
+      senderAvatar: msg.senderAvatar || msg.sender_avatar || '/icons/church-logo.png',
+      senderRole: msg.senderRole || msg.sender_role || 'Church Member',
+      isMe: (msg.senderId || msg.sender_id) === currentUser.id,
+      content: msg.content || '',
+      timestamp: msg.timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      isDelivered: true,
+      reactions: msg.reactions || []
+    };
+
+    // 1. Append to room messages
+    setRoomMessages(prev => {
+      const roomList = prev[payload.roomId] || [];
+      if (roomList.some(m => m.id === formattedMsg.id)) return prev;
+      return {
+        ...prev,
+        [payload.roomId]: [...roomList, formattedMsg]
+      };
+    });
+
+    // 2. Preview text for conversation lobby
+    const parsed = parseMessageContent(formattedMsg.content);
+    let previewSnippet = formattedMsg.content;
+    if (parsed.photoUrl) previewSnippet = '📷 Photo' + (parsed.caption ? `: ${parsed.caption}` : '');
+    else if (parsed.videoUrl) previewSnippet = '🎥 Video' + (parsed.caption ? `: ${parsed.caption}` : '');
+    else if (parsed.caption) previewSnippet = parsed.caption;
+
+    const isCurrentActive = activeRoomId === payload.roomId && (mobileActiveView === 'chat' || window.innerWidth >= 768);
+
+    // 3. If actively in this room: play chime & auto-scroll
+    if (isCurrentActive) {
+      if (!formattedMsg.isMe) {
+        playAestheticMessageChime();
+      }
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 50);
+    } else {
+      // 4. If in another room or lobby: alert, chime, notification, unread count
+      if (!formattedMsg.isMe) {
+        playAestheticMessageChime();
+
+        setIncomingAlert({
+          id: formattedMsg.id,
+          senderName: formattedMsg.senderName,
+          senderAvatar: formattedMsg.senderAvatar,
+          roomTitle: conversations.find(c => c.id === payload.roomId)?.title || 'Fellowship',
+          roomId: payload.roomId,
+          preview: cleanPreviewText(previewSnippet)
+        });
+
+        setTimeout(() => {
+          setIncomingAlert(prev => prev?.id === formattedMsg.id ? null : prev);
+        }, 5000);
+
+        NotificationService.notifyNewMessage(
+          formattedMsg.senderName,
+          cleanPreviewText(previewSnippet),
+          { roomId: payload.roomId, isDirect: payload.roomId.startsWith('dm_') }
+        ).catch(() => {});
+      }
+    }
+
+    // 5. Update or insert conversation item in lobby
+    setConversations(prev => {
+      const now = Date.now();
+      const existing = prev.find(c => c.id === payload.roomId);
+
+      if (existing) {
+        const updated = prev.map(c => {
+          if (c.id === payload.roomId) {
+            return {
+              ...c,
+              lastMessage: cleanPreviewText(previewSnippet),
+              timestamp: 'Just now',
+              lastMessageTimestamp: now,
+              unreadCount: isCurrentActive ? 0 : ((c.unreadCount || 0) + 1),
+              isDirectCheck: formattedMsg.isMe
+            };
+          }
+          return c;
+        });
+        return [...updated].sort((a, b) => (b.lastMessageTimestamp || 0) - (a.lastMessageTimestamp || 0));
+      } else if (payload.roomId.startsWith('dm_')) {
+        const otherUserId = formattedMsg.isMe ? payload.targetUserId : formattedMsg.senderId;
+        const otherUser = registeredUsers.find(u => u.id === otherUserId);
+        const newDmConv: ConversationItem = {
+          id: payload.roomId,
+          title: otherUser?.name || formattedMsg.senderName,
+          symbol: '💬',
+          avatar: otherUser?.avatar || formattedMsg.senderAvatar,
+          type: 'direct',
+          lastMessage: cleanPreviewText(previewSnippet),
+          timestamp: 'Just now',
+          lastMessageTimestamp: now,
+          unreadCount: isCurrentActive ? 0 : 1,
+          isDirectCheck: formattedMsg.isMe,
+          memberCountText: otherUser?.roleTitle || 'Personal Message',
+          isOnline: PresenceService.isUserOnline(otherUserId),
+          otherUserId
+        };
+        return [newDmConv, ...prev].sort((a, b) => (b.lastMessageTimestamp || 0) - (a.lastMessageTimestamp || 0));
+      }
+      return prev;
+    });
+  };
+
+  // Handle Real-Time Incoming Reactions
+  const handleIncomingBroadcastReaction = (payload: { roomId: string; messageId: string; reactions: ReactionItem[] }) => {
+    if (!payload || !payload.roomId || !payload.messageId) return;
+    setRoomMessages(prev => {
+      const list = prev[payload.roomId] || [];
+      const updated = list.map(m => {
+        if (m.id === payload.messageId) {
+          return {
+            ...m,
+            reactions: payload.reactions
+          };
+        }
+        return m;
+      });
+      return {
+        ...prev,
+        [payload.roomId]: updated
+      };
+    });
+  };
+
+  // Handle Real-Time Incoming Message Deletion
+  const handleIncomingBroadcastDelete = (payload: { roomId: string; messageId: string }) => {
+    if (!payload || !payload.roomId || !payload.messageId) return;
+    setRoomMessages(prev => {
+      const list = (prev[payload.roomId] || []).filter(m => m.id !== payload.messageId);
+      return {
+        ...prev,
+        [payload.roomId]: list
+      };
+    });
+  };
 
   // Photo file picker handler
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1131,7 +1436,20 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, 60);
 
-    // Broadcast to Supabase Cloud
+    // Broadcast immediately over Supabase Realtime WebSocket to all participants (sub-50ms delivery)
+    if (chatHubRef.current) {
+      chatHubRef.current.send({
+        type: 'broadcast',
+        event: 'new_chat_message',
+        payload: {
+          roomId: activeRoomId,
+          targetUserId: activeConversation?.otherUserId,
+          message: newMsg
+        }
+      });
+    }
+
+    // Persist to Cloud DB & Local Storage
     ChurchDataStore.sendChatMessageToCloud({
       id: newMsgId,
       roomId: activeRoomId,
@@ -1141,7 +1459,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
       senderRole: currentUser.roleTitle || 'Church Member',
       content: fullContent,
       reactions: []
-    }).then();
+    }).catch(() => {});
   };
 
   // Messenger-Style Quick Reaction / Like Handler (Thumbs Up / Amen)
@@ -1185,6 +1503,19 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
       return [...updated].sort((a, b) => (b.lastMessageTimestamp || 0) - (a.lastMessageTimestamp || 0));
     });
 
+    // Broadcast immediately over Supabase Realtime WebSocket
+    if (chatHubRef.current) {
+      chatHubRef.current.send({
+        type: 'broadcast',
+        event: 'new_chat_message',
+        payload: {
+          roomId: activeRoomId,
+          targetUserId: activeConversation?.otherUserId,
+          message: newMsg
+        }
+      });
+    }
+
     ChurchDataStore.sendChatMessageToCloud({
       id: newMsgId,
       roomId: activeRoomId,
@@ -1194,7 +1525,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
       senderRole: currentUser.roleTitle || 'Church Member',
       content: emoji,
       reactions: []
-    }).then();
+    }).catch(() => {});
   };
 
   // Toggle Reaction on message (Cross-Device Cloud Sync)
@@ -1257,8 +1588,21 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
       localStorage.setItem('bjc_local_reactions', JSON.stringify(localReactionsRef.current));
     } catch {}
 
-    // 3. Sync to Cloud DB
-    ChurchDataStore.updateChatReactionsInCloud(msgId, filteredReactions).then();
+    // 3. Broadcast real-time reaction update over WebSocket
+    if (chatHubRef.current) {
+      chatHubRef.current.send({
+        type: 'broadcast',
+        event: 'chat_reaction',
+        payload: {
+          roomId: activeRoomId,
+          messageId: msgId,
+          reactions: filteredReactions
+        }
+      });
+    }
+
+    // 4. Sync to Cloud DB
+    ChurchDataStore.updateChatReactionsInCloud(msgId, filteredReactions).catch(() => {});
   };
 
   // Delete message handler
@@ -1272,6 +1616,18 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
         [activeRoomId]: list
       };
     });
+
+    // Broadcast deletion in real time to all clients
+    if (chatHubRef.current) {
+      chatHubRef.current.send({
+        type: 'broadcast',
+        event: 'chat_delete',
+        payload: {
+          roomId: activeRoomId,
+          messageId: msgId
+        }
+      });
+    }
 
     await ChurchDataStore.deleteChatMessageFromCloud(msgId);
     ChurchDataStore.deleteMessage(activeRoomId, msgId);

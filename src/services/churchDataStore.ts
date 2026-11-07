@@ -1489,7 +1489,7 @@ export class ChurchDataStore {
   }
 
   static async fetchChatMessagesFromCloud(roomId: string): Promise<any[]> {
-    if (!supabase) return [];
+    if (!supabase) return this.getMessages(roomId);
     try {
       const queryPromise = supabase
         .from('church_chat_messages')
@@ -1498,28 +1498,34 @@ export class ChurchDataStore {
         .order('created_at', { ascending: true });
 
       const timeoutPromise = new Promise<{ data: null; error: any }>((resolve) =>
-        setTimeout(() => resolve({ data: null, error: new Error('timeout') }), 4000)
+        setTimeout(() => resolve({ data: null, error: new Error('timeout') }), 3000)
       );
 
       const { data, error } = await Promise.race([queryPromise, timeoutPromise]);
 
-      if (data && !error) {
+      if (data && !error && data.length > 0) {
         return data;
       }
     } catch (e) {
       console.warn('fetchChatMessagesFromCloud error:', e);
     }
-    return [];
+    return this.getMessages(roomId);
   }
 
   static async fetchRecentChatActivity(limit: number = 300): Promise<any[]> {
     if (!supabase) return [];
     try {
-      const { data, error } = await supabase
+      const queryPromise = supabase
         .from('church_chat_messages')
         .select('id, room_id, sender_id, sender_name, sender_avatar, sender_role, content, reactions, created_at')
         .order('created_at', { ascending: false })
         .limit(limit);
+
+      const timeoutPromise = new Promise<{ data: null; error: any }>((resolve) =>
+        setTimeout(() => resolve({ data: null, error: new Error('timeout') }), 3000)
+      );
+
+      const { data, error } = await Promise.race([queryPromise, timeoutPromise]);
 
       if (data && !error) {
         return data;
@@ -1540,7 +1546,33 @@ export class ChurchDataStore {
     content: string;
     reactions?: any[];
   }): Promise<void> {
-    // 1. Update local cached rooms for instant lobby ordering
+    // 1. Always save to local persistent message store so it NEVER disappears
+    try {
+      const all = this.load<Record<string, any>>(KEY_CHAT_MESSAGES, {});
+      if (!all[params.roomId]) all[params.roomId] = [];
+      if (!all[params.roomId].some((m: any) => m.id === params.id)) {
+        all[params.roomId].push({
+          id: params.id,
+          roomId: params.roomId,
+          sender_id: params.senderId,
+          senderId: params.senderId,
+          sender_name: params.senderName,
+          senderName: params.senderName,
+          sender_avatar: params.senderAvatar || '/icons/church-logo.png',
+          senderAvatar: params.senderAvatar || '/icons/church-logo.png',
+          sender_role: params.senderRole || 'Church Member',
+          senderRole: params.senderRole || 'Church Member',
+          content: params.content,
+          created_at: new Date().toISOString(),
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          reactions: params.reactions || [],
+          is_delivered: true
+        });
+        this.save(KEY_CHAT_MESSAGES, all);
+      }
+    } catch (_) {}
+
+    // 2. Update local cached rooms for instant lobby ordering
     try {
       const rooms = this.getChatRooms();
       const nowIso = new Date().toISOString();
@@ -1559,7 +1591,7 @@ export class ChurchDataStore {
 
     if (!supabase) return;
     try {
-      await supabase.from('church_chat_messages').insert({
+      const insertPromise = supabase.from('church_chat_messages').insert({
         id: params.id,
         room_id: params.roomId,
         sender_id: params.senderId,
@@ -1570,6 +1602,9 @@ export class ChurchDataStore {
         reactions: params.reactions || [],
         is_delivered: true
       });
+
+      const timeoutPromise = new Promise(resolve => setTimeout(resolve, 3500));
+      await Promise.race([insertPromise, timeoutPromise]);
 
       // Update room last activity in Supabase if supported
       try {
