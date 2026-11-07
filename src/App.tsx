@@ -182,27 +182,34 @@ export function App() {
   const isInsideChat = currentTab === 'community' && isChatConversationOpen;
 
   return (
-    <AppLayout 
-      currentTab={currentTab} 
-      onTabChange={setCurrentTab}
-      onOpenQuickAction={() => setCurrentTab('worship')}
-      currentUser={currentUser}
-      isChatConversationOpen={isInsideChat}
-      onLogout={() => {
-        window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-        document.documentElement.scrollTop = 0;
-        document.body.scrollTop = 0;
-        PresenceService.cleanup();
-        AuthService.logout();
-        setCurrentUser(null);
-      }}
-    >
-      {renderContent()}
-      {/* Floating BJC AI Assistant Button & Widget (Movable & Unobstructive; hidden when inside conversation with someone or GC) */}
+    <>
+      <AppLayout 
+        currentTab={currentTab} 
+        onTabChange={setCurrentTab}
+        onOpenQuickAction={() => setCurrentTab('worship')}
+        currentUser={currentUser}
+        isChatConversationOpen={isInsideChat}
+        onLogout={() => {
+          window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+          document.documentElement.scrollTop = 0;
+          document.body.scrollTop = 0;
+          PresenceService.cleanup();
+          AuthService.logout();
+          setCurrentUser(null);
+        }}
+      >
+        {renderContent()}
+      </AppLayout>
+
+      {/* Floating BJC AI Assistant Button & Widget (Movable across entire screen; visible on all tabs, hidden when inside direct chat or GC) */}
       {currentTab !== 'bjc-ai' && !isInsideChat && (
-        <BjcAiFloatingButton onOpenFullView={() => setCurrentTab('bjc-ai')} currentTab={currentTab} />
+        <BjcAiFloatingButton 
+          onOpenFullView={() => setCurrentTab('bjc-ai')} 
+          currentTab={currentTab}
+          isHiddenInChat={isInsideChat}
+        />
       )}
-    </AppLayout>
+    </>
   );
 }
 

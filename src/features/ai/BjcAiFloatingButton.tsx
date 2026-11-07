@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Sparkles, X, Maximize2, Send, Bot, Copy, Check, Key, BookOpen, Heart, Trash2, Move 
 } from 'lucide-react';
@@ -15,6 +16,7 @@ export const BjcAiFloatingButton: React.FC<BjcAiFloatingButtonProps> = ({
   currentTab,
   isHiddenInChat 
 }) => {
+  const [mounted, setMounted] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [isChatActive, setIsChatActive] = useState(false);
   const [messages, setMessages] = useState<BjcAiMessage[]>(() => BjcAiService.getHistory());
@@ -23,21 +25,23 @@ export const BjcAiFloatingButton: React.FC<BjcAiFloatingButtonProps> = ({
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [hasApiKey, setHasApiKey] = useState(() => BjcAiService.hasApiKey());
 
-  // Movable / Draggable Button Position (Safely bounded so it never covers Hero cards or text)
+  // Movable / Draggable Button Position across the entire screen (mobile, tablet, desktop)
   const [customPos, setCustomPos] = useState<{ x: number; y: number } | null>(() => {
     try {
-      // On mobile screens (< 640px), keep docked at bottom corner to avoid overlapping hero/feed text
-      if (typeof window !== 'undefined' && window.innerWidth < 640) {
-        return null;
-      }
+      if (typeof window === 'undefined') return null;
       const saved = localStorage.getItem('bjc_ai_fab_pos');
       if (saved) {
         const parsed = JSON.parse(saved);
-        // Clamp so it never covers header or pinned announcement zone
-        if (parsed && typeof parsed.y === 'number' && parsed.y < 280) {
-          return null;
+        if (parsed && typeof parsed.x === 'number' && typeof parsed.y === 'number') {
+          const minX = 8;
+          const maxX = Math.max(minX, window.innerWidth - 110);
+          const minY = 12;
+          const maxY = Math.max(minY, window.innerHeight - 56);
+          return {
+            x: Math.min(Math.max(minX, parsed.x), maxX),
+            y: Math.min(Math.max(minY, parsed.y), maxY)
+          };
         }
-        return parsed;
       }
       return null;
     } catch {
@@ -53,6 +57,40 @@ export const BjcAiFloatingButton: React.FC<BjcAiFloatingButtonProps> = ({
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fabRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Safely keep custom position inside bounds when screen resizes or device rotates
+  useEffect(() => {
+    const handleResize = () => {
+      setCustomPos(prev => {
+        if (!prev) return null;
+        const minX = 8;
+        const maxX = Math.max(minX, window.innerWidth - 110);
+        const minY = 12;
+        const maxY = Math.max(minY, window.innerHeight - 56);
+        const clampedX = Math.min(Math.max(minX, prev.x), maxX);
+        const clampedY = Math.min(Math.max(minY, prev.y), maxY);
+        if (clampedX !== prev.x || clampedY !== prev.y) {
+          const updated = { x: clampedX, y: clampedY };
+          try {
+            localStorage.setItem('bjc_ai_fab_pos', JSON.stringify(updated));
+          } catch {}
+          return updated;
+        }
+        return prev;
+      });
+    };
+
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+    };
+  }, []);
 
   useEffect(() => {
     if (isOpen) {
@@ -81,7 +119,7 @@ export const BjcAiFloatingButton: React.FC<BjcAiFloatingButtonProps> = ({
     };
   }, []);
 
-  // Pointer drag listeners for FAB
+  // Pointer drag listeners for FAB - enables moving across the entire screen
   const handlePointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
     if (isOpen) return;
     const fabEl = fabRef.current;
@@ -97,7 +135,9 @@ export const BjcAiFloatingButton: React.FC<BjcAiFloatingButtonProps> = ({
       origY: rect.top
     };
 
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {}
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
@@ -107,9 +147,13 @@ export const BjcAiFloatingButton: React.FC<BjcAiFloatingButtonProps> = ({
 
     if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
       hasMovedRef.current = true;
-      const minY = window.innerWidth < 640 ? Math.max(150, window.innerHeight - 180) : 80;
-      const newX = Math.max(10, Math.min(window.innerWidth - 110, dragStartRef.current.origX + dx));
-      const newY = Math.max(minY, Math.min(window.innerHeight - 70, dragStartRef.current.origY + dy));
+      const minX = 8;
+      const maxX = Math.max(minX, window.innerWidth - 110);
+      const minY = 12;
+      const maxY = Math.max(minY, window.innerHeight - 56);
+
+      const newX = Math.max(minX, Math.min(maxX, dragStartRef.current.origX + dx));
+      const newY = Math.max(minY, Math.min(maxY, dragStartRef.current.origY + dy));
       setCustomPos({ x: newX, y: newY });
     }
   };
@@ -118,15 +162,24 @@ export const BjcAiFloatingButton: React.FC<BjcAiFloatingButtonProps> = ({
     if (!isDraggingRef.current) return;
     isDraggingRef.current = false;
     try {
-      (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+      e.currentTarget.releasePointerCapture(e.pointerId);
     } catch {}
 
     if (hasMovedRef.current && customPos) {
-      localStorage.setItem('bjc_ai_fab_pos', JSON.stringify(customPos));
-    } else {
-      // It was a click!
+      try {
+        localStorage.setItem('bjc_ai_fab_pos', JSON.stringify(customPos));
+      } catch {}
+    } else if (!hasMovedRef.current) {
+      // It was a tap / click! Open modal
       setIsOpen(true);
     }
+  };
+
+  const handlePointerCancel = (e: React.PointerEvent<HTMLButtonElement>) => {
+    isDraggingRef.current = false;
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {}
   };
 
   const handleSendMessage = async (customPrompt?: string) => {
@@ -179,40 +232,56 @@ export const BjcAiFloatingButton: React.FC<BjcAiFloatingButtonProps> = ({
 
   // Safe default positioning when on community tab to never block chat send button
   const defaultPosClass = currentTab === 'community' 
-    ? 'bottom-36 md:bottom-6 right-4 sm:right-6' 
-    : 'bottom-20 md:bottom-6 right-4 sm:right-6';
+    ? 'bottom-28 md:bottom-8 right-4 sm:right-6' 
+    : 'bottom-20 md:bottom-8 right-4 sm:right-6';
+
+  // If not yet mounted in DOM, do not render portal
+  if (!mounted || typeof document === 'undefined') {
+    return null;
+  }
 
   // If hidden or inside active conversation with someone or GC, do not render to keep message input fully visible
   if (isHiddenInChat || (currentTab === 'community' && isChatActive)) {
     return null;
   }
 
-  return (
+  return createPortal(
     <>
-      {/* Movable Floating Action Button (FAB) */}
+      {/* Movable Floating Action Button (FAB) - Freely draggable across the entire screen */}
       {!isOpen && (
         <button
           ref={fabRef}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
-          style={customPos ? { position: 'fixed', left: `${customPos.x}px`, top: `${customPos.y}px`, bottom: 'auto', right: 'auto' } : undefined}
-          className={`${!customPos ? `fixed ${defaultPosClass}` : ''} z-40 group flex items-center gap-2 pl-3 pr-3.5 py-2 rounded-full bg-gradient-to-r from-[#111c2e] to-[#1e293b] text-white shadow-[0_8px_25px_rgba(0,0,0,0.35)] border border-[#C5A46D]/60 hover:scale-105 transition-transform duration-150 cursor-grab active:cursor-grabbing select-none touch-none`}
+          onPointerCancel={handlePointerCancel}
+          style={customPos ? { 
+            position: 'fixed', 
+            left: `${customPos.x}px`, 
+            top: `${customPos.y}px`, 
+            bottom: 'auto', 
+            right: 'auto',
+            touchAction: 'none'
+          } : {
+            touchAction: 'none'
+          }}
+          className={`${!customPos ? `fixed ${defaultPosClass}` : ''} z-[999] group flex items-center gap-2 pl-3 pr-3.5 py-2 rounded-full bg-gradient-to-r from-[#111c2e] to-[#1e293b] text-white shadow-[0_8px_25px_rgba(0,0,0,0.35)] border border-[#C5A46D]/60 hover:scale-105 transition-transform duration-150 cursor-grab active:cursor-grabbing select-none touch-none`}
           title="Drag to move anywhere • Tap to chat with BJC AI"
+          aria-label="BJC AI Assistant (Drag to move anywhere, tap to chat)"
         >
-          <div className="w-6 h-6 rounded-full bg-white text-slate-950 flex items-center justify-center shrink-0 shadow-sm overflow-hidden p-0.5 border border-[#C5A46D]">
-            <img src="/icons/bjc-ai-logo.png" alt="BJC AI" className="w-full h-full object-contain rounded-full" />
+          <div className="w-6 h-6 rounded-full bg-white text-slate-950 flex items-center justify-center shrink-0 shadow-sm overflow-hidden p-0.5 border border-[#C5A46D] pointer-events-none select-none">
+            <img src="/icons/bjc-ai-logo.png" alt="BJC AI" className="w-full h-full object-contain rounded-full pointer-events-none select-none" />
           </div>
-          <span className="font-serif font-bold text-xs tracking-wide text-white group-hover:text-gold transition">
+          <span className="font-serif font-bold text-xs tracking-wide text-white group-hover:text-gold transition select-none pointer-events-none">
             BJC AI
           </span>
-          <Move className="w-3 h-3 text-slate-400 group-hover:text-[#C5A46D] opacity-70" />
+          <Move className="w-3 h-3 text-slate-400 group-hover:text-[#C5A46D] opacity-70 pointer-events-none select-none" />
         </button>
       )}
 
       {/* Floating Assistant Modal / Widget */}
       {isOpen && (
-        <div className="fixed bottom-20 md:bottom-6 right-2 sm:right-6 z-50 w-[calc(100vw-16px)] sm:w-[420px] h-[520px] max-h-[80vh] bg-white dark:bg-slate-900 rounded-3xl shadow-elevated border border-slate-200/80 dark:border-slate-800 flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-6 duration-200">
+        <div className="fixed bottom-20 md:bottom-6 right-2 sm:right-6 z-[1000] w-[calc(100vw-16px)] sm:w-[420px] h-[520px] max-h-[80vh] bg-white dark:bg-slate-900 rounded-3xl shadow-elevated border border-slate-200/80 dark:border-slate-800 flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-6 duration-200">
           
           {/* Header */}
           <div className="shrink-0 p-3.5 px-4 bg-gradient-to-r from-[#111c2e] to-[#1e293b] text-white flex items-center justify-between border-b border-slate-800">
@@ -361,6 +430,7 @@ export const BjcAiFloatingButton: React.FC<BjcAiFloatingButtonProps> = ({
 
         </div>
       )}
-    </>
+    </>,
+    document.body
   );
 };
