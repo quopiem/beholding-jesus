@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Shield, Lock, User, KeyRound, CheckCircle2, AlertCircle, 
   Eye, EyeOff, X, ArrowRight, Sparkles, HelpCircle, UserPlus, LogIn, Clock,
@@ -25,6 +26,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 }) => {
   const [tab, setTab] = useState<'login' | 'register' | 'recovery'>(initialTab);
   const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
+  const modalScrollRef = useRef<HTMLDivElement>(null);
 
   // Login Form State
   const [loginUsername, setLoginUsername] = useState('');
@@ -57,6 +59,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   useEffect(() => {
     setTab(initialTab);
   }, [initialTab]);
+
+  // Immediately scroll to the top of the modal and window whenever opened or tab changed
+  useEffect(() => {
+    if (isOpen) {
+      if (modalScrollRef.current) {
+        modalScrollRef.current.scrollTop = 0;
+      }
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    }
+  }, [isOpen, tab]);
 
   // Real-time username availability check on registration
   useEffect(() => {
@@ -188,8 +202,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setLoginError(null);
   };
 
-  return (
-    <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+  if (!isOpen) return null;
+
+  return createPortal(
+    <div 
+      ref={modalScrollRef}
+      className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto"
+    >
       <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden my-8">
         
         {/* Close Button */}
@@ -699,6 +718,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         isOpen={isDownloadModalOpen} 
         onClose={() => setIsDownloadModalOpen(false)} 
       />
-    </div>
+    </div>,
+    document.body
   );
 };

@@ -146,7 +146,17 @@ export function App() {
 
         {visitedTabs.has('profile') && (
           <div style={{ display: currentTab === 'profile' ? 'block' : 'none' }}>
-            <ProfileView currentUser={currentUser} />
+            <ProfileView 
+              currentUser={currentUser} 
+              onLogout={() => {
+                window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+                document.documentElement.scrollTop = 0;
+                document.body.scrollTop = 0;
+                PresenceService.cleanup();
+                AuthService.logout();
+                setCurrentUser(null);
+              }}
+            />
           </div>
         )}
 
@@ -179,6 +189,9 @@ export function App() {
       currentUser={currentUser}
       isChatConversationOpen={isInsideChat}
       onLogout={() => {
+        window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
         PresenceService.cleanup();
         AuthService.logout();
         setCurrentUser(null);

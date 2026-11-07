@@ -87,6 +87,9 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   };
 
   const handleLogout = () => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
     if (onLogout) {
       onLogout();
     } else {
@@ -538,6 +541,9 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                   <button
                     onClick={() => {
                       setIsRolePickerOpen(false);
+                      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+                      document.documentElement.scrollTop = 0;
+                      document.body.scrollTop = 0;
                       setAuthModalTab('login');
                       setIsAuthModalOpen(true);
                     }}
@@ -874,11 +880,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                   transition: 'none',
                   willChange: 'transform'
                 }
-              : {
-                  transform: 'translate3d(0, 0, 0)',
-                  transition: 'transform 260ms cubic-bezier(0.16, 1, 0.3, 1)',
-                  willChange: 'transform'
-                }
+              : undefined
           }
           className={`flex-1 overflow-x-hidden ${isInsideConversation ? 'pb-0' : (currentTab === 'home' || currentTab === 'feed' ? 'pb-28 md:pb-6' : 'pb-24 md:pb-0')}`}
         >

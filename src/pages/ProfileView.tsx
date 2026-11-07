@@ -13,6 +13,7 @@ import { UserProfile } from '../types';
 
 interface ProfileViewProps {
   currentUser?: UserProfile;
+  onLogout?: () => void;
 }
 
 const PRESET_AVATARS = [
@@ -24,7 +25,7 @@ const PRESET_AVATARS = [
   { label: 'Prayer & Faith', url: '/images/chat-prayer.png' },
 ];
 
-export const ProfileView: React.FC<ProfileViewProps> = ({ currentUser: initialUser }) => {
+export const ProfileView: React.FC<ProfileViewProps> = ({ currentUser: initialUser, onLogout }) => {
   const [currentUser, setCurrentUser] = useState<UserProfile>(() => {
     return initialUser || ChurchDataStore.getCurrentUser() || ChurchDataStore.getRequiredCurrentUser();
   });
@@ -624,7 +625,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ currentUser: initialUs
 
         <div className="flex flex-wrap items-center gap-2 pt-2">
           <button
-            onClick={() => { setAuthTab('login'); setIsAuthOpen(true); }}
+            onClick={() => { 
+              window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+              document.documentElement.scrollTop = 0;
+              document.body.scrollTop = 0;
+              setAuthTab('login'); 
+              setIsAuthOpen(true); 
+            }}
             className="px-4 py-2 rounded-xl bg-primary hover:bg-slate-800 text-white font-bold text-xs flex items-center gap-1.5 transition shadow-sm"
           >
             <LogIn className="w-3.5 h-3.5 text-gold" />
@@ -632,7 +639,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ currentUser: initialUs
           </button>
 
           <button
-            onClick={() => { setAuthTab('register'); setIsAuthOpen(true); }}
+            onClick={() => { 
+              window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+              document.documentElement.scrollTop = 0;
+              document.body.scrollTop = 0;
+              setAuthTab('register'); 
+              setIsAuthOpen(true); 
+            }}
             className="px-4 py-2 rounded-xl bg-gold hover:bg-[#b08e57] text-slate-950 font-bold text-xs flex items-center gap-1.5 transition shadow-sm"
           >
             <UserPlus className="w-3.5 h-3.5" />
@@ -640,7 +653,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ currentUser: initialUs
           </button>
 
           <button
-            onClick={() => { setAuthTab('recovery'); setIsAuthOpen(true); }}
+            onClick={() => { 
+              window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+              document.documentElement.scrollTop = 0;
+              document.body.scrollTop = 0;
+              setAuthTab('recovery'); 
+              setIsAuthOpen(true); 
+            }}
             className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 font-bold text-xs flex items-center gap-1.5 transition"
           >
             <KeyRound className="w-3.5 h-3.5 text-gold" />
@@ -649,9 +668,16 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ currentUser: initialUs
 
           <button
             onClick={() => {
-              AuthService.logout();
-              setAuthTab('login');
-              setIsAuthOpen(true);
+              window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+              document.documentElement.scrollTop = 0;
+              document.body.scrollTop = 0;
+              if (onLogout) {
+                onLogout();
+              } else {
+                AuthService.logout();
+                setAuthTab('login');
+                setIsAuthOpen(true);
+              }
             }}
             className="px-4 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 hover:bg-rose-100 font-bold text-xs flex items-center gap-1.5 transition border border-rose-200/50"
           >

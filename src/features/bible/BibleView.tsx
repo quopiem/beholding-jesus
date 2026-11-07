@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   BookOpen, Search, Bookmark, Highlighter, MessageSquare, 
   ChevronLeft, ChevronRight, Copy, Share2, Check, SlidersHorizontal,
@@ -349,6 +350,17 @@ export const BibleView: React.FC<BibleViewProps> = ({
       setSelectedVerse(verse);
       const comparison = BibleService.getVerseComparison(selectedBook.id, currentChapter, verse.verse);
       setVerseComparisonData(comparison);
+
+      // Smoothly ensure the selected verse stays comfortable in view when bottom sheet opens
+      setTimeout(() => {
+        const el = document.getElementById(`verse-${verse.verse}`);
+        if (el) {
+          const rect = el.getBoundingClientRect();
+          if (rect.bottom > window.innerHeight * 0.42) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }
+      }, 50);
     }
   };
 
@@ -980,8 +992,13 @@ Please answer pastorally and expositorily, grounded in Scripture.`;
       {/* ============================================================== */}
       {/* BOOK & CHAPTER QUICK SELECTOR MODAL */}
       {/* ============================================================== */}
-      {isBookPickerOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+      {isBookPickerOpen && typeof document !== 'undefined' && createPortal(
+        <div 
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsBookPickerOpen(false);
+          }}
+        >
           <div className="w-full max-w-2xl bg-neutral-900 border border-neutral-800 rounded-3xl p-6 shadow-elevated text-white space-y-4 max-h-[85vh] flex flex-col">
             
             <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
@@ -1065,7 +1082,8 @@ Please answer pastorally and expositorily, grounded in Scripture.`;
             </div>
 
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ============================================================== */}
@@ -1175,6 +1193,7 @@ Please answer pastorally and expositorily, grounded in Scripture.`;
 
                     {/* Verse Span in Paragraph Flow */}
                     <span
+                      id={`verse-${v.verse}`}
                       onClick={() => handleSelectVerse(v)}
                       className={`inline cursor-pointer rounded transition-all relative ${
                         isSelected 
@@ -1285,9 +1304,19 @@ Please answer pastorally and expositorily, grounded in Scripture.`;
       {/* ============================================================== */}
       {/* 3. INTERACTIVE FLOATING ACTION POPOVER (Exact Match to Image 2) */}
       {/* ============================================================== */}
-      {selectedVerse && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4">
-          <div className="w-full max-w-sm sm:max-w-md bg-neutral-900 border border-neutral-800 rounded-3xl p-5 shadow-elevated text-white space-y-4 animate-in fade-in zoom-in-95 duration-150">
+      {selectedVerse && typeof document !== 'undefined' && createPortal(
+        <div 
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setSelectedVerse(null);
+              setSelectedWord('');
+            }
+          }}
+        >
+          <div className="w-full max-w-lg bg-neutral-900 border border-neutral-800 rounded-t-3xl sm:rounded-3xl p-5 shadow-2xl text-white space-y-4 max-h-[85vh] overflow-y-auto animate-in slide-in-from-bottom-8 sm:zoom-in-95 duration-200">
+            {/* Visual drag handle indicator for mobile bottom sheet */}
+            <div className="w-10 h-1 rounded-full bg-neutral-700 mx-auto -mt-1 mb-2 sm:hidden" />
             
             {/* Header: Currently Selected + Reference + Close Button */}
             <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
@@ -1474,11 +1503,9 @@ Please answer pastorally and expositorily, grounded in Scripture.`;
             </div>
 
           </div>
-        </div>
+        </div>,
+        document.body
       )}
-
-      {/* ============================================================== */}
-      {/* 4. FOOTNOTE POPOVER (When clicking 💬 comment bubble) */}
       {/* ============================================================== */}
       {activeFootnote && (
         <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 w-full max-w-md p-4 bg-neutral-900 border border-gold/40 rounded-2xl shadow-elevated text-white space-y-2">
@@ -1500,8 +1527,13 @@ Please answer pastorally and expositorily, grounded in Scripture.`;
       {/* ============================================================== */}
       {/* 5. MULTI-TRANSLATION COMPARISON MODAL */}
       {/* ============================================================== */}
-      {viewMode === 'compare-verse' && selectedVerse && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+      {viewMode === 'compare-verse' && selectedVerse && typeof document !== 'undefined' && createPortal(
+        <div 
+          className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setViewMode('single');
+          }}
+        >
           <div className="w-full max-w-2xl bg-neutral-900 border border-neutral-800 rounded-3xl p-6 shadow-elevated text-white space-y-4 max-h-[85vh] flex flex-col">
             
             <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
@@ -1536,14 +1568,20 @@ Please answer pastorally and expositorily, grounded in Scripture.`;
             </div>
 
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ============================================================== */}
       {/* 6. ADD NOTE MODAL */}
       {/* ============================================================== */}
-      {isNoteModalOpen && selectedVerse && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+      {isNoteModalOpen && selectedVerse && typeof document !== 'undefined' && createPortal(
+        <div 
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsNoteModalOpen(false);
+          }}
+        >
           <div className="w-full max-w-lg bg-neutral-900 border border-neutral-800 rounded-3xl p-6 shadow-elevated text-white space-y-4">
             
             <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
@@ -1608,14 +1646,20 @@ Please answer pastorally and expositorily, grounded in Scripture.`;
             </div>
 
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ============================================================== */}
       {/* 7. BJC AI SCRIPTURE EXEGESIS MODAL                             */}
       {/* ============================================================== */}
-      {isAiModalOpen && aiActiveVerse && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
+      {isAiModalOpen && aiActiveVerse && typeof document !== 'undefined' && createPortal(
+        <div 
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsAiModalOpen(false);
+          }}
+        >
           <div className="w-full max-w-lg sm:max-w-2xl bg-neutral-900 border border-neutral-800 rounded-3xl shadow-elevated text-white flex flex-col max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             
             {/* Modal Header */}
@@ -1788,7 +1832,8 @@ Please answer pastorally and expositorily, grounded in Scripture.`;
             </div>
 
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>

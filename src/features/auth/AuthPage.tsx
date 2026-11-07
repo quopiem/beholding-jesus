@@ -71,6 +71,13 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     return () => clearTimeout(timer);
   }, [regUsername]);
 
+  // Always scroll to the top of the login page when mounting or switching auth tabs
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }, [tab]);
+
   // -------------------------------------------------------------
   // HANDLER: LOGIN WORKFLOW
   // -------------------------------------------------------------
