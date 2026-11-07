@@ -5,7 +5,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { ChurchDataStore } from './churchDataStore';
 
-const KEY_FEED_POSTS = 'bjc_feed_posts_v7';
+const KEY_FEED_POSTS = 'bjc_feed_posts_v8';
 const KEY_REACTIONS = 'bjc_post_reactions_v5';
 const KEY_COMMENTS = 'bjc_post_comments_v5';
 const KEY_REPORTS = 'bjc_post_reports_v5';
@@ -44,9 +44,9 @@ const INITIAL_FEED_POSTS: FeedPost[] = [
     isHidden: false,
     commentsEnabled: true,
     announcementTitle: 'JESUS GIVES',
-    announcementPriority: 'pinned',
-    isPinned: true,
-    pinnedAt: '2026-11-05T00:00:00.000Z',
+    announcementPriority: 'normal',
+    isPinned: false,
+    pinnedAt: undefined,
     eventDate: 'December 21, 2026',
     actionButtonLabel: 'Support Gift-Giving',
     reactions: [],
@@ -510,38 +510,47 @@ export class ChurchFeedStore {
       const deletedIds = this.getDeletedIds();
       const currentUserId = currentUser?.id || ChurchDataStore.getCurrentUser()?.id;
 
-      // 1. Fetch live announcements, community posts, and comments in parallel
-      const annQuery = supabase
-        .from('church_announcements')
-        .select('*')
-        .order('created_at', { ascending: false });
+      // 1. Fetch live announcements and community posts independently with fast resilience
+      const fetchFast = async (queryPromise: any, ms: number = 6000) => {
+        try {
+          return await Promise.race([
+            queryPromise,
+            new Promise<any>((resolve) => setTimeout(() => resolve({ data: null, error: 'timeout' }), ms))
+          ]);
+        } catch (err) {
+          return { data: null, error: err };
+        }
+      };
 
-      const commQuery = supabase
-        .from('church_community_posts')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const [annRes, commRes, commMsgRes] = await Promise.all([
+        fetchFast(
+          supabase
+            .from('church_announcements')
+            .select('*')
+            .order('created_at', { ascending: false }),
+          5000
+        ),
+        fetchFast(
+          supabase
+            .from('church_community_posts')
+            .select('*')
+            .order('created_at', { ascending: false }),
+          5000
+        ),
+        fetchFast(
+          supabase
+            .from('church_chat_messages')
+            .select('id, room_id, sender_id, sender_name, sender_avatar, sender_role, content, created_at')
+            .like('room_id', 'post_comments_%')
+            .order('created_at', { ascending: true })
+            .limit(200),
+          3000
+        )
+      ]);
 
-      const commMsgQuery = supabase
-        .from('church_chat_messages')
-        .select('id, room_id, sender_id, sender_name, sender_avatar, sender_role, content, created_at')
-        .like('room_id', 'post_comments_%')
-        .order('created_at', { ascending: true })
-        .limit(300);
-
-      const timeoutPromise = new Promise<{ annRes: any; commRes: any; commMsgRes: any }>((resolve) =>
-        setTimeout(() => resolve({ annRes: { data: null }, commRes: { data: null }, commMsgRes: { data: null } }), 8000)
-      );
-
-      const networkPromise = Promise.all([annQuery, commQuery, commMsgQuery]).then(([annRes, commRes, commMsgRes]) => ({
-        annRes,
-        commRes,
-        commMsgRes
-      }));
-
-      const { annRes, commRes, commMsgRes } = await Promise.race([networkPromise, timeoutPromise]);
-      const cloudAnnouncements = annRes.data;
-      const cloudCommPosts = commRes.data;
-      const cloudComments = commMsgRes.data;
+      const cloudAnnouncements = annRes?.data ?? null;
+      const cloudCommPosts = commRes?.data ?? null;
+      const cloudComments = commMsgRes?.data ?? null;
 
       // Map cloud comments into PostComment[]
       const commentsByPostId = new Map<string, PostComment[]>();

@@ -335,12 +335,12 @@ export const PinnedAnnouncementHero: React.FC<PinnedAnnouncementHeroProps> = ({
               <div className="lg:col-span-5 relative group/img">
                 <div 
                   onClick={() => onOpenImageLightbox(coverImage)}
-                  className="relative rounded-2xl overflow-hidden cursor-pointer shadow-2xl border border-white/20 bg-stone-900/60 flex items-center justify-center p-2 min-h-[220px] max-h-[380px]"
+                  className="relative rounded-2xl overflow-hidden cursor-pointer shadow-2xl border border-white/20 bg-stone-900/60 flex items-center justify-center p-2 min-h-[140px] sm:min-h-[220px] max-h-[200px] sm:max-h-[380px]"
                 >
                   <img
                     src={coverImage}
                     alt={currentAnnouncement.announcementTitle || 'Announcement cover'}
-                    className="w-full max-h-[360px] h-auto object-contain rounded-xl group-hover/img:scale-[1.02] transition-transform duration-500"
+                    className="w-full max-h-[190px] sm:max-h-[360px] h-auto object-contain rounded-xl group-hover/img:scale-[1.02] transition-transform duration-500"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/30 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center gap-2 p-3">
                     <span className="px-3 py-1.5 rounded-full bg-black/75 backdrop-blur-md text-white text-xs font-semibold flex items-center gap-1.5 border border-white/30 hover:bg-black/90 transition shadow-lg">
