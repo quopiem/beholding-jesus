@@ -112,25 +112,51 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
           0%, 100% { box-shadow: 0 0 0 0 rgba(197, 164, 109, 0); }
           50%       { box-shadow: 0 0 24px 6px rgba(197, 164, 109, 0.22); }
         }
-        .animate-ken-burns { animation: kenBurns 14s ease-in-out infinite; }
-        .animate-fade-up   { animation: fadeUp 0.65s ease both; }
-        .animate-glow-pulse{ animation: glowPulse 3.5s ease-in-out infinite; }
+        @keyframes headerReveal {
+          from { opacity: 0; transform: translateY(-8px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes logoBreathe {
+          0%, 100% { transform: scale(1); filter: drop-shadow(0 0 0px rgba(197,164,109,0)); }
+          50%       { transform: scale(1.04); filter: drop-shadow(0 0 8px rgba(197,164,109,0.45)); }
+        }
+        .animate-ken-burns  { animation: kenBurns 14s ease-in-out infinite; }
+        .animate-fade-up    { animation: fadeUp 0.65s ease both; }
+        .animate-glow-pulse { animation: glowPulse 3.5s ease-in-out infinite; }
+        .animate-header-reveal { animation: headerReveal 0.5s cubic-bezier(0.22,1,0.36,1) both; }
+        .logo-breathe       { animation: logoBreathe 4s ease-in-out infinite; }
         .nav-link {
           position: relative;
-          transition: color 0.2s;
+          transition: color 0.22s;
+          letter-spacing: 0.03em;
         }
         .nav-link::after {
           content: '';
           position: absolute;
-          bottom: -3px;
-          left: 0;
+          bottom: -4px;
+          left: 50%;
+          transform: translateX(-50%);
           width: 0;
-          height: 2px;
-          background: linear-gradient(90deg, #C5A46D, #E8D4A8);
+          height: 1.5px;
+          background: linear-gradient(90deg, transparent, #C5A46D, transparent);
           border-radius: 9999px;
-          transition: width 0.25s ease;
+          transition: width 0.3s cubic-bezier(0.22,1,0.36,1);
         }
         .nav-link:hover::after { width: 100%; }
+        .nav-link:hover { color: #C5A46D; }
+        .header-cta {
+          position: relative;
+          overflow: hidden;
+        }
+        .header-cta::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.18) 50%, transparent 70%);
+          transform: translateX(-100%);
+          transition: transform 0.55s ease;
+        }
+        .header-cta:hover::before { transform: translateX(100%); }
         .gold-divider {
           display: block;
           width: 56px;
@@ -153,71 +179,107 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
       `}</style>
 
       {/* ============================================================== */}
-      {/* 1. TOP SACRED NAVBAR                                           */}
+      {/* 1. SACRED NAVBAR — refined, premium, animated                  */}
       {/* ============================================================== */}
-      <header className="sticky top-0 z-30 bg-[#FAF8F5]/95 dark:bg-[#0C0E14]/95 backdrop-blur-xl border-b border-stone-200/60 dark:border-slate-800/70 px-3 sm:px-8 py-3.5 transition-colors shadow-sm">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
-          
-          {/* Brand Logo & Name */}
-          <div 
-            className="flex items-center gap-2.5 sm:gap-3 cursor-pointer min-w-0 group" 
-            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-          >
-            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-white dark:bg-slate-900 border border-gold/40 p-1 shadow-sm shrink-0 flex items-center justify-center animate-glow-pulse group-hover:border-gold/70 transition-all duration-300">
-              <img 
-                src="/icons/church-seal-gold.png" 
-                alt="Beholding Jesus Church" 
-                className="w-7 h-7 sm:w-8 sm:h-8 object-contain" 
-              />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="font-serif font-black text-xs sm:text-base tracking-wider text-slate-900 dark:text-white uppercase truncate">
-                  Beholding Jesus
-                </span>
-                <span className="text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded-full bg-gold/15 text-gold-dark dark:text-gold font-bold uppercase tracking-wider border border-gold/30 shrink-0">
-                  Church
-                </span>
+      <header className="animate-header-reveal sticky top-0 z-30 transition-colors duration-300">
+        {/* Glass backdrop */}
+        <div className="absolute inset-0 bg-[#FAF8F5]/90 dark:bg-[#0b0d14]/92 backdrop-blur-2xl" />
+        {/* Subtle top gold line */}
+        <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-gold/50 to-transparent" />
+        {/* Bottom separator */}
+        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-stone-200/80 dark:via-slate-700/60 to-transparent" />
+
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-8 py-0">
+          <div className="flex items-center justify-between gap-3 h-16 sm:h-[68px]">
+
+            {/* ── Brand Logo & Name ── */}
+            <div
+              className="flex items-center gap-3 cursor-pointer min-w-0 group select-none"
+              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+              role="button"
+              aria-label="Scroll to top"
+            >
+              {/* Logo container with layered glow rings */}
+              <div className="relative shrink-0">
+                {/* Outer glow ring — pulses */}
+                <div className="absolute inset-0 rounded-2xl bg-gold/20 blur-md scale-110 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                <div className="relative w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-br from-white to-stone-50 dark:from-slate-800 dark:to-slate-900 border border-gold/35 dark:border-gold/25 shadow-md p-[5px] flex items-center justify-center group-hover:border-gold/70 transition-all duration-300">
+                  <img
+                    src="/icons/church-seal-gold.png"
+                    alt="Beholding Jesus Church"
+                    className="w-full h-full object-contain logo-breathe"
+                  />
+                </div>
               </div>
-              <p className="text-[9px] sm:text-[10px] text-stone-500 dark:text-stone-400 font-medium truncate hidden xs:block">
-                {CHURCH_INFO.primaryMotto}
-              </p>
+
+              {/* Brand text */}
+              <div className="min-w-0">
+                <div className="flex items-baseline gap-2 flex-wrap leading-none">
+                  <span className="font-serif font-black text-sm sm:text-[15px] tracking-widest text-slate-900 dark:text-white uppercase truncate group-hover:text-gold transition-colors duration-300">
+                    Beholding Jesus
+                  </span>
+                  <span className="text-[8px] sm:text-[9px] px-1.5 py-[2px] rounded-full bg-gradient-to-r from-gold/20 to-amber-400/15 text-amber-700 dark:text-gold font-black uppercase tracking-[0.15em] border border-gold/30 shrink-0 leading-tight">
+                    Church
+                  </span>
+                </div>
+                {/* Motto — desktop only */}
+                <p className="mt-[3px] text-[9px] sm:text-[10px] text-stone-400 dark:text-stone-500 font-medium tracking-wide truncate hidden sm:block">
+                  {CHURCH_INFO.primaryMotto}
+                </p>
+              </div>
+            </div>
+
+            {/* ── Desktop Nav Links ── */}
+            <nav className="hidden lg:flex items-center gap-1" aria-label="Page navigation">
+              {[
+                { href: '#hero',        label: 'Moments'  },
+                { href: '#gatherings',  label: 'Gatherings' },
+                { href: '#pastor',      label: 'Pastor'  },
+                { href: '#ministries',  label: 'Ministries' },
+                { href: '#sanctuary',   label: 'Sanctuary'  },
+              ].map(({ href, label }) => (
+                <a
+                  key={href}
+                  href={href}
+                  className="nav-link px-3.5 py-2 text-[11px] font-semibold text-stone-600 dark:text-stone-400 rounded-xl hover:bg-stone-100/70 dark:hover:bg-slate-800/60 transition-all duration-200"
+                >
+                  {label}
+                </a>
+              ))}
+            </nav>
+
+            {/* ── Right Controls ── */}
+            <div className="flex items-center gap-2 shrink-0">
+
+              {/* Theme toggle — refined pill */}
+              <button
+                onClick={toggleTheme}
+                className="relative p-2 sm:p-2.5 rounded-xl bg-stone-100/80 hover:bg-stone-200/80 dark:bg-slate-800/70 dark:hover:bg-slate-700/80 border border-stone-200/50 dark:border-slate-700/50 text-stone-600 dark:text-stone-300 transition-all duration-200 cursor-pointer hover:scale-105 active:scale-95 shadow-xs"
+                title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                aria-label="Toggle Theme"
+              >
+                {isDarkMode
+                  ? <Sun  className="w-[15px] h-[15px] text-amber-400" />
+                  : <Moon className="w-[15px] h-[15px] text-slate-600" />}
+              </button>
+
+              {/* CTA button — gold gradient with light-sweep */}
+              <button
+                onClick={handleEnterFeed}
+                className="header-cta flex items-center gap-1.5 sm:gap-2 px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl font-bold text-[11px] sm:text-xs cursor-pointer active:scale-95 hover:scale-[1.03] transition-all duration-200 shadow-md hover:shadow-lg shrink-0"
+                style={{
+                  background: 'linear-gradient(135deg, #C5A46D 0%, #E8D4A8 45%, #C5A46D 100%)',
+                  color: '#1a1109',
+                }}
+              >
+                <Sparkles className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" />
+                <span className="hidden sm:inline tracking-wide">Community Feed</span>
+                <span className="sm:hidden tracking-wide">Feed</span>
+                <ArrowRight className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" />
+              </button>
+
             </div>
           </div>
-
-          {/* Quick Anchor Links (Desktop) */}
-          <nav className="hidden lg:flex items-center gap-6 text-xs font-semibold text-stone-600 dark:text-stone-300">
-            <a href="#hero"        className="nav-link hover:text-gold transition-colors">Church Moments</a>
-            <a href="#gatherings"  className="nav-link hover:text-gold transition-colors">Gatherings</a>
-            <a href="#pastor"      className="nav-link hover:text-gold transition-colors">Pastoral Word</a>
-            <a href="#ministries"  className="nav-link hover:text-gold transition-colors">Ministries</a>
-            <a href="#sanctuary"   className="nav-link hover:text-gold transition-colors">Sanctuary</a>
-          </nav>
-
-          {/* Right Controls */}
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={toggleTheme}
-              className="p-2 rounded-xl bg-stone-100 hover:bg-stone-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-stone-600 dark:text-stone-300 transition cursor-pointer"
-              title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-              aria-label="Toggle Theme"
-            >
-              {isDarkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-700" />}
-            </button>
-
-            <button
-              onClick={handleEnterFeed}
-              className="shimmer-btn px-3.5 sm:px-4 py-2 rounded-xl font-bold text-xs text-white dark:text-slate-950 shadow-sm hover:shadow-md transition flex items-center gap-1.5 sm:gap-2 cursor-pointer active:scale-95 shrink-0"
-              style={{
-                background: 'linear-gradient(90deg, #1e293b 0%, #374151 40%, #C5A46D 60%, #1e293b 100%)',
-              }}
-            >
-              <span className="hidden sm:inline">Community Feed</span>
-              <span className="sm:hidden">Feed</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
         </div>
       </header>
 
