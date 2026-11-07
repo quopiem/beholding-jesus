@@ -41,6 +41,7 @@ interface ChatMessageItem {
   isMe: boolean;
   content: string;
   timestamp: string;
+  createdAt?: string;
   isDelivered?: boolean;
   reactions?: ReactionItem[];
 }
@@ -152,7 +153,7 @@ interface ConversationItem {
   otherUserId?: string;
 }
 
-const KEY_CACHED_CONVERSATIONS = 'bjc_cached_conversations_v3';
+const getCachedConversationsKey = (userId?: string) => `bjc_cached_conversations_${userId || 'guest'}`;
 const KEY_CACHED_MESSAGES = 'bjc_cached_room_messages_v3';
 
 const INITIAL_DEFAULT_FELLOWSHIP: ConversationItem = {
@@ -467,10 +468,11 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
     }
   }, [mobileActiveView, chatViewportStyle.height]);
 
-  // Conversations and Room Messages with instant local-first cache (0ms instant display)
+  // Conversations and Room Messages with instant user-scoped cache (0ms instant display, clean account isolation)
   const [conversations, setConversations] = useState<ConversationItem[]>(() => {
     try {
-      const raw = localStorage.getItem(KEY_CACHED_CONVERSATIONS);
+      const userKey = getCachedConversationsKey(currentUser.id);
+      const raw = localStorage.getItem(userKey);
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
@@ -485,14 +487,14 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
 
   const chatHubRef = useRef<any>(null);
 
-  // Persist conversations to cache
+  // Persist conversations to user-scoped cache
   useEffect(() => {
-    if (conversations.length > 0) {
+    if (conversations.length > 0 && currentUser?.id) {
       try {
-        localStorage.setItem(KEY_CACHED_CONVERSATIONS, JSON.stringify(conversations));
+        localStorage.setItem(getCachedConversationsKey(currentUser.id), JSON.stringify(conversations));
       } catch {}
     }
-  }, [conversations]);
+  }, [conversations, currentUser.id]);
 
   // Persist up to 200 messages per room to cache & backup store
   useEffect(() => {
@@ -719,13 +721,43 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
     let isMounted = true;
     const loadCloudRooms = async () => {
       try {
-        const [cloudRooms, recentActivity] = await Promise.all([
+        const [cloudRooms, recentActivity, myDirectMessages] = await Promise.all([
           ChurchDataStore.fetchChatRoomsFromCloud(),
-          ChurchDataStore.fetchRecentChatActivity(40)
+          ChurchDataStore.fetchRecentChatActivity(150),
+          supabase
+            ? supabase
+                .from('church_chat_messages')
+                .select('room_id, sender_id, sender_name, sender_avatar, content, created_at')
+                .or(`sender_id.eq.${currentUser.id},room_id.ilike.%${currentUser.id}%`)
+                .order('created_at', { ascending: false })
+                .limit(100)
+            : Promise.resolve({ data: [] } as any)
         ]);
         if (!isMounted) return;
 
         const allUsers = registeredUsers.length > 0 ? registeredUsers : ChurchDataStore.getUsers();
+
+        // Synthesize any missing DM rooms from myDirectMessages to guarantee all past chats appear
+        const effectiveCloudRooms = [...(cloudRooms || [])];
+        const knownRoomIds = new Set(effectiveCloudRooms.map((r: any) => r.id));
+
+        if (myDirectMessages?.data && Array.isArray(myDirectMessages.data)) {
+          for (const msg of myDirectMessages.data) {
+            if (msg.room_id && msg.room_id.startsWith('dm_') && !knownRoomIds.has(msg.room_id)) {
+              knownRoomIds.add(msg.room_id);
+              effectiveCloudRooms.push({
+                id: msg.room_id,
+                title: 'Direct Message',
+                type: 'direct',
+                symbol: '💬',
+                avatar: msg.sender_avatar || '/icons/church-logo.png',
+                last_message: msg.content,
+                last_message_time: msg.created_at,
+                created_at: msg.created_at
+              });
+            }
+          }
+        }
 
         // Check for brand new incoming messages to notify (toast + chime + push)
         if (!isInitialLoadRef.current && recentActivity && recentActivity.length > 0) {
@@ -738,7 +770,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
                 if (!isCurrentlyViewing) {
                   playAestheticMessageChime();
 
-                  const roomTitle = cloudRooms?.find((r: any) => r.id === msg.room_id)?.title || 'Community Chat';
+                  const roomTitle = effectiveCloudRooms?.find((r: any) => r.id === msg.room_id)?.title || 'Community Chat';
                   setIncomingAlert({
                     id: msg.id,
                     senderName: msg.sender_name || 'Church Believer',
@@ -773,8 +805,13 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
         const roomActivityMap = new Map<string, { latestMsg: any; unreadCount: number }>();
         const currentReadState = readStateRef.current;
 
-        if (recentActivity && recentActivity.length > 0) {
-          for (const msg of recentActivity) {
+        const allCombinedActivity = [...(recentActivity || [])];
+        if (myDirectMessages?.data && Array.isArray(myDirectMessages.data)) {
+          allCombinedActivity.push(...myDirectMessages.data);
+        }
+
+        if (allCombinedActivity.length > 0) {
+          for (const msg of allCombinedActivity) {
             let entry = roomActivityMap.get(msg.room_id);
             if (!entry) {
               entry = {
@@ -813,8 +850,8 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
           isOnline: PresenceService.getOnlineCount() > 0
         };
 
-        if (cloudRooms && cloudRooms.length > 0) {
-          for (const r of cloudRooms) {
+        if (effectiveCloudRooms && effectiveCloudRooms.length > 0) {
+          for (const r of effectiveCloudRooms) {
             const isDirect = r.type === 'direct' || r.id.startsWith('dm_');
             const activity = roomActivityMap.get(r.id);
             const isCurrentlyActive = activeRoomId === r.id;
@@ -887,10 +924,15 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
             mapped.unshift(defaultFellowship);
           }
 
-          // STRICT ORDER: LATEST CHAT / NEWEST ACTIVITY FIRST AT THE TOP!
-          mapped.sort((a, b) => (b.lastMessageTimestamp || 0) - (a.lastMessageTimestamp || 0));
+          // Merge with any cached conversations to guarantee zero loss
+          setConversations(prev => {
+            const map = new Map<string, ConversationItem>();
+            prev.forEach(c => map.set(c.id, c));
+            mapped.forEach(m => map.set(m.id, m));
+            const merged = Array.from(map.values()).sort((a, b) => (b.lastMessageTimestamp || 0) - (a.lastMessageTimestamp || 0));
+            return merged;
+          });
 
-          setConversations(mapped);
           setActiveRoomId(prev => (prev && mapped.some(m => m.id === prev)) ? prev : (mapped[0]?.id || 'fellowship'));
         }
       } catch (err) {
@@ -958,6 +1000,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
               isMe: d.sender_id === currentUser.id,
               content: d.content,
               timestamp: new Date(d.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              createdAt: d.created_at,
               isDelivered: d.is_delivered ?? true,
               reactions: effectiveReactions
             };
@@ -993,8 +1036,8 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
               }
             });
             const merged = Array.from(map.values()).sort((a, b) => {
-              const tA = a.id.startsWith('msg-') ? parseInt(a.id.replace('msg-', ''), 10) : 0;
-              const tB = b.id.startsWith('msg-') ? parseInt(b.id.replace('msg-', ''), 10) : 0;
+              const tA = a.createdAt ? new Date(a.createdAt).getTime() : (a.id.startsWith('msg-') ? parseInt(a.id.replace('msg-', ''), 10) : 0);
+              const tB = b.createdAt ? new Date(b.createdAt).getTime() : (b.id.startsWith('msg-') ? parseInt(b.id.replace('msg-', ''), 10) : 0);
               return tA - tB;
             });
             return {

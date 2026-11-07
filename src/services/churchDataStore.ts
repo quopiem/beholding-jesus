@@ -1606,12 +1606,17 @@ export class ChurchDataStore {
       const timeoutPromise = new Promise(resolve => setTimeout(resolve, 3500));
       await Promise.race([insertPromise, timeoutPromise]);
 
-      // Update room last activity in Supabase if supported
+      // Update or insert room last activity in Supabase so conversation NEVER disappears
       try {
-        await supabase.from('church_chat_rooms').update({
-          last_message: params.content,
+        await supabase.from('church_chat_rooms').upsert({
+          id: params.roomId,
+          title: params.roomId.startsWith('dm_') ? 'Direct Message' : 'Chat Room',
+          type: params.roomId.startsWith('dm_') ? 'direct' : 'group',
+          symbol: '💬',
+          avatar: params.senderAvatar || '/icons/church-logo.png',
+          last_message: params.content.substring(0, 150),
           last_message_time: new Date().toISOString()
-        }).eq('id', params.roomId);
+        });
       } catch (_) {}
     } catch (e) {
       console.warn('sendChatMessageToCloud error:', e);

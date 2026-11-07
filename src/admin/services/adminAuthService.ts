@@ -68,7 +68,7 @@ export class AdminAuthService {
       try {
         const cloudQuery = supabase
           .from('church_members_auth')
-          .select('*')
+          .select('id, name, username, email, role, role_title, avatar, password_hash, salt')
           .or(`username.eq.${identifier},email.eq.${identifier}`)
           .maybeSingle();
 

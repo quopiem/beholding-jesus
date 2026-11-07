@@ -298,6 +298,33 @@ const INITIAL_REACTIONS: PostReaction[] = [
 export class ChurchFeedStore {
   // In-memory cache holding full-fidelity cloud posts (including user-uploaded images)
   private static memoryPosts: FeedPost[] | null = null;
+  private static feedHubChannel: any = null;
+
+  static getFeedHub() {
+    if (!supabase) return null;
+    if (!this.feedHubChannel) {
+      this.feedHubChannel = supabase.channel('bjc-feed-realtime-hub', {
+        config: { broadcast: { self: false } }
+      });
+      this.feedHubChannel.subscribe();
+    }
+    return this.feedHubChannel;
+  }
+
+  static broadcastFeedEvent(event: string, payload: any) {
+    try {
+      const hub = this.getFeedHub();
+      if (hub) {
+        hub.send({
+          type: 'broadcast',
+          event,
+          payload
+        });
+      }
+    } catch (e) {
+      console.warn('broadcastFeedEvent error:', e);
+    }
+  }
 
   private static load<T>(key: string, fallback: T): T {
     try {
@@ -481,21 +508,128 @@ export class ChurchFeedStore {
 
     try {
       const deletedIds = this.getDeletedIds();
+      const currentUserId = currentUser?.id || ChurchDataStore.getCurrentUser()?.id;
 
-      // 1. Fetch live official announcements from Supabase
-      const { data: cloudAnnouncements, error: annErr } = await supabase
+      // 1. Fetch live announcements, community posts, and comments in parallel
+      const annQuery = supabase
         .from('church_announcements')
         .select('*')
         .order('created_at', { ascending: false });
 
-      // 2. Fetch live community posts from Supabase
-      const { data: cloudCommPosts, error: commErr } = await supabase
+      const commQuery = supabase
         .from('church_community_posts')
         .select('*')
         .order('created_at', { ascending: false });
 
+      const commMsgQuery = supabase
+        .from('church_chat_messages')
+        .select('id, room_id, sender_id, sender_name, sender_avatar, sender_role, content, created_at')
+        .like('room_id', 'post_comments_%')
+        .order('created_at', { ascending: true })
+        .limit(300);
+
+      const timeoutPromise = new Promise<{ annRes: any; commRes: any; commMsgRes: any }>((resolve) =>
+        setTimeout(() => resolve({ annRes: { data: null }, commRes: { data: null }, commMsgRes: { data: null } }), 8000)
+      );
+
+      const networkPromise = Promise.all([annQuery, commQuery, commMsgQuery]).then(([annRes, commRes, commMsgRes]) => ({
+        annRes,
+        commRes,
+        commMsgRes
+      }));
+
+      const { annRes, commRes, commMsgRes } = await Promise.race([networkPromise, timeoutPromise]);
+      const cloudAnnouncements = annRes.data;
+      const cloudCommPosts = commRes.data;
+      const cloudComments = commMsgRes.data;
+
+      // Map cloud comments into PostComment[]
+      const commentsByPostId = new Map<string, PostComment[]>();
+      if (cloudComments && Array.isArray(cloudComments)) {
+        const existingComments = this.getRawComments();
+        const existingCommentIds = new Set(existingComments.map(c => c.id));
+        let hasNewComments = false;
+
+        for (const m of cloudComments) {
+          const postId = m.room_id.replace('post_comments_', '');
+          let parentId: string | null = null;
+          let cleanContent = m.content || '';
+          if (cleanContent.startsWith('[PARENT:')) {
+            const closingIdx = cleanContent.indexOf(']');
+            if (closingIdx !== -1) {
+              parentId = cleanContent.substring(8, closingIdx);
+              cleanContent = cleanContent.substring(closingIdx + 1).trim();
+            }
+          }
+
+          const commentObj: PostComment = {
+            id: m.id,
+            postId,
+            userId: m.sender_id,
+            userName: m.sender_name || 'Church Believer',
+            userAvatar: m.sender_avatar || '/icons/church-logo.png',
+            userRole: m.sender_role || 'Church Member',
+            parentCommentId: parentId,
+            content: cleanContent,
+            createdAt: m.created_at || new Date().toISOString()
+          };
+
+          const list = commentsByPostId.get(postId) || [];
+          list.push(commentObj);
+          commentsByPostId.set(postId, list);
+
+          if (!existingCommentIds.has(commentObj.id)) {
+            existingComments.push(commentObj);
+            hasNewComments = true;
+          }
+        }
+
+        if (hasNewComments) {
+          this.save(KEY_COMMENTS, existingComments);
+        }
+      }
+
+      // Map cloud reactions from liked_user_ids
+      const reactionsByPostId = new Map<string, PostReaction[]>();
+      if (cloudCommPosts && Array.isArray(cloudCommPosts)) {
+        const existingReactions = this.getRawReactions();
+        const existingRxIds = new Set(existingReactions.map(r => r.id));
+        let hasNewRx = false;
+
+        for (const p of cloudCommPosts) {
+          if (Array.isArray(p.liked_user_ids)) {
+            const rxList: PostReaction[] = [];
+            for (const item of p.liked_user_ids) {
+              if (item && item.userId && item.reactionType) {
+                const rx: PostReaction = {
+                  id: item.id || `rx-${p.id}-${item.userId}`,
+                  postId: p.id,
+                  userId: item.userId,
+                  userName: item.userName || 'Church Believer',
+                  userAvatar: item.userAvatar || '/icons/church-logo.png',
+                  reactionType: item.reactionType,
+                  createdAt: item.createdAt || p.created_at || new Date().toISOString()
+                };
+                rxList.push(rx);
+                if (!existingRxIds.has(rx.id)) {
+                  existingReactions.push(rx);
+                  hasNewRx = true;
+                }
+              }
+            }
+            if (rxList.length > 0) {
+              reactionsByPostId.set(p.id, rxList);
+            }
+          }
+        }
+
+        if (hasNewRx) {
+          this.save(KEY_REACTIONS, existingReactions);
+        }
+      }
+
       const mappedAnnouncements: FeedPost[] = [];
-      if (cloudAnnouncements && !annErr) {
+      if (cloudAnnouncements && Array.isArray(cloudAnnouncements)) {
         for (const a of cloudAnnouncements) {
           if (deletedIds.includes(a.id)) continue;
           if (a.status === 'draft' || a.priority === 'draft' || a.status === 'archived' || a.status === 'deleted' || a.priority === 'archived') continue;
@@ -537,10 +671,23 @@ export class ChurchFeedStore {
       }
 
       const mappedCommPosts: FeedPost[] = [];
-      if (cloudCommPosts && !commErr) {
+      if (cloudCommPosts && Array.isArray(cloudCommPosts)) {
         for (const p of cloudCommPosts) {
           if (deletedIds.includes(p.id)) continue;
           if (p.content === '[deleted]' || p.status === 'deleted' || !p.content?.trim()) continue;
+
+          const postRx = reactionsByPostId.get(p.id) || [];
+          const postComments = commentsByPostId.get(p.id) || [];
+
+          const counts: Record<FeedReactionType, number> = { like: 0, love: 0, care: 0, celebrate: 0, pray: 0 };
+          let userReaction: FeedReactionType | null = null;
+          for (const r of postRx) {
+            if (counts[r.reactionType] !== undefined) counts[r.reactionType]++;
+            if (currentUserId && r.userId === currentUserId) userReaction = r.reactionType;
+          }
+          if (counts.like === 0 && p.likes_count) {
+            counts.like = p.likes_count;
+          }
 
           mappedCommPosts.push({
             id: p.id,
@@ -557,10 +704,11 @@ export class ChurchFeedStore {
             updatedAt: p.created_at || new Date().toISOString(),
             isHidden: false,
             commentsEnabled: true,
-            reactions: [],
-            reactionCounts: { like: p.likes_count || 0, love: 0, care: 0, celebrate: 0, pray: 0 },
-            comments: [],
-            commentsCount: p.comments_count || 0
+            reactions: postRx,
+            reactionCounts: counts,
+            userReaction,
+            comments: postComments,
+            commentsCount: Math.max(postComments.length, p.comments_count || 0)
           });
         }
       }
@@ -568,7 +716,7 @@ export class ChurchFeedStore {
       // Merge cloud announcements and community posts with local pending posts
       // Only keep local pending community posts if they are recent drafts from current user not yet in cloud.
       // NEVER resurrect deleted posts from other users that are no longer in the cloud!
-      const localCommunity = (cloudCommPosts && !commErr)
+      const localCommunity = (cloudCommPosts && Array.isArray(cloudCommPosts))
         ? this.getRawPosts().filter(p => {
             if (p.postType !== 'community' || deletedIds.includes(p.id)) return false;
             if (mappedCommPosts.some(cp => cp.id === p.id)) return false;
@@ -628,12 +776,99 @@ export class ChurchFeedStore {
     return this.getFeedPosts(currentUser);
   }
 
-  // --- REALTIME SYNC LISTENER ---
+  // --- REALTIME SYNC LISTENER (Broadcast + Postgres changes) ---
   static subscribeToFeedRealtime(onUpdate: (posts: FeedPost[]) => void): () => void {
     if (!supabase) return () => {};
 
-    const channel = supabase
-      .channel('public:bjc_feed_cloud_sync')
+    const channel = supabase.channel('bjc-feed-realtime-hub', {
+      config: { broadcast: { self: false } }
+    });
+
+    this.feedHubChannel = channel;
+
+    channel
+      .on('broadcast', { event: 'new_feed_post' }, async ({ payload }: any) => {
+        if (payload?.post) {
+          const current = this.getRawPosts();
+          if (!current.some(p => p.id === payload.post.id)) {
+            current.unshift(payload.post);
+            this.save(KEY_FEED_POSTS, current);
+            onUpdate(this.getFeedPosts());
+          }
+        }
+      })
+      .on('broadcast', { event: 'feed_reaction' }, async ({ payload }: any) => {
+        if (payload?.postId && payload?.reactions) {
+          const allReactions = this.getRawReactions().filter(r => r.postId !== payload.postId);
+          allReactions.push(...payload.reactions);
+          this.save(KEY_REACTIONS, allReactions);
+          onUpdate(this.getFeedPosts());
+        }
+      })
+      .on('broadcast', { event: 'new_feed_comment' }, async ({ payload }: any) => {
+        if (payload?.comment) {
+          const allComments = this.getRawComments();
+          if (!allComments.some(c => c.id === payload.comment.id)) {
+            allComments.push(payload.comment);
+            this.save(KEY_COMMENTS, allComments);
+            const posts = this.getRawPosts();
+            const target = posts.find(p => p.id === payload.postId);
+            if (target) {
+              target.commentsCount = (target.commentsCount || 0) + 1;
+              this.save(KEY_FEED_POSTS, posts);
+            }
+            onUpdate(this.getFeedPosts());
+          }
+        }
+      })
+      .on('broadcast', { event: 'feed_comment_edit' }, async ({ payload }: any) => {
+        if (payload?.commentId) {
+          const allComments = this.getRawComments();
+          const target = allComments.find(c => c.id === payload.commentId);
+          if (target) {
+            target.content = payload.content;
+            target.updatedAt = payload.updatedAt;
+            this.save(KEY_COMMENTS, allComments);
+            onUpdate(this.getFeedPosts());
+          }
+        }
+      })
+      .on('broadcast', { event: 'feed_comment_delete' }, async ({ payload }: any) => {
+        if (payload?.commentId) {
+          const allComments = this.getRawComments().filter(c => c.id !== payload.commentId && c.parentCommentId !== payload.commentId);
+          this.save(KEY_COMMENTS, allComments);
+          const posts = this.getRawPosts();
+          const target = posts.find(p => p.id === payload.postId);
+          if (target && target.commentsCount && target.commentsCount > 0) {
+            target.commentsCount -= 1;
+            this.save(KEY_FEED_POSTS, posts);
+          }
+          onUpdate(this.getFeedPosts());
+        }
+      })
+      .on('broadcast', { event: 'feed_delete_post' }, async ({ payload }: any) => {
+        if (payload?.postId) {
+          this.addDeletedId(payload.postId);
+          const current = this.getRawPosts().filter(p => p.id !== payload.postId);
+          this.save(KEY_FEED_POSTS, current);
+          onUpdate(this.getFeedPosts());
+        }
+      })
+      .on('broadcast', { event: 'feed_edit_post' }, async ({ payload }: any) => {
+        if (payload?.post) {
+          const current = this.getRawPosts();
+          const idx = current.findIndex(p => p.id === payload.post.id);
+          if (idx >= 0) {
+            current[idx] = { ...current[idx], ...payload.post };
+            this.save(KEY_FEED_POSTS, current);
+            onUpdate(this.getFeedPosts());
+          }
+        }
+      })
+      .on('broadcast', { event: 'feed_pin_post' }, async () => {
+        const fresh = await ChurchFeedStore.fetchFeedPostsFromCloud();
+        onUpdate(fresh);
+      })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'church_announcements' }, async () => {
         const fresh = await ChurchFeedStore.fetchFeedPostsFromCloud();
         onUpdate(fresh);
@@ -752,6 +987,8 @@ export class ChurchFeedStore {
       }
     }
 
+    this.broadcastFeedEvent('new_feed_post', { post: newPost });
+
     return newPost;
   }
 
@@ -805,6 +1042,8 @@ export class ChurchFeedStore {
         console.warn('editPost cloud sync error:', e);
       }
     }
+
+    this.broadcastFeedEvent('feed_edit_post', { post: target });
 
     return target;
   }
@@ -866,6 +1105,8 @@ export class ChurchFeedStore {
       }
     }
 
+    this.broadcastFeedEvent('feed_delete_post', { postId });
+
     return true;
   }
 
@@ -925,6 +1166,8 @@ export class ChurchFeedStore {
       window.dispatchEvent(new CustomEvent('bjc_feed_change'));
       window.dispatchEvent(new CustomEvent('bjc_announcements_updated'));
     } catch {}
+
+    this.broadcastFeedEvent('feed_pin_post', { postId, isPinned });
 
     return true;
   }
@@ -1021,22 +1264,11 @@ export class ChurchFeedStore {
         // Toggle OFF (remove reaction)
         allReactions.splice(existingIndex, 1);
         changed = true;
-
-        if (supabase) {
-          supabase.from('church_post_reactions').delete().eq('id', existing.id).then();
-        }
       } else {
         // CHANGE to new reaction
         allReactions[existingIndex].reactionType = reactionType;
         allReactions[existingIndex].createdAt = new Date().toISOString();
         changed = true;
-
-        if (supabase) {
-          supabase.from('church_post_reactions').update({
-            reaction_type: reactionType,
-            created_at: allReactions[existingIndex].createdAt
-          }).eq('id', existing.id).then();
-        }
       }
     } else {
       // NEW REACTION
@@ -1051,22 +1283,26 @@ export class ChurchFeedStore {
       };
       allReactions.push(newReaction);
       changed = true;
-
-      if (supabase) {
-        supabase.from('church_post_reactions').insert({
-          id: newReaction.id,
-          post_id: newReaction.postId,
-          user_id: newReaction.userId,
-          user_name: newReaction.userName,
-          user_avatar: newReaction.userAvatar,
-          reaction_type: newReaction.reactionType,
-          created_at: newReaction.createdAt
-        }).then();
-      }
     }
 
     if (changed) {
       this.save(KEY_REACTIONS, allReactions);
+
+      // Now sync to Supabase church_community_posts liked_user_ids
+      const postReactions = allReactions.filter(r => r.postId === postId);
+      if (supabase) {
+        supabase.from('church_community_posts').update({
+          likes_count: postReactions.length,
+          liked_user_ids: postReactions
+        }).eq('id', postId).then();
+      }
+
+      // Broadcast to all other accounts in real time
+      this.broadcastFeedEvent('feed_reaction', {
+        postId,
+        reactions: postReactions,
+        actorId: user.id
+      });
     }
 
     return changed;
@@ -1107,18 +1343,29 @@ export class ChurchFeedStore {
     this.save(KEY_FEED_POSTS, posts);
 
     if (supabase) {
-      supabase.from('church_post_comments').insert({
+      const fullContent = (parentCommentId ? `[PARENT:${parentCommentId}] ` : '') + newComment.content;
+      supabase.from('church_chat_messages').insert({
         id: newComment.id,
-        post_id: newComment.postId,
-        user_id: newComment.userId,
-        user_name: newComment.userName,
-        user_avatar: newComment.userAvatar,
-        user_role: newComment.userRole,
-        parent_comment_id: newComment.parentCommentId,
-        content: newComment.content,
-        created_at: newComment.createdAt
+        room_id: 'post_comments_' + postId,
+        sender_id: user.id,
+        sender_name: user.name,
+        sender_avatar: user.avatar || '/icons/church-logo.png',
+        sender_role: user.roleTitle || 'Church Member',
+        content: fullContent,
+        created_at: newComment.createdAt,
+        is_delivered: true
       }).then();
+
+      supabase.from('church_community_posts').update({
+        comments_count: post.commentsCount
+      }).eq('id', postId).then();
     }
+
+    // Broadcast to all other accounts in real time
+    this.broadcastFeedEvent('new_feed_comment', {
+      postId,
+      comment: newComment
+    });
 
     return newComment;
   }
@@ -1137,11 +1384,18 @@ export class ChurchFeedStore {
     this.save(KEY_COMMENTS, allComments);
 
     if (supabase) {
-      supabase.from('church_post_comments').update({
-        content: comment.content,
-        updated_at: comment.updatedAt
+      const fullContent = (comment.parentCommentId ? `[PARENT:${comment.parentCommentId}] ` : '') + comment.content;
+      supabase.from('church_chat_messages').update({
+        content: fullContent
       }).eq('id', commentId).then();
     }
+
+    this.broadcastFeedEvent('feed_comment_edit', {
+      postId: comment.postId,
+      commentId,
+      content: comment.content,
+      updatedAt: comment.updatedAt
+    });
 
     return true;
   }
@@ -1155,13 +1409,31 @@ export class ChurchFeedStore {
       throw new Error("You do not have permission to delete this comment.");
     }
 
+    const postId = comment.postId;
     // Also remove any nested child replies
     const filtered = allComments.filter(c => c.id !== commentId && c.parentCommentId !== commentId);
     this.save(KEY_COMMENTS, filtered);
 
-    if (supabase) {
-      supabase.from('church_post_comments').delete().or(`id.eq.${commentId},parent_comment_id.eq.${commentId}`).then();
+    const posts = this.getRawPosts();
+    const post = posts.find(p => p.id === postId);
+    if (post && post.commentsCount && post.commentsCount > 0) {
+      post.commentsCount -= 1;
+      this.save(KEY_FEED_POSTS, posts);
     }
+
+    if (supabase) {
+      supabase.from('church_chat_messages').delete().eq('id', commentId).then();
+      if (post) {
+        supabase.from('church_community_posts').update({
+          comments_count: post.commentsCount || 0
+        }).eq('id', postId).then();
+      }
+    }
+
+    this.broadcastFeedEvent('feed_comment_delete', {
+      postId,
+      commentId
+    });
 
     return true;
   }

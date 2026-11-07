@@ -55,19 +55,24 @@ export const AdminDashboardHome: React.FC<AdminDashboardHomeProps> = ({
   const [pendingRecoveryCount, setPendingRecoveryCount] = useState(0);
   const [recentAnnouncements, setRecentAnnouncements] = useState<AdminAnnouncement[]>([]);
   const [recentLogs, setRecentLogs] = useState<AdminAuditLog[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
-  const loadData = async () => {
-    setLoading(true);
+  const loadData = async (isInitial = false) => {
+    if (isInitial && recentAnnouncements.length === 0) {
+      setLoading(true);
+    } else {
+      setIsSyncing(true);
+    }
     try {
-      const [statsData, allAnnouncements, logsData, joins, users, recs] = await Promise.all([
-        AdminAnnouncementService.getDashboardStats(),
+      const [allAnnouncements, logsData, joins, users, recs] = await Promise.all([
         AdminAnnouncementService.getAllAnnouncements(),
         AdminAnnouncementService.getAuditLogs(),
         ChurchDataStore.fetchJoinRequestsFromCloud(),
         ChurchDataStore.fetchUsersFromCloud(),
         AuthService.fetchRecoveryRequestsFromCloud()
       ]);
+      const statsData = await AdminAnnouncementService.getDashboardStats(allAnnouncements);
       setStats(statsData);
       setRecentAnnouncements(allAnnouncements.slice(0, 5));
       setRecentLogs(logsData.slice(0, 6));
@@ -82,11 +87,12 @@ export const AdminDashboardHome: React.FC<AdminDashboardHomeProps> = ({
       console.error('Error loading dashboard overview:', err);
     } finally {
       setLoading(false);
+      setIsSyncing(false);
     }
   };
 
   useEffect(() => {
-    loadData();
+    loadData(true);
   }, []);
 
   const handleToggleStatus = async (item: AdminAnnouncement) => {

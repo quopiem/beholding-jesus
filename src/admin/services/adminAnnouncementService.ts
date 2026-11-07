@@ -441,8 +441,8 @@ export class AdminAnnouncementService {
   /**
    * Retrieves dashboard analytics & KPI metrics (Fast & Non-blocking)
    */
-  static async getDashboardStats(): Promise<AdminDashboardStats> {
-    const announcements = await this.getAllAnnouncements();
+  static async getDashboardStats(preloadedAnnouncements?: AdminAnnouncement[]): Promise<AdminDashboardStats> {
+    const announcements = preloadedAnnouncements || await this.getAllAnnouncements();
     let membersCount = 8;
     let eventsCount = 4;
 
