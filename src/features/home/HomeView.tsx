@@ -124,12 +124,15 @@ export const HomeView: React.FC<HomeViewProps> = ({
       if (fresh) setPosts(fresh);
     });
 
-    // 3. 12-second background polling to ensure 100% accuracy across mobile & PC
+    // 3. Low-overhead background safety-sync (only when page is active, every 90 seconds)
+    // Note: Live updates are delivered instantly via Supabase Realtime WebSocket above
     const pollTimer = setInterval(() => {
-      ChurchFeedStore.fetchFeedPostsFromCloud(currentUser).then(p => {
-        if (p) setPosts(p);
-      });
-    }, 12000);
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        ChurchFeedStore.fetchFeedPostsFromCloud(currentUser).then(p => {
+          if (p) setPosts(p);
+        });
+      }
+    }, 90000);
 
     return () => {
       window.removeEventListener('bjc_feed_change', handleFeedChange);

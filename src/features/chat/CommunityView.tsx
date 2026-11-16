@@ -941,7 +941,11 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
     };
 
     loadCloudRooms();
-    const interval = setInterval(loadCloudRooms, 15000);
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        loadCloudRooms();
+      }
+    }, 60000);
     return () => {
       isMounted = false;
       clearInterval(interval);
@@ -1071,7 +1075,11 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
     };
 
     loadCloudMessages();
-    const interval = setInterval(loadCloudMessages, 12000);
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        loadCloudMessages();
+      }
+    }, 60000);
 
     let channel: any = null;
     if (supabase) {

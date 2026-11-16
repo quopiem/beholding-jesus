@@ -299,6 +299,8 @@ export class ChurchFeedStore {
   // In-memory cache holding full-fidelity cloud posts (including user-uploaded images)
   private static memoryPosts: FeedPost[] | null = null;
   private static feedHubChannel: any = null;
+  private static _lastFeedFetchTime = 0;
+  private static _cachedFeedResult: FeedPost[] = [];
 
   static getFeedHub() {
     if (!supabase) return null;
@@ -503,8 +505,14 @@ export class ChurchFeedStore {
   }
 
   // --- CLOUD SYNC WITH SUPABASE ---
-  static async fetchFeedPostsFromCloud(currentUser?: UserProfile | null): Promise<FeedPost[]> {
+  static async fetchFeedPostsFromCloud(currentUser?: UserProfile | null, force: boolean = false): Promise<FeedPost[]> {
     if (!supabase) return this.getFeedPosts(currentUser);
+
+    const now = Date.now();
+    // Cache guard: do not re-query cloud if queried within last 15 seconds unless forced
+    if (!force && this._cachedFeedResult.length > 0 && (now - this._lastFeedFetchTime < 15000)) {
+      return this._cachedFeedResult;
+    }
 
     try {
       const deletedIds = this.getDeletedIds();
@@ -778,11 +786,17 @@ export class ChurchFeedStore {
       }
 
       this.save(KEY_FEED_POSTS, combined);
+      this._lastFeedFetchTime = Date.now();
+      const finalResult = this.getFeedPosts(currentUser);
+      this._cachedFeedResult = finalResult;
+      return finalResult;
     } catch (e) {
       console.warn('fetchFeedPostsFromCloud error, falling back to local storage:', e);
     }
 
-    return this.getFeedPosts(currentUser);
+    const fallbackResult = this.getFeedPosts(currentUser);
+    this._cachedFeedResult = fallbackResult;
+    return fallbackResult;
   }
 
   // --- REALTIME SYNC LISTENER (Broadcast + Postgres changes) ---

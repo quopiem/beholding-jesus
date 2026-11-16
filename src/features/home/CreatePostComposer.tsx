@@ -67,7 +67,7 @@ export const CreatePostComposer: React.FC<CreatePostComposerProps> = ({
 
         const img = new Image();
         img.onload = () => {
-          const maxDim = 850;
+          const maxDim = 650;
           let w = img.width;
           let h = img.height;
           if (w > maxDim || h > maxDim) {
@@ -85,12 +85,14 @@ export const CreatePostComposer: React.FC<CreatePostComposerProps> = ({
           const ctx = canvas.getContext('2d');
           if (ctx) {
             ctx.drawImage(img, 0, 0, w, h);
-            setImageUrls(prev => [...prev, canvas.toDataURL('image/jpeg', 0.7)]);
+            setImageUrls(prev => [...prev, canvas.toDataURL('image/jpeg', 0.60)]);
           } else {
             setImageUrls(prev => [...prev, raw]);
           }
         };
-        img.onerror = () => setImageUrls(prev => [...prev, raw]);
+        img.onerror = () => {
+          console.warn('Failed to load image for compression');
+        };
         img.src = raw;
       };
       reader.readAsDataURL(file);
