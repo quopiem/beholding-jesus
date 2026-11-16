@@ -85,7 +85,10 @@ export const SharedWorkspaceLayout: React.FC<SharedWorkspaceLayoutProps> = ({
   const userRole = currentUser?.role || 'member';
   const isSuperOrAdmin = ['super_admin', 'church_admin', 'pastor'].includes(userRole);
   const isLeader = isSuperOrAdmin || members.some(m => m.userId === currentUser?.id && (m.role === 'leader' || m.role === 'assistant_leader'));
-  const isCurrentMember = members.some(m => m.userId === currentUser?.id);
+  const isCurrentMember = members.some(m => m.userId === currentUser?.id) ||
+    currentUser?.role === 'ministry_member' ||
+    Boolean(currentUser?.ministryIds && currentUser.ministryIds.includes(ministry.id)) ||
+    isSuperOrAdmin;
 
   // Current user's own availability
   const currentSunday = '2026-11-08';

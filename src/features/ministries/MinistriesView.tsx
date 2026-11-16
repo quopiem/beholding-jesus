@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Users, Sparkles, MapPin, Clock, CheckCircle2, ChevronRight, 
   Send, FileText, ArrowRight, X, ShieldAlert, Music, Video,
@@ -22,7 +22,7 @@ export const MinistriesView: React.FC<MinistriesViewProps> = ({
   currentUser: propUser,
   onNavigate
 }) => {
-  const currentUser: UserProfile = propUser || ChurchDataStore.getCurrentUser();
+  const [currentUser, setCurrentUser] = useState<UserProfile>(() => propUser || ChurchDataStore.getCurrentUser());
   const [ministries, setMinistries] = useState<MinistryItem[]>(() => MinistryStore.getMinistries());
   const [activeWorkspaceMinistry, setActiveWorkspaceMinistry] = useState<MinistryItem | null>(null);
   const [viewMode, setViewMode] = useState<'cards' | 'planner'>('cards');
@@ -34,13 +34,76 @@ export const MinistriesView: React.FC<MinistriesViewProps> = ({
   const [experienceText, setExperienceText] = useState('');
   const [submittedSuccess, setSubmittedSuccess] = useState(false);
 
+  // Sync join requests and current user from Supabase Cloud on mount & real-time updates
+  useEffect(() => {
+    // 1. Fetch latest cloud join requests and sync current user
+    ChurchDataStore.fetchJoinRequestsFromCloud(true).then(fresh => {
+      if (fresh) setJoinRequests(fresh);
+    });
+    ChurchDataStore.syncCurrentUserFromCloud().then(u => {
+      if (u) setCurrentUser(u);
+    });
+
+    // 2. Real-time subscription to cloud changes
+    const unsub = ChurchDataStore.subscribeToJoinRequests((fresh) => {
+      setJoinRequests(fresh);
+      ChurchDataStore.syncCurrentUserFromCloud().then(u => {
+        if (u) setCurrentUser(u);
+      });
+    });
+
+    // 3. Local storage & window listeners
+    const handleSync = () => {
+      setJoinRequests(ChurchDataStore.getJoinRequests());
+      setMinistries(MinistryStore.getMinistries());
+      const u = ChurchDataStore.getCurrentUser();
+      if (u) setCurrentUser(u);
+    };
+
+    window.addEventListener('bjc_join_requests_change', handleSync);
+    window.addEventListener('bjc_auth_change', handleSync);
+    window.addEventListener('bjc_users_change', handleSync);
+    window.addEventListener('storage', handleSync);
+
+    return () => {
+      unsub();
+      window.removeEventListener('bjc_join_requests_change', handleSync);
+      window.removeEventListener('bjc_auth_change', handleSync);
+      window.removeEventListener('bjc_users_change', handleSync);
+      window.removeEventListener('storage', handleSync);
+    };
+  }, []);
+
+  // Update currentUser if propUser changes
+  useEffect(() => {
+    if (propUser) setCurrentUser(propUser);
+  }, [propUser]);
+
   // Role & Permissions check:
-  // Church members (regular_member) CANNOT enter the workspace; only view the ministries & request to join.
-  // Super Admin, Church Admin, Pastor, Ministry Leader, and active verified Ministry Members can enter.
   const isSuperOrPastor = ['super_admin', 'church_admin', 'pastor'].includes(currentUser.role);
   const isMinistryLeader = currentUser.role === 'ministry_leader';
   const isActiveMinistryMember = currentUser.role === 'ministry_member' && currentUser.approvalStatus !== 'pending';
   const canAccessWorkspaces = isSuperOrPastor || isMinistryLeader || isActiveMinistryMember;
+
+  // Check if current user is specifically approved for this ministry
+  const isApprovedForMinistry = (ministryId: string) => {
+    if (isSuperOrPastor || isMinistryLeader) return true;
+    if (currentUser.role === 'ministry_member' && currentUser.approvalStatus !== 'pending') {
+      if (!currentUser.ministryIds || currentUser.ministryIds.length === 0 || currentUser.ministryIds.includes(ministryId)) {
+        return true;
+      }
+    }
+    // Also check if an approved join request exists for this user and ministry
+    return joinRequests.some(r => r.ministryId === ministryId && r.userId === currentUser.id && r.status === 'approved');
+  };
+
+  const hasAnyMinistryAccess = canAccessWorkspaces || ministries.some(m => isApprovedForMinistry(m.id));
+
+  // Check if current user has an active pending request for a ministry
+  const getPendingRequestForMinistry = (ministryId: string) => {
+    if (isApprovedForMinistry(ministryId)) return null;
+    return joinRequests.find(r => r.ministryId === ministryId && r.userId === currentUser.id && r.status === 'pending');
+  };
 
   const handleOpenJoinModal = (m: MinistryItem) => {
     setTargetMinistryForJoin(m);
@@ -49,7 +112,7 @@ export const MinistriesView: React.FC<MinistriesViewProps> = ({
   };
 
   const handleMinistryCardClick = (m: MinistryItem) => {
-    if (canAccessWorkspaces) {
+    if (isApprovedForMinistry(m.id)) {
       setActiveWorkspaceMinistry(m);
     } else {
       // Church Member: Cannot enter, open Join Request modal
@@ -70,13 +133,8 @@ export const MinistriesView: React.FC<MinistriesViewProps> = ({
     }, 2200);
   };
 
-  // Check if current user has an active pending request for a ministry
-  const getPendingRequestForMinistry = (ministryId: string) => {
-    return joinRequests.find(r => r.ministryId === ministryId && r.userId === currentUser.id && r.status === 'pending');
-  };
-
   // If a ministry workspace is active, render the dedicated workspace
-  if (activeWorkspaceMinistry && canAccessWorkspaces) {
+  if (activeWorkspaceMinistry && isApprovedForMinistry(activeWorkspaceMinistry.id)) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <SharedWorkspaceLayout
@@ -180,7 +238,7 @@ export const MinistriesView: React.FC<MinistriesViewProps> = ({
       </div>
 
       {/* WANT TO JOIN A MINISTRY CALLOUT BANNER (For Church Members) */}
-      {!canAccessWorkspaces && (
+      {!hasAnyMinistryAccess && (
         <div className="rounded-3xl bg-gradient-to-r from-amber-500/10 via-gold/10 to-amber-500/10 border border-gold/30 p-5 sm:p-6 shadow-soft flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div className="space-y-1">
             <span className="text-[10px] font-bold uppercase tracking-wider text-gold flex items-center gap-1.5">
@@ -292,32 +350,34 @@ export const MinistriesView: React.FC<MinistriesViewProps> = ({
 
                   {/* Actions */}
                   <div className="pt-3 border-t border-stone-100 dark:border-stone-800 flex items-center gap-2">
-                    {canAccessWorkspaces ? (
+                    {isApprovedForMinistry(m.id) ? (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           setActiveWorkspaceMinistry(m);
                         }}
-                        className="flex-1 py-2.5 px-4 rounded-xl bg-primary hover:bg-slate-800 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition shadow-soft cursor-pointer active:scale-95"
+                        className="flex-1 py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition shadow-soft cursor-pointer active:scale-95"
                       >
-                        <span>View Ministry Workspace</span>
+                        <CheckCircle2 className="w-4 h-4 text-emerald-200" />
+                        <span>Enter Ministry Workspace</span>
                         <ChevronRight className="w-4 h-4" />
                       </button>
                     ) : (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleOpenJoinModal(m);
+                          if (!pendingReq) handleOpenJoinModal(m);
                         }}
+                        disabled={Boolean(pendingReq)}
                         className={`flex-1 py-2.5 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition shadow-soft cursor-pointer active:scale-95 ${
                           pendingReq 
-                            ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-800' 
+                            ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-800 cursor-not-allowed opacity-90' 
                             : 'bg-gold hover:bg-[#b08e57] text-slate-950'
                         }`}
                       >
                         {pendingReq ? (
                           <>
-                            <Clock className="w-4 h-4" />
+                            <Clock className="w-4 h-4 animate-pulse" />
                             <span>Request Pending Review</span>
                           </>
                         ) : (

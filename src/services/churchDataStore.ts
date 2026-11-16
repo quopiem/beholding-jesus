@@ -77,11 +77,8 @@ export class ChurchDataStore {
         const localUsers = this.getUsers();
         const mapped: UserProfile[] = data.map(d => {
           const existing = localUsers.find(u => u.id === d.id || u.username?.toLowerCase() === d.username?.toLowerCase());
-          const isPending = d.role === 'ministry_member' && (
-            d.role_title?.includes('Pending') || 
-            existing?.approvalStatus === 'pending' || 
-            !d.role_title || 
-            d.role_title.toLowerCase().includes('pending')
+          const isPending = d.role === 'ministry_member' && Boolean(
+            d.role_title && d.role_title.toLowerCase().includes('pending')
           );
           return {
             id: d.id,
@@ -93,7 +90,7 @@ export class ChurchDataStore {
             avatar: d.avatar || '/icons/church-logo.png',
             bio: d.bio || 'Faithful member of Beholding Jesus Church.',
             ministryIds: existing?.ministryIds || [],
-            approvalStatus: isPending ? 'pending' : (existing?.approvalStatus || 'active'),
+            approvalStatus: isPending ? 'pending' : 'active',
             targetMinistryId: existing?.targetMinistryId,
             ministryMessage: existing?.ministryMessage,
             joinedDate: d.created_at ? d.created_at.split('T')[0] : '2026-11-04'
@@ -102,6 +99,24 @@ export class ChurchDataStore {
         this.save(KEY_USERS, mapped);
         this._lastUsersFetchTime = Date.now();
         this._cachedUsers = mapped;
+
+        // If current logged-in user is among the fetched cloud users, refresh active session
+        try {
+          const sessRaw = localStorage.getItem('bjc_auth_session_v1');
+          if (sessRaw) {
+            const sess = JSON.parse(sessRaw);
+            const freshMe = mapped.find(u => u.id === sess.userId || (sess.username && u.username?.toLowerCase() === sess.username.toLowerCase()));
+            if (freshMe) {
+              sess.role = freshMe.role;
+              sess.user = freshMe;
+              localStorage.setItem('bjc_auth_session_v1', JSON.stringify(sess));
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new Event('bjc_auth_change'));
+              }
+            }
+          }
+        } catch {}
+
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new Event('bjc_users_change'));
         }
@@ -641,8 +656,20 @@ export class ChurchDataStore {
           };
         });
 
-        // Merge with any local join requests to ensure complete coverage
         const localRequests = this.getJoinRequests();
+
+        // If any request in cloud is approved for (userId, ministryId), mark all matching local requests approved
+        cloudRequests.forEach(cr => {
+          if (cr.status === 'approved') {
+            localRequests.forEach(lr => {
+              if (lr.userId === cr.userId && lr.ministryId === cr.ministryId) {
+                lr.status = 'approved';
+              }
+            });
+          }
+        });
+
+        // Merge with any local join requests to ensure complete coverage
         const mergedMap = new Map<string, MinistryJoinRequest>();
         
         cloudRequests.forEach(r => mergedMap.set(r.id, r));
@@ -671,6 +698,43 @@ export class ChurchDataStore {
         this.save(KEY_JOIN_REQUESTS, merged);
         this._lastJoinReqFetchTime = Date.now();
         this._cachedJoinReqs = merged;
+
+        // If the current logged-in user has an approved join request, upgrade active session immediately
+        const curr = this.getCurrentUser();
+        if (curr) {
+          const userApprovedMins = merged.filter(cr => cr.userId === curr.id && cr.status === 'approved').map(cr => cr.ministryId);
+          if (userApprovedMins.length > 0 && curr.role !== 'super_admin' && curr.role !== 'pastor' && curr.role !== 'church_admin') {
+            let changed = false;
+            if (curr.role !== 'ministry_member') {
+              curr.role = 'ministry_member';
+              curr.roleTitle = 'Ministry Member';
+              curr.approvalStatus = 'active';
+              changed = true;
+            }
+            const currentMins = curr.ministryIds || [];
+            const newMins = Array.from(new Set([...currentMins, ...userApprovedMins]));
+            if (newMins.length !== currentMins.length) {
+              curr.ministryIds = newMins;
+              changed = true;
+            }
+            if (changed) {
+              try {
+                const sessRaw = localStorage.getItem('bjc_auth_session_v1');
+                if (sessRaw) {
+                  const sess = JSON.parse(sessRaw);
+                  sess.role = 'ministry_member';
+                  sess.user = curr;
+                  localStorage.setItem('bjc_auth_session_v1', JSON.stringify(sess));
+                }
+              } catch {}
+              this.updateUser(curr);
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new Event('bjc_auth_change'));
+              }
+            }
+          }
+        }
+
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new Event('bjc_join_requests_change'));
         }
@@ -682,6 +746,88 @@ export class ChurchDataStore {
     const fallback = this.getJoinRequests();
     this._cachedJoinReqs = fallback;
     return fallback;
+  }
+
+  static async syncCurrentUserFromCloud(): Promise<UserProfile | null> {
+    try {
+      const sessRaw = localStorage.getItem('bjc_auth_session_v1');
+      if (!sessRaw) return null;
+      const sess = JSON.parse(sessRaw);
+      if (!sess || !sess.userId) return null;
+
+      if (!supabase) return this.getCurrentUser();
+
+      // 1. Fetch fresh user row from church_members_auth
+      const { data: cloudMember } = await supabase
+        .from('church_members_auth')
+        .select('*')
+        .eq('id', sess.userId)
+        .maybeSingle();
+
+      // 2. Fetch any approved ministry join requests for this user
+      const { data: approvedReqs } = await supabase
+        .from('church_prayer_requests')
+        .select('target_ministry_id, title')
+        .eq('category', 'sys_ministry_join_request')
+        .eq('user_id', sess.userId)
+        .or('is_answered.eq.true,testimony_text.eq.approved');
+
+      const approvedMinistryIds: string[] = [];
+      if (approvedReqs) {
+        approvedReqs.forEach(r => {
+          let minId = r.target_ministry_id;
+          if (!minId && r.title && r.title.includes(':::')) {
+            minId = r.title.split(':::')[0];
+          }
+          if (minId && !approvedMinistryIds.includes(minId)) {
+            approvedMinistryIds.push(minId);
+          }
+        });
+      }
+
+      const existingUser = this.getCurrentUser();
+      const currentRole = cloudMember ? cloudMember.role : existingUser?.role || 'regular_member';
+      const isPending = Boolean(cloudMember?.role_title && cloudMember.role_title.toLowerCase().includes('pending'));
+      
+      const finalRole = (approvedMinistryIds.length > 0 || currentRole === 'ministry_member') ? 'ministry_member' : currentRole;
+      const finalRoleTitle = finalRole === 'ministry_member' ? 'Ministry Member' : (cloudMember?.role_title || 'Church Member');
+      const finalApproval = (finalRole === 'ministry_member' && !isPending) ? 'active' : (isPending ? 'pending' : 'active');
+
+      const mergedMinistryIds = Array.from(new Set([
+        ...(existingUser?.ministryIds || []),
+        ...approvedMinistryIds
+      ]));
+
+      const updatedUser: UserProfile = {
+        id: sess.userId,
+        name: cloudMember?.name || existingUser?.name || sess.username,
+        username: cloudMember?.username || sess.username,
+        email: cloudMember?.email || existingUser?.email || `${sess.username}@beholdingjesus.org`,
+        role: finalRole as UserRole,
+        roleTitle: finalRoleTitle,
+        avatar: cloudMember?.avatar || existingUser?.avatar || '/icons/church-logo.png',
+        bio: cloudMember?.bio || existingUser?.bio || 'Faithful member of Beholding Jesus Church.',
+        ministryIds: mergedMinistryIds,
+        approvalStatus: finalApproval,
+        joinedDate: cloudMember?.created_at ? cloudMember.created_at.split('T')[0] : existingUser?.joinedDate || '2026-11-04'
+      };
+
+      sess.role = updatedUser.role;
+      sess.user = updatedUser;
+      localStorage.setItem('bjc_auth_session_v1', JSON.stringify(sess));
+
+      this.addUser(updatedUser);
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('bjc_auth_change'));
+        window.dispatchEvent(new Event('bjc_users_change'));
+      }
+
+      return updatedUser;
+    } catch (err) {
+      console.warn('syncCurrentUserFromCloud error:', err);
+      return this.getCurrentUser();
+    }
   }
 
   static subscribeToJoinRequests(onUpdate: (reqs: MinistryJoinRequest[]) => void) {
@@ -902,9 +1048,22 @@ export class ChurchDataStore {
           this.save(KEY_MINISTRIES, ministries);
         }
 
-        // Upgrade requesting church member to active ministry member
+        // 1. Immediately update member role in Supabase Cloud
+        if (supabase) {
+          try {
+            await supabase.from('church_members_auth').update({
+              role: 'ministry_member',
+              role_title: 'Ministry Member',
+              updated_at: new Date().toISOString()
+            }).eq('id', req.userId);
+          } catch (err) {
+            console.warn('handleJoinRequest cloud role update error:', err);
+          }
+        }
+
+        // 2. Upgrade requesting church member locally
         const users = this.getUsers();
-        const user = users.find(u => u.id === req.userId);
+        let user = users.find(u => u.id === req.userId);
         if (user) {
           user.role = 'ministry_member';
           user.roleTitle = 'Ministry Member';
@@ -913,45 +1072,63 @@ export class ChurchDataStore {
           if (!user.ministryIds.includes(req.ministryId)) {
             user.ministryIds.push(req.ministryId);
           }
-          this.save(KEY_USERS, users);
+        } else {
+          user = {
+            id: req.userId,
+            name: req.userName,
+            email: req.userEmail || `${req.userId}@beholdingjesus.org`,
+            role: 'ministry_member',
+            roleTitle: 'Ministry Member',
+            avatar: '/icons/church-logo.png',
+            bio: 'Faithful member of Beholding Jesus Church.',
+            ministryIds: [req.ministryId],
+            approvalStatus: 'active',
+            joinedDate: new Date().toISOString().split('T')[0]
+          };
+          users.push(user);
+        }
+        this.save(KEY_USERS, users);
 
-          // Update in Supabase Cloud
-          if (supabase) {
-            supabase.from('church_members_auth').update({
-              role: 'ministry_member',
-              role_title: 'Ministry Member',
-              updated_at: new Date().toISOString()
-            }).eq('id', req.userId).then();
+        // Update active session if this user is logged in
+        try {
+          const sessRaw = localStorage.getItem('bjc_auth_session_v1');
+          if (sessRaw) {
+            const sess = JSON.parse(sessRaw);
+            if (sess && sess.userId === req.userId) {
+              sess.role = 'ministry_member';
+              sess.user = user;
+              localStorage.setItem('bjc_auth_session_v1', JSON.stringify(sess));
+            }
           }
+        } catch {}
 
-          // Add to MinistryStore member list
-          try {
-            MinistryStore.addMember({
-              userId: user.id,
-              name: user.name,
-              role: 'volunteer',
-              roleTitle: 'Ministry Member',
-              avatar: user.avatar || '/icons/church-logo.png',
-              ministryId: req.ministryId as MinistryId,
-              joinedDate: new Date().toISOString().split('T')[0]
-            });
-          } catch (e) {
-            console.warn('MinistryStore.addMember fallback:', e);
-          }
-
-          // Send approval notification to user
-          this.addNotification({
+        // Add to MinistryStore member list
+        try {
+          MinistryStore.addMember({
             userId: user.id,
-            type: 'system',
-            title: 'Ministry Application Approved!',
-            message: `Praise God! Your request to join the ${req.ministryName} has been approved by the Super Admin & pastoral team. You now have full access to your ministry workspace.`,
-            linkRoute: 'ministries'
+            name: user.name,
+            role: 'volunteer',
+            roleTitle: 'Ministry Member',
+            avatar: user.avatar || '/icons/church-logo.png',
+            ministryId: req.ministryId as MinistryId,
+            joinedDate: new Date().toISOString().split('T')[0]
           });
+        } catch (e) {
+          console.warn('MinistryStore.addMember fallback:', e);
+        }
 
-          if (typeof window !== 'undefined') {
-            window.dispatchEvent(new Event('bjc_users_change'));
-            window.dispatchEvent(new Event('bjc_auth_change'));
-          }
+        // Send approval notification to user
+        this.addNotification({
+          userId: user.id,
+          type: 'system',
+          title: 'Ministry Application Approved!',
+          message: `Praise God! Your request to join the ${req.ministryName} has been approved by the Super Admin & pastoral team. You now have full access to your ministry workspace.`,
+          linkRoute: 'ministries'
+        });
+
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('bjc_users_change'));
+          window.dispatchEvent(new Event('bjc_auth_change'));
         }
       } else {
         // Declined

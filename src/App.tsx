@@ -43,6 +43,8 @@ export function App() {
   useEffect(() => {
     AuthService.initializeDefaultCredentials();
     ChurchDataStore.fetchUsersFromCloud();
+    ChurchDataStore.syncCurrentUserFromCloud();
+    ChurchDataStore.fetchJoinRequestsFromCloud(true);
 
     const handleAuthChange = () => {
       const u = ChurchDataStore.getCurrentUser();
