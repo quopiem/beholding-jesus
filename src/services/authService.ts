@@ -711,14 +711,48 @@ export class AuthService {
     };
   }
 
+  /**
+   * Helper to resolve active administrator identity across both Admin Portal and Member App
+   */
+  static getActiveAdmin(): { id: string; name: string; username: string; role: string } | null {
+    // 1. Check Super Admin session from Admin Portal
+    try {
+      const rawAdmin = localStorage.getItem('bjc_super_admin_session_v1');
+      if (rawAdmin) {
+        const admin = JSON.parse(rawAdmin);
+        if (admin && (admin.role === 'super_admin' || admin.role === 'church_admin')) {
+          return {
+            id: admin.id || 'usr-owner-001',
+            name: admin.name || 'John Miko Sarsalijo',
+            username: admin.username || 'johnmiko',
+            role: admin.role || 'super_admin'
+          };
+        }
+      }
+    } catch {}
+
+    // 2. Check main app session
+    const cur = ChurchDataStore.getCurrentUser();
+    if (cur && ['super_admin', 'church_admin', 'pastor'].includes(cur.role)) {
+      return {
+        id: cur.id,
+        name: cur.name,
+        username: cur.username || cur.name,
+        role: cur.role
+      };
+    }
+
+    return null;
+  }
+
   static async adminResolveRecovery(
     requestId: string,
-    adminUserId: string,
+    adminUserId?: string,
     newTempPassword?: string
   ): Promise<{ success: boolean; tempPassword?: string; error?: string }> {
-    const admin = ChurchDataStore.getCurrentUser();
+    const admin = this.getActiveAdmin();
     if (!admin) {
-      return { success: false, error: 'Unauthorized: No active admin session found.' };
+      return { success: false, error: 'Unauthorized: No active admin session found. Please log in as Super Admin.' };
     }
     const allowed = ['super_admin', 'church_admin', 'pastor'];
     if (!allowed.includes(admin.role)) {
@@ -734,7 +768,7 @@ export class AuthService {
     const newPasswordHash = await this.hashPassword(tempPassword, newSalt);
 
     const creds = this.getCredentials();
-    const cred = creds.find(c => c.userId === req.userId || c.username === req.username);
+    const cred = creds.find(c => c.userId === req.userId || c.username?.toLowerCase() === req.username.toLowerCase());
 
     if (cred) {
       cred.salt = newSalt;
@@ -782,6 +816,9 @@ export class AuthService {
     req.resolvedAt = new Date().toISOString();
     req.resolvedBy = admin.name;
     this.saveRecoveryRequests(reqs);
+
+    this._lastRecoveryFetchTime = 0;
+    this._cachedRecoveryReqs = [];
 
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('bjc_recovery_change'));

@@ -63,8 +63,9 @@ export const AdminAccountRecoveryView: React.FC = () => {
   }, []);
 
   const handleResolve = async (req: PasswordRecoveryRequest) => {
-    const admin = ChurchDataStore.getCurrentUser();
-    const res = await AuthService.adminResolveRecovery(req.id, admin.id);
+    const admin = AuthService.getActiveAdmin();
+    const adminId = admin ? admin.id : 'usr-owner-001';
+    const res = await AuthService.adminResolveRecovery(req.id, adminId);
     if (res.success && res.tempPassword) {
       setResolvedCard({
         id: req.id,
@@ -85,27 +86,30 @@ export const AdminAccountRecoveryView: React.FC = () => {
 
   const handleManualReset = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!manualUser) return;
+    const targetUser = manualUser.trim();
+    if (!targetUser) return;
     setIsManualSubmitting(true);
+    setManualSuccess(null);
     try {
       const tempPass = manualPass.trim() || `Bjc${Math.floor(100000 + Math.random() * 900000)}!`;
-      const admin = ChurchDataStore.getCurrentUser();
+      const admin = AuthService.getActiveAdmin();
+      const adminId = admin ? admin.id : 'usr-owner-001';
       
       // Submit a synthetic request and immediately resolve it
-      const rec = await AuthService.requestAccountRecovery(manualUser, 'Direct Super Admin Password Reset');
-      const latestReqs = await AuthService.fetchRecoveryRequestsFromCloud();
-      const match = latestReqs.find(r => r.username.toLowerCase() === manualUser.toLowerCase() && r.status === 'pending');
+      const rec = await AuthService.requestAccountRecovery(targetUser, 'Direct Super Admin Password Reset');
+      const latestReqs = await AuthService.fetchRecoveryRequestsFromCloud(true);
+      const match = latestReqs.find(r => r.username.toLowerCase() === targetUser.toLowerCase() && r.status === 'pending');
       
       if (match) {
-        await AuthService.adminResolveRecovery(match.id, admin.id, tempPass);
+        await AuthService.adminResolveRecovery(match.id, adminId, tempPass);
       }
       
-      setManualSuccess(`Password for @${manualUser} successfully reset to: ${tempPass}`);
-      setResolvedCard({ id: 'manual', username: manualUser, tempPass });
+      setManualSuccess(`Password for @${targetUser} successfully reset to: ${tempPass}`);
+      setResolvedCard({ id: 'manual', username: targetUser, tempPass });
       setManualPass('');
       await refreshData();
     } catch (err: any) {
-      alert(err.message || 'Failed to reset password.');
+      alert(err?.message || 'Failed to reset password.');
     } finally {
       setIsManualSubmitting(false);
     }

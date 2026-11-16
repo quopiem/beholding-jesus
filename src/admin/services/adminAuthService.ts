@@ -143,7 +143,35 @@ export class AdminAuthService {
    */
   static saveAdminSession(user: AdminUser): void {
     localStorage.setItem(STORAGE_ADMIN_SESSION, JSON.stringify(user));
+
+    // Also bridge session to bjc_auth_session_v1 so ChurchDataStore and AuthService know the Super Admin is logged in
+    try {
+      const userSession = {
+        token: `bjc_admin_sess_${Date.now()}`,
+        userId: user.id,
+        username: user.username,
+        role: 'super_admin' as const,
+        user: {
+          id: user.id,
+          name: user.name,
+          username: user.username,
+          email: user.email,
+          role: 'super_admin' as const,
+          roleTitle: user.role_title,
+          avatar: user.avatar,
+          bio: 'App Owner & Administrator',
+          ministryIds: ['ministry-worship', 'ministry-multimedia', 'ministry-usher'],
+          joinedDate: '2024-01-15'
+        },
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        createdAt: new Date().toISOString()
+      };
+      localStorage.setItem('bjc_auth_session_v1', JSON.stringify(userSession));
+      localStorage.setItem('bjc_current_user_id_v4', user.id);
+    } catch {}
+
     window.dispatchEvent(new Event('bjc_admin_auth_change'));
+    window.dispatchEvent(new Event('bjc_auth_change'));
   }
 
   /**

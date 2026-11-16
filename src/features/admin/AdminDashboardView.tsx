@@ -118,30 +118,32 @@ export const AdminDashboardView: React.FC = () => {
     };
   }, []);
 
-  const currentUser: UserProfile = ChurchDataStore.getCurrentUser();
+  const currentUser: UserProfile | null = ChurchDataStore.getCurrentUser();
 
-  const handleJoinDecision = (requestId: string, status: 'approved' | 'declined') => {
-    const updated = ChurchDataStore.handleJoinRequest(requestId, status);
+  const handleJoinDecision = async (requestId: string, status: 'approved' | 'declined') => {
+    const updated = await ChurchDataStore.handleJoinRequest(requestId, status);
     setJoinRequests([...updated]);
     setUsersList(ChurchDataStore.getUsers());
     setPendingRegistrations(ChurchDataStore.getPendingMinistryRegistrations());
   };
 
-  const handleApproveRegistration = (userId: string, ministryId?: string) => {
-    ChurchDataStore.approveMinistryRegistration(userId, ministryId);
+  const handleApproveRegistration = async (userId: string, ministryId?: string) => {
+    await ChurchDataStore.approveMinistryRegistration(userId, ministryId);
     setUsersList(ChurchDataStore.getUsers());
     setPendingRegistrations(ChurchDataStore.getPendingMinistryRegistrations());
   };
 
-  const handleRejectRegistration = (userId: string) => {
+  const handleRejectRegistration = async (userId: string) => {
     const reason = prompt('Optional rejection note for applicant:') || undefined;
-    ChurchDataStore.rejectMinistryRegistration(userId, reason);
+    await ChurchDataStore.rejectMinistryRegistration(userId, reason);
     setUsersList(ChurchDataStore.getUsers());
     setPendingRegistrations(ChurchDataStore.getPendingMinistryRegistrations());
   };
 
   const handleResolveRecovery = async (requestId: string) => {
-    const res = await AuthService.adminResolveRecovery(requestId, currentUser.id);
+    const admin = AuthService.getActiveAdmin();
+    const adminId = admin ? admin.id : (currentUser?.id || 'usr-owner-001');
+    const res = await AuthService.adminResolveRecovery(requestId, adminId);
     if (res.success && res.tempPassword) {
       setResolvedTempPassword({ id: requestId, tempPass: res.tempPassword });
       setRecoveryRequests(AuthService.getRecoveryRequests());

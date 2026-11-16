@@ -758,7 +758,7 @@ export class ChurchDataStore {
     return users.filter(u => u.role === 'ministry_member' && u.approvalStatus === 'pending');
   }
 
-  static approveMinistryRegistration(userId: string, targetMinistryId?: string): UserProfile | null {
+  static async approveMinistryRegistration(userId: string, targetMinistryId?: string): Promise<UserProfile | null> {
     const users = this.getUsers();
     const user = users.find(u => u.id === userId);
     if (!user) return null;
@@ -773,13 +773,21 @@ export class ChurchDataStore {
     }
     this.save(KEY_USERS, users);
 
+    // Invalidate users cloud cache so next fetch gets freshest data
+    this._lastUsersFetchTime = 0;
+    this._cachedUsers = [];
+
     // Sync approval to Supabase Cloud church_members_auth
     if (supabase) {
-      supabase.from('church_members_auth').update({
-        role: 'ministry_member',
-        role_title: 'Ministry Member',
-        updated_at: new Date().toISOString()
-      }).eq('id', userId).then();
+      try {
+        await supabase.from('church_members_auth').update({
+          role: 'ministry_member',
+          role_title: 'Ministry Member',
+          updated_at: new Date().toISOString()
+        }).eq('id', userId);
+      } catch (err) {
+        console.warn('approveMinistryRegistration cloud sync error:', err);
+      }
     }
 
     // Also add to MinistryStore members list
@@ -823,7 +831,7 @@ export class ChurchDataStore {
     return user;
   }
 
-  static rejectMinistryRegistration(userId: string, reason?: string): UserProfile | null {
+  static async rejectMinistryRegistration(userId: string, reason?: string): Promise<UserProfile | null> {
     const users = this.getUsers();
     const user = users.find(u => u.id === userId);
     if (!user) return null;
@@ -831,11 +839,19 @@ export class ChurchDataStore {
     user.approvalStatus = 'rejected';
     this.save(KEY_USERS, users);
 
+    // Invalidate users cloud cache
+    this._lastUsersFetchTime = 0;
+    this._cachedUsers = [];
+
     if (supabase) {
-      supabase.from('church_members_auth').update({
-        role_title: 'Registration Rejected',
-        updated_at: new Date().toISOString()
-      }).eq('id', userId).then();
+      try {
+        await supabase.from('church_members_auth').update({
+          role_title: 'Registration Rejected',
+          updated_at: new Date().toISOString()
+        }).eq('id', userId);
+      } catch (err) {
+        console.warn('rejectMinistryRegistration cloud sync error:', err);
+      }
     }
 
     this.addNotification({
@@ -854,18 +870,27 @@ export class ChurchDataStore {
     return user;
   }
 
-  static handleJoinRequest(requestId: string, status: 'approved' | 'declined'): MinistryJoinRequest[] {
+  static async handleJoinRequest(requestId: string, status: 'approved' | 'declined'): Promise<MinistryJoinRequest[]> {
     const requests = this.getJoinRequests();
     const req = requests.find(r => r.id === requestId);
     if (req) {
       req.status = status;
+      this.save(KEY_JOIN_REQUESTS, requests);
+
+      // Invalidate join request cloud cache
+      this._lastJoinReqFetchTime = 0;
+      this._cachedJoinReqs = [];
 
       // Sync status change to Supabase Cloud
       if (supabase) {
-        supabase.from('church_prayer_requests').update({
-          is_answered: status === 'approved',
-          testimony_text: status
-        }).eq('id', requestId).then();
+        try {
+          await supabase.from('church_prayer_requests').update({
+            is_answered: status === 'approved',
+            testimony_text: status
+          }).eq('id', requestId);
+        } catch (err) {
+          console.warn('handleJoinRequest cloud sync error:', err);
+        }
       }
 
       if (status === 'approved') {

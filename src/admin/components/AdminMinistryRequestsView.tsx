@@ -17,12 +17,12 @@ export const AdminMinistryRequestsView: React.FC = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const refreshData = async () => {
+  const refreshData = async (force: boolean = false) => {
     setIsRefreshing(true);
     try {
       const [cloudJoin, cloudUsers] = await Promise.all([
-        ChurchDataStore.fetchJoinRequestsFromCloud(),
-        ChurchDataStore.fetchUsersFromCloud()
+        ChurchDataStore.fetchJoinRequestsFromCloud(force),
+        ChurchDataStore.fetchUsersFromCloud(force)
       ]);
       if (cloudJoin) setJoinRequests(cloudJoin);
       if (cloudUsers) {
@@ -36,8 +36,8 @@ export const AdminMinistryRequestsView: React.FC = () => {
   };
 
   useEffect(() => {
-    refreshData();
-    const interval = setInterval(refreshData, 20000);
+    refreshData(true);
+    const interval = setInterval(() => refreshData(false), 20000);
 
     const unsubJoin = ChurchDataStore.subscribeToJoinRequests((fresh) => {
       setJoinRequests(fresh);
@@ -63,23 +63,23 @@ export const AdminMinistryRequestsView: React.FC = () => {
 
   const handleApproveRegistration = async (user: UserProfile) => {
     const minId = user.targetMinistryId || 'ministry-worship';
-    ChurchDataStore.approveMinistryRegistration(user.id, minId);
+    await ChurchDataStore.approveMinistryRegistration(user.id, minId);
     setSuccessMessage(`Verified & approved ${user.name} for ministry service!`);
-    await refreshData();
+    await refreshData(true);
     setTimeout(() => setSuccessMessage(null), 3000);
   };
 
   const handleRejectRegistration = async (user: UserProfile) => {
     const reason = prompt(`Optional reason to reject registration for "${user.name}":`) || undefined;
-    ChurchDataStore.rejectMinistryRegistration(user.id, reason);
-    await refreshData();
+    await ChurchDataStore.rejectMinistryRegistration(user.id, reason);
+    await refreshData(true);
   };
 
   const handleJoinDecision = async (reqId: string, status: 'approved' | 'declined') => {
-    const updated = ChurchDataStore.handleJoinRequest(reqId, status);
+    const updated = await ChurchDataStore.handleJoinRequest(reqId, status);
     setJoinRequests([...updated]);
     setSuccessMessage(status === 'approved' ? 'Join request approved! Member added to ministry.' : 'Join request declined.');
-    await refreshData();
+    await refreshData(true);
     setTimeout(() => setSuccessMessage(null), 3000);
   };
 
@@ -111,7 +111,7 @@ export const AdminMinistryRequestsView: React.FC = () => {
         </div>
 
         <button
-          onClick={refreshData}
+          onClick={() => refreshData(true)}
           disabled={isRefreshing}
           className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-[#EBDCD5] bg-white hover:bg-[#FDFBF9] text-xs font-semibold text-[#5C5654] transition shadow-xs disabled:opacity-50 cursor-pointer self-start sm:self-auto"
         >
