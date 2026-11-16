@@ -4,6 +4,7 @@ import {
 } from '../types';
 import { ChurchDataStore } from './churchDataStore';
 import { supabase } from '../lib/supabase';
+import { StorageManager } from './storageManager';
 
 const STORAGE_CREDENTIALS = 'bjc_auth_credentials_v1';
 const STORAGE_SESSION = 'bjc_auth_session_v1';
@@ -47,7 +48,7 @@ export class AuthService {
   }
 
   private static saveCredentials(creds: AuthCredential[]): void {
-    localStorage.setItem(STORAGE_CREDENTIALS, JSON.stringify(creds));
+    StorageManager.safeSetItem(STORAGE_CREDENTIALS, JSON.stringify(creds));
   }
 
   // Seed default credentials for existing church demo users on first load
@@ -472,7 +473,7 @@ export class AuthService {
       createdAt: new Date().toISOString()
     };
 
-    localStorage.setItem(STORAGE_SESSION, JSON.stringify(session));
+    StorageManager.safeSetItem(STORAGE_SESSION, JSON.stringify(session));
     ChurchDataStore.setCurrentUser(user.id);
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('bjc_auth_change'));
@@ -530,7 +531,7 @@ export class AuthService {
   private static _cachedRecoveryReqs: PasswordRecoveryRequest[] = [];
 
   private static saveRecoveryRequests(reqs: PasswordRecoveryRequest[]): void {
-    localStorage.setItem(STORAGE_RECOVERY, JSON.stringify(reqs));
+    StorageManager.safeSetItem(STORAGE_RECOVERY, JSON.stringify(reqs));
   }
 
   static async fetchRecoveryRequestsFromCloud(force: boolean = false): Promise<PasswordRecoveryRequest[]> {

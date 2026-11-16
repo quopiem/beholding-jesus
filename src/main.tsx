@@ -3,6 +3,10 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 import { NotificationService } from './services/notificationService'
+import { StorageManager } from './services/storageManager'
+
+// Proactively purge old version caches and transient bloat to prevent QuotaExceededError
+StorageManager.cleanLegacyAndHeavyCaches();
 
 // Initialize Service Worker for Lock Screen / Home Screen Notifications
 NotificationService.init();

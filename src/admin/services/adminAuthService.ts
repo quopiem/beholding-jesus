@@ -1,5 +1,6 @@
 import { supabase } from '../../lib/supabase';
 import { AdminUser } from '../types';
+import { StorageManager } from '../../services/storageManager';
 
 const STORAGE_ADMIN_SESSION = 'bjc_super_admin_session_v1';
 const DESIGNATED_SUPER_ADMIN_USERNAME = 'johnmiko';
@@ -142,7 +143,7 @@ export class AdminAuthService {
    * Saves Super Admin session
    */
   static saveAdminSession(user: AdminUser): void {
-    localStorage.setItem(STORAGE_ADMIN_SESSION, JSON.stringify(user));
+    StorageManager.safeSetItem(STORAGE_ADMIN_SESSION, JSON.stringify(user));
 
     // Also bridge session to bjc_auth_session_v1 so ChurchDataStore and AuthService know the Super Admin is logged in
     try {
@@ -166,8 +167,8 @@ export class AdminAuthService {
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
         createdAt: new Date().toISOString()
       };
-      localStorage.setItem('bjc_auth_session_v1', JSON.stringify(userSession));
-      localStorage.setItem('bjc_current_user_id_v4', user.id);
+      StorageManager.safeSetItem('bjc_auth_session_v1', JSON.stringify(userSession));
+      StorageManager.safeSetItem('bjc_current_user_id_v4', user.id);
     } catch {}
 
     window.dispatchEvent(new Event('bjc_admin_auth_change'));

@@ -5,6 +5,7 @@ import {
   Smartphone, Download, Clock, Users
 } from 'lucide-react';
 import { AuthService } from '../../services/authService';
+import { StorageManager } from '../../services/storageManager';
 import { CHURCH_INFO } from '../../services/churchInfo';
 import { UserProfile, RegistrationData } from '../../types';
 import { DownloadAppModal } from '../../components/DownloadAppModal';
@@ -110,8 +111,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   const [recResult, setRecResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [isRecovering, setIsRecovering] = useState(false);
 
-  // Load remembered username on mount
+  // Load remembered username on mount & proactively cleanup storage quota
   useEffect(() => {
+    StorageManager.cleanLegacyAndHeavyCaches();
     try {
       const savedUser = localStorage.getItem('bjc_saved_username');
       if (savedUser && rememberMe) {
@@ -181,6 +183,20 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         setLoginError(result.error || 'Invalid username or password. Please try again.');
       }
     } catch (err: any) {
+      if (StorageManager.isQuotaError(err)) {
+        console.warn('Quota exceeded during login, executing deep eviction and retrying...');
+        StorageManager.deepEviction('bjc_auth_session_v1');
+        try {
+          const retryResult = await AuthService.login(loginUsername, loginPassword);
+          if (retryResult.success && retryResult.user) {
+            onAuthSuccess(retryResult.user);
+            return;
+          }
+        } catch (retryErr: any) {
+          setLoginError('Browser storage was full. We automatically cleared the cache. Please tap Login again.');
+          return;
+        }
+      }
       setLoginError(err?.message || 'A network error occurred while signing in.');
     } finally {
       setIsLoggingIn(false);
@@ -411,6 +427,19 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                       <div className="flex-1">
                         <div className="font-bold">Sign In Notice</div>
                         <div className="text-[11px] mt-0.5 leading-relaxed">{loginError}</div>
+                        {(loginError.toLowerCase().includes('quota') || loginError.toLowerCase().includes('storage')) && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              StorageManager.resetToFreshState();
+                              setLoginError(null);
+                              alert('Browser storage cache cleared! Please tap Login now.');
+                            }}
+                            className="mt-2.5 px-3 py-1.5 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold rounded-xl text-[11px] transition cursor-pointer shadow-sm"
+                          >
+                            Clear Browser Cache & Retry
+                          </button>
+                        )}
                       </div>
                     </div>
                   )}

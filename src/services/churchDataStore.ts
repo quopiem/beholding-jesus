@@ -10,6 +10,7 @@ import {
 } from './initialData';
 import { supabase } from '../lib/supabase';
 import { MinistryStore, MinistryId } from './ministryStore';
+import { StorageManager } from './storageManager';
 
 // Local storage storage keys
 const KEY_SONGS = 'bjc_songs_v2';
@@ -41,11 +42,7 @@ export class ChurchDataStore {
   }
 
   private static save<T>(key: string, data: T) {
-    try {
-      localStorage.setItem(key, JSON.stringify(data));
-    } catch (e) {
-      console.warn('Storage save failed:', e);
-    }
+    StorageManager.safeSetItem(key, JSON.stringify(data));
   }
 
   // --- USER & ROLE MANAGEMENT ---
