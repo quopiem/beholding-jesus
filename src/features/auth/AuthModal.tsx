@@ -195,13 +195,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
-  // Quick Demo Account Selector
-  const handleSelectDemoAccount = (username: string, pass: string) => {
-    setLoginUsername(username);
-    setLoginPassword(pass);
-    setLoginError(null);
-  };
-
   if (!isOpen) return null;
 
   return createPortal(
@@ -391,25 +384,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 )}
               </button>
             </form>
-
-            {/* Quick Demo Credentials Helper */}
-            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
-              <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                <span>App Owner Quick Sign In</span>
-                <Sparkles className="w-3 h-3 text-gold" />
-              </div>
-              <button
-                type="button"
-                onClick={() => handleSelectDemoAccount('johnmiko', 'Password123!')}
-                className="w-full p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 hover:bg-gold/10 text-left transition flex items-center justify-between"
-              >
-                <div>
-                  <div className="font-bold text-slate-900 dark:text-white text-xs">John Miko Sarsalijo</div>
-                  <div className="text-[10px] text-gold font-medium">App Owner & Finance Manager</div>
-                </div>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-gold/15 text-gold font-mono">App Owner</span>
-              </button>
-            </div>
 
           </div>
         )}

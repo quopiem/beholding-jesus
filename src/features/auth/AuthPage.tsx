@@ -190,12 +190,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     }
   };
 
-  const handleSelectDemoAccount = (username: string, pass: string) => {
-    setLoginUsername(username);
-    setLoginPassword(pass);
-    setLoginError(null);
-  };
-
   return (
     <div className="min-h-screen bg-[#F8F7F3] dark:bg-slate-950 flex flex-col justify-center items-center px-4 py-8 sm:py-12 transition-colors">
       
@@ -485,26 +479,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                   </form>
                 </>
               )}
-
-              {/* Demo Accounts Quick Fill Helper */}
-              {/* App Owner Quick Sign In */}
-              <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-2">
-                <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  <span>App Owner Quick Sign In</span>
-                  <Sparkles className="w-3 h-3 text-gold" />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleSelectDemoAccount('johnmiko', 'Password123!')}
-                  className="w-full p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 hover:bg-gold/10 text-left transition flex items-center justify-between"
-                >
-                  <div>
-                    <div className="font-bold text-slate-900 dark:text-white text-xs">John Miko Sarsalijo</div>
-                    <div className="text-[10px] text-gold font-semibold">App Owner & Finance Manager</div>
-                  </div>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-gold/15 text-gold font-mono">App Owner</span>
-                </button>
-              </div>
 
             </div>
           )}
