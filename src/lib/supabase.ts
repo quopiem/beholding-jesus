@@ -11,11 +11,11 @@ if (rawAnonKey.includes('0QTB13')) {
 // Fallback to designated live church credentials if blank or placeholder
 const effectiveKey = (rawAnonKey && !rawAnonKey.includes('your-anon-key'))
   ? rawAnonKey
-  : 'sb_publishable_ck-OQTBl3ub3qrkgKP950w_dXZJrj0P';
+  : 'sb_publishable_kHVMAKw9XSrvQ69xIH2gmw_9RcvlYO6';
 
 const effectiveUrl = (supabaseUrl && !supabaseUrl.includes('your-project'))
   ? supabaseUrl
-  : 'https://szsjuyncsmiliatuvnsf.supabase.co';
+  : 'https://rpeevqhwwbqixuaxhsot.supabase.co';
 
 export const isSupabaseConfigured = Boolean(effectiveUrl && effectiveKey);
 
