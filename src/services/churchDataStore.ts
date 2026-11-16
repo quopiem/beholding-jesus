@@ -17,15 +17,15 @@ const KEY_SINGERS = 'bjc_singers_v2';
 const KEY_SETLISTS = 'bjc_setlists_v2';
 const KEY_MINISTRIES = 'bjc_ministries_v4';
 const KEY_EVENTS = 'bjc_events_v2';
-const KEY_ANNOUNCEMENTS = 'bjc_announcements_v2';
-const KEY_PRAYERS = 'bjc_prayers_v2';
-const KEY_POSTS = 'bjc_posts_v2';
-const KEY_CHAT_ROOMS = 'bjc_chat_rooms_v2';
-const KEY_CHAT_MESSAGES = 'bjc_chat_messages_v2';
-const KEY_NOTIFICATIONS = 'bjc_notifications_v2';
-const KEY_JOIN_REQUESTS = 'bjc_join_requests_v2';
-const KEY_CURRENT_USER_ID = 'bjc_current_user_id_v2';
-const KEY_USERS = 'bjc_users_v2';
+const KEY_ANNOUNCEMENTS = 'bjc_announcements_v3';
+const KEY_PRAYERS = 'bjc_prayers_v3';
+const KEY_POSTS = 'bjc_posts_v3';
+const KEY_CHAT_ROOMS = 'bjc_chat_rooms_v3';
+const KEY_CHAT_MESSAGES = 'bjc_chat_messages_v3';
+const KEY_NOTIFICATIONS = 'bjc_notifications_v3';
+const KEY_JOIN_REQUESTS = 'bjc_join_requests_v3';
+const KEY_CURRENT_USER_ID = 'bjc_current_user_id_v3';
+const KEY_USERS = 'bjc_users_v3';
 const KEY_WORSHIP_PREFS = 'bjc_worship_prefs_v1';
 
 export class ChurchDataStore {
