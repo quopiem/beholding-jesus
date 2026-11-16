@@ -265,6 +265,7 @@ export class AuthService {
     let cloudUserObj: UserProfile | null = null;
 
     // 1. First check Supabase Cloud Database (for accounts registered on mobile/PC)
+    let cloudServiceError: string | null = null;
     if (supabase) {
       try {
         const { data: cloudMember, error } = await supabase
@@ -272,6 +273,23 @@ export class AuthService {
           .select('*')
           .eq('username', username)
           .maybeSingle();
+
+        if (error) {
+          // Detect Supabase service restriction / quota exceeded / project paused
+          const errMsg = (error as any).message || '';
+          if (
+            errMsg.includes('restricted') ||
+            errMsg.includes('exceed') ||
+            errMsg.includes('quota') ||
+            errMsg.includes('paused') ||
+            errMsg.includes('upgrade')
+          ) {
+            cloudServiceError = 'Our cloud server is temporarily unavailable due to high usage. The church admin has been notified. Please try again later or contact your church administrator.';
+          } else {
+            // Generic cloud query error — still try local fallback
+            console.warn('Cloud login query error:', error);
+          }
+        }
 
         if (cloudMember && !error) {
           credential = {
@@ -299,6 +317,7 @@ export class AuthService {
         }
       } catch (err) {
         console.warn('Cloud login fetch error:', err);
+        cloudServiceError = 'Unable to connect to the church server. Please check your internet connection and try again.';
       }
     }
 
@@ -333,6 +352,14 @@ export class AuthService {
     }
 
     if (!credential) {
+      // If the cloud service had an error, the account may exist in the cloud
+      // but we couldn't reach it — show the cloud error instead of a misleading password error
+      if (cloudServiceError) {
+        return {
+          success: false,
+          error: cloudServiceError
+        };
+      }
       // Prevent username enumeration by using generic error message
       return {
         success: false,
