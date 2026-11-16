@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Shield, Lock, User, KeyRound, CheckCircle2, AlertCircle, 
-  Eye, EyeOff, ArrowRight, Sparkles, HelpCircle, UserPlus, LogIn, Heart,
+  Shield, Lock, User, CheckCircle2, AlertCircle, 
+  Eye, EyeOff, ArrowRight, Sparkles, HelpCircle,
   Smartphone, Download, Clock, Users
 } from 'lucide-react';
 import { AuthService } from '../../services/authService';
@@ -14,6 +14,57 @@ interface AuthPageProps {
   initialTab?: 'login' | 'register' | 'recovery';
 }
 
+// Vector emblem matching the Holy Bible, White Dove & Gold Halo
+const ChurchDoveEmblem: React.FC<{ className?: string }> = ({ className = 'w-14 h-12' }) => (
+  <svg viewBox="0 0 100 80" className={`${className} shrink-0 drop-shadow-[0_4px_12px_rgba(229,179,88,0.45)]`} fill="none">
+    <defs>
+      <linearGradient id="bjcGoldHalo" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#FDE68A" />
+        <stop offset="50%" stopColor="#E5B358" />
+        <stop offset="100%" stopColor="#B47B25" />
+      </linearGradient>
+      <linearGradient id="bjcDoveShade" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#FFFFFF" />
+        <stop offset="100%" stopColor="#E2E8F0" />
+      </linearGradient>
+    </defs>
+    {/* Glowing Gold Halo Arc */}
+    <path
+      d="M 16 34 A 36 36 0 0 1 84 34"
+      stroke="url(#bjcGoldHalo)"
+      strokeWidth="3.2"
+      strokeLinecap="round"
+      fill="none"
+      opacity="0.95"
+    />
+    {/* Holy Spirit White Dove */}
+    <path
+      d="M 50 14 C 54 18 64 16 72 21 C 66 23 60 24 56 26 C 59 29 65 34 63 38 C 58 35 54 32 50 30 C 46 32 42 35 37 38 C 35 34 41 29 44 26 C 40 24 34 23 28 21 C 36 16 46 18 50 14 Z"
+      fill="url(#bjcDoveShade)"
+      stroke="url(#bjcGoldHalo)"
+      strokeWidth="1.2"
+      strokeLinejoin="round"
+    />
+    {/* Open Holy Bible Pages */}
+    <path
+      d="M 50 44 C 40 40 24 40 12 45 C 12 51 24 49 50 54 C 76 49 88 51 88 45 C 76 40 60 40 50 44 Z"
+      fill="#FFFFFF"
+      stroke="url(#bjcGoldHalo)"
+      strokeWidth="2.2"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M 12 45 L 12 53 C 24 48 40 48 50 53 C 60 48 76 48 88 53 L 88 45"
+      stroke="url(#bjcGoldHalo)"
+      strokeWidth="2.2"
+      strokeLinejoin="round"
+      fill="none"
+    />
+    {/* Center Spine */}
+    <line x1="50" y1="44" x2="50" y2="54" stroke="url(#bjcGoldHalo)" strokeWidth="2.2" strokeLinecap="round" />
+  </svg>
+);
+
 export const AuthPage: React.FC<AuthPageProps> = ({
   onAuthSuccess,
   initialTab = 'login'
@@ -25,6 +76,13 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   const [loginUsername, setLoginUsername] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginShowPassword, setLoginShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(() => {
+    try {
+      return localStorage.getItem('bjc_remember_me') === 'true';
+    } catch {
+      return true;
+    }
+  });
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
@@ -52,6 +110,16 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   const [recResult, setRecResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [isRecovering, setIsRecovering] = useState(false);
 
+  // Load remembered username on mount
+  useEffect(() => {
+    try {
+      const savedUser = localStorage.getItem('bjc_saved_username');
+      if (savedUser && rememberMe) {
+        setLoginUsername(savedUser);
+      }
+    } catch {}
+  }, []);
+
   // Real-time username availability check on registration
   useEffect(() => {
     if (!regUsername.trim()) {
@@ -71,7 +139,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     return () => clearTimeout(timer);
   }, [regUsername]);
 
-  // Always scroll to the top of the login page when mounting or switching auth tabs
+  // Scroll to top when switching tabs
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     document.documentElement.scrollTop = 0;
@@ -79,7 +147,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   }, [tab]);
 
   // -------------------------------------------------------------
-  // HANDLER: LOGIN WORKFLOW
+  // HANDLER: LOGIN
   // -------------------------------------------------------------
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,73 +163,93 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     try {
       const result = await AuthService.login(loginUsername, loginPassword);
       if (result.success && result.user) {
+        // Save remember-me state
+        try {
+          if (rememberMe) {
+            localStorage.setItem('bjc_remember_me', 'true');
+            localStorage.setItem('bjc_saved_username', loginUsername.trim());
+          } else {
+            localStorage.removeItem('bjc_remember_me');
+            localStorage.removeItem('bjc_saved_username');
+          }
+        } catch {}
+
         onAuthSuccess(result.user);
       } else if (result.isPendingApproval && result.user) {
         setPendingApprovalUser(result.user);
-        setLoginError(null);
       } else {
         setLoginError(result.error || 'Invalid username or password. Please try again.');
       }
-    } catch {
-      setLoginError('An unexpected authentication error occurred.');
+    } catch (err: any) {
+      setLoginError(err?.message || 'A network error occurred while signing in.');
     } finally {
       setIsLoggingIn(false);
     }
   };
 
   // -------------------------------------------------------------
-  // HANDLER: REGISTRATION WORKFLOW
+  // HANDLER: REGISTRATION
   // -------------------------------------------------------------
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setRegErrors({});
+    setRegSuccessBanner(null);
 
-    const data: RegistrationData = {
-      fullName: regFullName.trim(),
-      username: regUsername.trim(),
-      password: regPassword,
-      confirmPassword: regConfirmPassword,
-      role: regRole,
-      targetMinistryId: regRole === 'ministry_member' ? regMinistryId : undefined,
-      ministryMessage: regRole === 'ministry_member' ? regMinistryMessage.trim() : undefined
-    };
+    const errors: Record<string, string> = {};
+    if (!regFullName.trim() || regFullName.trim().length < 3) {
+      errors.fullName = 'Full Name must be at least 3 characters.';
+    }
+    if (!regUsername.trim() || regUsername.trim().length < 3) {
+      errors.username = 'Username must be at least 3 characters.';
+    }
+    if (!regPassword || regPassword.length < 8) {
+      errors.password = 'Password must be at least 8 characters with numbers.';
+    }
+    if (regPassword !== regConfirmPassword) {
+      errors.confirmPassword = 'Passwords do not match.';
+    }
 
-    const validation = AuthService.validateRegistration(data);
-    if (!validation.valid) {
-      setRegErrors(validation.errors);
+    if (Object.keys(errors).length > 0) {
+      setRegErrors(errors);
       return;
     }
 
     setIsRegistering(true);
     try {
-      const res = await AuthService.register(data);
-      if (res.success && res.user) {
-        setTab('login');
-        setLoginUsername(data.username.toLowerCase());
-        setLoginPassword('');
-        if (regRole === 'ministry_member') {
-          setRegSuccessBanner(`Registration for Ministry Member (@${data.username}) received! It is pending confirmation and verification by the Super Admin.`);
+      const regData: RegistrationData = {
+        fullName: regFullName.trim(),
+        username: regUsername.trim().toLowerCase(),
+        password: regPassword,
+        confirmPassword: regConfirmPassword,
+        role: regRole,
+        targetMinistryId: regRole === 'ministry_member' ? regMinistryId : undefined,
+        ministryMessage: regRole === 'ministry_member' ? regMinistryMessage.trim() : undefined
+      };
+
+      const result = await AuthService.register(regData);
+
+      if (result.success && result.user) {
+        if (result.isPendingApproval) {
+          setPendingApprovalUser(result.user);
+          setTab('login');
         } else {
-          setRegSuccessBanner(`Account @${data.username} created successfully with Church Member role. Please sign in below.`);
+          setRegSuccessBanner('Welcome! Your church account has been created. You can sign in immediately.');
+          setLoginUsername(regUsername.trim().toLowerCase());
+          setLoginPassword(regPassword);
+          setTab('login');
         }
-        // Reset registration form
-        setRegFullName('');
-        setRegUsername('');
-        setRegPassword('');
-        setRegConfirmPassword('');
-        setRegMinistryMessage('');
       } else {
-        setRegErrors({ form: res.error || 'Failed to create church identity.' });
+        setRegErrors({ form: result.error || 'Failed to complete registration.' });
       }
-    } catch {
-      setRegErrors({ form: 'An unexpected error occurred during account creation.' });
+    } catch (err: any) {
+      setRegErrors({ form: err?.message || 'Error communicating with server.' });
     } finally {
       setIsRegistering(false);
     }
   };
 
   // -------------------------------------------------------------
-  // HANDLER: ACCOUNT RECOVERY WORKFLOW
+  // HANDLER: ACCOUNT RECOVERY
   // -------------------------------------------------------------
   const handleRecoverySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -174,204 +262,141 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 
     setIsRecovering(true);
     try {
-      const res = await AuthService.requestAccountRecovery(recUsername, recReason);
-      setRecResult({
-        type: 'success',
-        message: res.message
-      });
-      setRecReason('');
-    } catch {
-      setRecResult({
-        type: 'error',
-        message: 'Could not submit recovery request. Please try again.'
-      });
+      const result = await AuthService.requestAccountRecovery(recUsername.trim(), recReason.trim());
+      if (result.success) {
+        setRecResult({
+          type: 'success',
+          message: 'Your assistance request has been submitted to the Super Administrator. Once reviewed, your access will be restored.'
+        });
+        setRecUsername('');
+        setRecReason('');
+      } else {
+        setRecResult({
+          type: 'error',
+          message: result.message || 'Could not locate account. Please verify username.'
+        });
+      }
+    } catch (err: any) {
+      setRecResult({ type: 'error', message: err?.message || 'Network error occurred.' });
     } finally {
       setIsRecovering(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#F8F7F3] dark:bg-slate-950 flex flex-col justify-center items-center px-4 py-8 sm:py-12 transition-colors">
+    <div className="min-h-screen w-full bg-[#08150c] relative flex flex-col justify-between items-center text-white overflow-x-hidden font-sans selection:bg-[#E5B358] selection:text-[#1a1204]">
       
-      {/* Background Ambience */}
-      <div className="absolute inset-0 bg-radial-gradient from-amber-100/30 dark:from-slate-900/40 via-transparent to-transparent pointer-events-none" />
+      {/* 1. Cinematic Background Artwork with Sunset, Cross, and Mountains */}
+      <div 
+        className="fixed inset-0 bg-cover bg-top sm:bg-center pointer-events-none transition-all duration-700" 
+        style={{ backgroundImage: "url('/images/church_login_bg.jpg')" }} 
+      />
 
-      <div className="relative w-full max-w-md space-y-6 z-10">
+      {/* 2. Deep Emerald Gradient & Radial Vignette for Content Contrast */}
+      <div className="fixed inset-0 bg-gradient-to-b from-black/25 via-[#06180e]/60 to-[#020b05]/95 pointer-events-none" />
+      <div className="fixed inset-0 bg-radial from-amber-500/10 via-transparent to-transparent pointer-events-none" />
+
+      {/* 3. Main Center Content Container */}
+      <div className="relative z-10 w-full max-w-sm sm:max-w-md mx-auto px-5 py-6 sm:py-8 flex flex-col justify-between min-h-screen">
         
-        {/* Church Branding Header */}
-        <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-white dark:bg-slate-900 shadow-elevated border border-gold/30 dark:border-slate-800 p-2 mx-auto">
-            <img 
-              src="/icons/church-seal-gold.png" 
-              alt="Beholding Jesus Church" 
-              className="w-16 h-16 object-contain drop-shadow-sm" 
-            />
-          </div>
-          <h1 className="font-serif font-bold text-2xl sm:text-3xl text-slate-900 dark:text-white uppercase tracking-wider">
-            Beholding Jesus
-          </h1>
-          <div className="text-xs font-bold tracking-[0.25em] text-slate-400 dark:text-slate-500 uppercase">
-            Church Community Platform
-          </div>
-          <div className="text-[11px] font-bold text-gold uppercase tracking-wider">
-            {CHURCH_INFO.primaryMotto} • {CHURCH_INFO.secondaryMotto}
-          </div>
-        </div>
-
-        {/* Sacred Welcome Greeting */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-amber-500/10 via-gold/15 to-amber-600/10 dark:from-gold/15 dark:via-amber-500/10 dark:to-transparent border border-gold/30 p-4 text-center space-y-1.5 shadow-sm">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gold/20 border border-gold/30 text-gold text-[10px] font-bold tracking-widest uppercase">
-            <Sparkles className="w-3.5 h-3.5 text-gold" />
-            <span>Welcome to Beholding Jesus Church</span>
-          </div>
-          <h2 className="font-serif font-bold text-base sm:text-lg text-slate-900 dark:text-amber-100">
-            Welcome to Our Church Family
-          </h2>
-          <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-sans max-w-sm mx-auto">
-            "Grace to you and peace from God our Father and the Lord Jesus Christ."
-          </p>
-          <div className="text-[10px] font-serif italic text-gold/90 font-medium">
-            — 1 Corinthians 1:3 • Camella Springville, Molino 3, Bacoor
-          </div>
-        </div>
-
-        {/* Auth Card Container */}
-        <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-elevated border border-slate-200/80 dark:border-slate-800 overflow-hidden">
+        {/* ============================================================== */}
+        {/* TOP BRANDING & LOGO                                            */}
+        {/* ============================================================== */}
+        <header className="pt-2 sm:pt-4 text-center space-y-2">
           
-          {/* Navigation Tabs */}
-          <div className="flex border-b border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/60 p-1.5 gap-1">
-            <button
-              onClick={() => { setTab('login'); setLoginError(null); }}
-              className={`flex-1 py-2 text-xs font-bold rounded-2xl transition flex items-center justify-center gap-1.5 ${
-                tab === 'login'
-                  ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-soft'
-                  : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'
-              }`}
-            >
-              <LogIn className="w-3.5 h-3.5" />
-              <span>Sign In</span>
-            </button>
-
-            <button
-              onClick={() => { setTab('register'); setRegErrors({}); setRegSuccessBanner(null); }}
-              className={`flex-1 py-2 text-xs font-bold rounded-2xl transition flex items-center justify-center gap-1.5 ${
-                tab === 'register'
-                  ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-soft'
-                  : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'
-              }`}
-            >
-              <UserPlus className="w-3.5 h-3.5" />
-              <span>Register</span>
-            </button>
-
-            <button
-              onClick={() => { setTab('recovery'); setRecResult(null); }}
-              className={`flex-1 py-2 text-xs font-bold rounded-2xl transition flex items-center justify-center gap-1.5 ${
-                tab === 'recovery'
-                  ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-soft'
-                  : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'
-              }`}
-            >
-              <KeyRound className="w-3.5 h-3.5" />
-              <span>Recovery</span>
-            </button>
+          {/* Logo with Dove & Golden Typography */}
+          <div className="inline-flex items-center justify-center gap-3.5 mx-auto">
+            <ChurchDoveEmblem className="w-13 h-11 sm:w-14 sm:h-12" />
+            <div className="text-left border-l border-[#E5B358]/35 pl-3.5">
+              <div className="text-[10px] sm:text-[11px] font-sans tracking-[0.26em] text-[#E7DECD] uppercase font-semibold">
+                BEHOLDING
+              </div>
+              <div className="text-2xl sm:text-3xl font-serif font-black tracking-wider text-white leading-tight drop-shadow-sm">
+                JESUS
+              </div>
+              <div className="text-[9px] tracking-[0.35em] text-[#E5B358] font-bold uppercase flex items-center gap-1.5 mt-0.5">
+                <span className="w-3.5 h-[1px] bg-[#E5B358]/60" />
+                CHURCH
+                <span className="w-3.5 h-[1px] bg-[#E5B358]/60" />
+              </div>
+            </div>
           </div>
 
-          {/* ========================================================== */}
-          {/* TAB 1: LOGIN FORM                                          */}
-          {/* ========================================================== */}
-          {tab === 'login' && (
-            <div className="p-6 sm:p-8 space-y-4">
-              
-              {/* PENDING SUPER ADMIN APPROVAL VIEW */}
-              {pendingApprovalUser ? (
-                <div className="space-y-5 animate-fade-in text-center py-2">
-                  <div className="w-16 h-16 rounded-3xl bg-amber-500/10 border border-amber-500/20 text-gold flex items-center justify-center mx-auto shadow-inner">
-                    <Clock className="w-8 h-8 text-gold animate-pulse" />
-                  </div>
+          {/* Scripture Verse */}
+          <div className="pt-1.5 space-y-0.5">
+            <p className="font-serif italic text-xs sm:text-[13px] text-[#F3EAD9] font-medium tracking-wide">
+              &ldquo;Fix your eyes on Jesus...&rdquo;
+            </p>
+            <p className="text-[11px] font-serif text-[#E5B358] font-semibold tracking-wider">
+              Hebrews 12:2
+            </p>
+          </div>
+        </header>
 
-                  <div className="space-y-1.5">
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-[11px] font-bold uppercase tracking-wider">
-                      <span>Pending Admin Verification</span>
-                    </div>
-                    <h3 className="font-serif font-bold text-xl sm:text-2xl text-slate-900 dark:text-white">
+        {/* ============================================================== */}
+        {/* CENTER CARD / ACTIVE FORM VIEW                                 */}
+        {/* ============================================================== */}
+        <main className="my-auto py-4 space-y-4">
+
+          {/* ------------------------------------------------------------ */}
+          {/* VIEW 1: LOGIN (EXACT DESIGN MATCH)                           */}
+          {/* ------------------------------------------------------------ */}
+          {tab === 'login' && (
+            <div className="space-y-4 animate-fade-in">
+
+              {/* PENDING APPROVAL NOTICE */}
+              {pendingApprovalUser ? (
+                <div className="p-6 rounded-3xl bg-[#081c11]/80 backdrop-blur-md border border-amber-500/40 text-center space-y-4 shadow-xl">
+                  <div className="w-14 h-14 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center mx-auto text-[#E5B358]">
+                    <Clock className="w-7 h-7 text-[#E5B358] animate-pulse" />
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-amber-500/20 text-[#E5B358] font-bold uppercase tracking-wider">
+                      Pending Admin Verification
+                    </span>
+                    <h3 className="font-serif font-bold text-xl text-white pt-1">
                       Registration Under Review
                     </h3>
-                    <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 max-w-sm mx-auto leading-relaxed">
-                      Hello, <strong className="text-slate-900 dark:text-white">{pendingApprovalUser.name}</strong> (@{pendingApprovalUser.username})!
+                    <p className="text-xs text-[#D7CEBD] leading-relaxed max-w-xs mx-auto">
+                      God bless you, <span className="font-bold text-white">{pendingApprovalUser.name}</span>. Your ministry membership request is pending confirmation by our Pastoral Team.
                     </p>
                   </div>
-
-                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 text-left text-xs space-y-2">
-                    <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-700">
-                      <span className="text-slate-500">Account Type:</span>
-                      <span className="font-bold text-amber-600 dark:text-amber-400">Ministry Member</span>
-                    </div>
-                    <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-700">
-                      <span className="text-slate-500">Ministry Team:</span>
-                      <span className="font-bold text-slate-900 dark:text-white">
-                        {pendingApprovalUser.targetMinistryId === 'ministry-usher' 
-                          ? 'Ushering Team' 
-                          : pendingApprovalUser.targetMinistryId === 'ministry-multimedia' 
-                            ? 'Multimedia Team' 
-                            : 'Worship Team'}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-500">Approval Status:</span>
-                      <span className="font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                        <Clock className="w-3.5 h-3.5" /> Awaiting Super Admin Confirmation
-                      </span>
-                    </div>
-                  </div>
-
-                  <p className="text-[11px] text-slate-500 leading-relaxed max-w-sm mx-auto">
-                    To preserve sanctuary order and coordinated schedules, ministry registrations require confirmation by the church Super Admin. Once approved, you can sign in with full access.
-                  </p>
-
-                  <div className="pt-2 flex flex-col sm:flex-row gap-2">
-                    <button
-                      type="button"
-                      disabled={isLoggingIn}
-                      onClick={async () => {
-                        setIsLoggingIn(true);
-                        try {
-                          const res = await AuthService.login(loginUsername, loginPassword);
-                          if (res.success && res.user) {
-                            onAuthSuccess(res.user);
-                          } else if (res.isPendingApproval) {
-                            alert('Your account is still pending verification by the Super Admin. Please check back shortly!');
-                          } else {
-                            alert(res.error || 'Verification check failed.');
-                          }
-                        } finally {
-                          setIsLoggingIn(false);
-                        }
-                      }}
-                      className="flex-1 py-2.5 px-4 rounded-2xl bg-gold hover:bg-[#b08e57] text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 transition shadow-soft cursor-pointer"
-                    >
-                      <Sparkles className="w-4 h-4" />
-                      <span>{isLoggingIn ? 'Checking...' : 'Check Approval Status'}</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPendingApprovalUser(null);
-                        setLoginPassword('');
-                      }}
-                      className="py-2.5 px-4 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 font-bold text-xs transition cursor-pointer"
-                    >
-                      Back to Sign In
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPendingApprovalUser(null);
+                      setLoginPassword('');
+                    }}
+                    className="w-full py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs transition"
+                  >
+                    Back to Sign In
+                  </button>
                 </div>
               ) : (
                 <>
+                  {/* Greeting & Gold Cross Divider */}
+                  <div className="text-center space-y-1">
+                    <h1 className="font-serif font-bold text-3xl sm:text-4xl text-white tracking-wide drop-shadow-md">
+                      Welcome Back!
+                    </h1>
+                    <p className="text-xs sm:text-sm text-[#D7CEBD] font-sans">
+                      Be part of our church family.
+                    </p>
+
+                    {/* Gold Cross Divider: ——— ✝ ——— */}
+                    <div className="flex items-center justify-center gap-3 pt-2 pb-1">
+                      <div className="w-16 sm:w-24 h-[1px] bg-gradient-to-r from-transparent via-[#C5A46D] to-[#C5A46D]/40" />
+                      <span className="text-[#E5B358] text-base leading-none select-none drop-shadow-[0_0_8px_rgba(229,179,88,0.7)] font-serif">
+                        ✝
+                      </span>
+                      <div className="w-16 sm:w-24 h-[1px] bg-gradient-to-l from-transparent via-[#C5A46D] to-[#C5A46D]/40" />
+                    </div>
+                  </div>
+
                   {/* Success Banner */}
                   {regSuccessBanner && (
-                    <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/80 text-emerald-800 dark:text-emerald-300 text-xs flex items-start gap-2.5">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                    <div className="p-3 rounded-2xl bg-emerald-950/80 border border-emerald-500/50 backdrop-blur-md text-emerald-200 text-xs flex items-start gap-2.5 shadow-lg">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                       <div>
                         <div className="font-bold">Registration Successful</div>
                         <div className="text-[11px] mt-0.5 leading-relaxed">{regSuccessBanner}</div>
@@ -381,288 +406,304 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 
                   {/* Error Banner */}
                   {loginError && (
-                    <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/80 text-rose-800 dark:text-rose-300 text-xs flex items-start gap-2.5">
-                      <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+                    <div className="p-3 rounded-2xl bg-rose-950/80 border border-rose-500/50 backdrop-blur-md text-rose-200 text-xs flex items-start gap-2.5 shadow-lg">
+                      <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
                       <div className="flex-1">
                         <div className="font-bold">Sign In Notice</div>
                         <div className="text-[11px] mt-0.5 leading-relaxed">{loginError}</div>
-                        {loginError.includes('locked') && (
-                          <button
-                            type="button"
-                            onClick={() => setTab('recovery')}
-                            className="mt-2 inline-flex items-center gap-1 font-bold text-rose-700 dark:text-rose-300 underline text-[11px]"
-                          >
-                            Request Administrator Password Reset <ArrowRight className="w-3 h-3" />
-                          </button>
-                        )}
                       </div>
                     </div>
                   )}
 
-                  <form onSubmit={handleLogin} className="space-y-4">
-                    {/* Username Field */}
-                    <div className="space-y-1.5">
-                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                        Username
+                  {/* Login Form */}
+                  <form onSubmit={handleLogin} className="space-y-3.5">
+                    
+                    {/* 1. Username Field (Pill shape, dark emerald glass) */}
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-[#9FB5A6]">
+                        <User className="w-5 h-5 stroke-[1.75]" />
+                      </div>
+                      <input
+                        type="text"
+                        required
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        value={loginUsername}
+                        onChange={(e) => setLoginUsername(e.target.value)}
+                        placeholder="Username"
+                        className="w-full pl-12 pr-4 py-3.5 rounded-2xl bg-[#081810]/75 hover:bg-[#0b2116]/85 focus:bg-[#0c2418]/90 backdrop-blur-md border border-[#2d553d]/80 focus:border-[#E5B358] text-white placeholder:text-[#88A692] text-sm focus:outline-none focus:ring-2 focus:ring-[#E5B358]/40 transition shadow-inner"
+                      />
+                    </div>
+
+                    {/* 2. Password Field (Pill shape, dark emerald glass) */}
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-[#9FB5A6]">
+                        <Lock className="w-5 h-5 stroke-[1.75]" />
+                      </div>
+                      <input
+                        type={loginShowPassword ? 'text' : 'password'}
+                        required
+                        value={loginPassword}
+                        onChange={(e) => setLoginPassword(e.target.value)}
+                        placeholder="Password"
+                        className="w-full pl-12 pr-12 py-3.5 rounded-2xl bg-[#081810]/75 hover:bg-[#0b2116]/85 focus:bg-[#0c2418]/90 backdrop-blur-md border border-[#2d553d]/80 focus:border-[#E5B358] text-white placeholder:text-[#88A692] text-sm focus:outline-none focus:ring-2 focus:ring-[#E5B358]/40 transition shadow-inner"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setLoginShowPassword(!loginShowPassword)}
+                        className="absolute inset-y-0 right-0 pr-4 flex items-center text-[#9FB5A6] hover:text-[#E0D7C6] transition cursor-pointer"
+                        title={loginShowPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {loginShowPassword ? (
+                          <EyeOff className="w-5 h-5 stroke-[1.75]" />
+                        ) : (
+                          <Eye className="w-5 h-5 stroke-[1.75]" />
+                        )}
+                      </button>
+                    </div>
+
+                    {/* 3. Remember Me & Forgot Password Row */}
+                    <div className="flex items-center justify-between text-xs pt-1 px-1">
+                      <label className="flex items-center gap-2 cursor-pointer select-none text-[#D7CEBD] hover:text-white transition">
+                        <input
+                          type="checkbox"
+                          checked={rememberMe}
+                          onChange={(e) => setRememberMe(e.target.checked)}
+                          className="w-4 h-4 rounded border-[#385e44] bg-[#081810]/90 text-[#E5B358] focus:ring-[#E5B358] accent-[#E5B358] cursor-pointer"
+                        />
+                        <span className="font-medium">Remember Me</span>
                       </label>
-                      <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                          <User className="w-4 h-4" />
-                        </div>
-                        <input
-                          type="text"
-                          required
-                          autoCapitalize="none"
-                          autoCorrect="off"
-                          value={loginUsername}
-                          onChange={(e) => setLoginUsername(e.target.value)}
-                          placeholder="Enter username (e.g. johnmiko or member)"
-                          className="w-full pl-10 pr-3.5 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold transition"
-                        />
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setTab('recovery')}
+                        className="text-[#E5B358] hover:text-[#f8d48e] underline underline-offset-2 font-medium transition cursor-pointer"
+                      >
+                        Forgot Password?
+                      </button>
                     </div>
 
-                    {/* Password Field */}
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                          Password
-                        </label>
-                        <button
-                          type="button"
-                          onClick={() => setTab('recovery')}
-                          className="text-[11px] text-gold hover:underline font-semibold"
-                        >
-                          Forgot Password?
-                        </button>
-                      </div>
-                      <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                          <Lock className="w-4 h-4" />
-                        </div>
-                        <input
-                          type={loginShowPassword ? 'text' : 'password'}
-                          required
-                          value={loginPassword}
-                          onChange={(e) => setLoginPassword(e.target.value)}
-                          placeholder="Enter secure password"
-                          className="w-full pl-10 pr-10 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold transition"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setLoginShowPassword(!loginShowPassword)}
-                          className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                        >
-                          {loginShowPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Sign In Submit Button */}
+                    {/* 4. Main Login Button (Radiant Gold Gradient Pill) */}
                     <button
                       type="submit"
                       disabled={isLoggingIn}
-                      className="w-full py-3 rounded-2xl bg-primary hover:bg-slate-800 text-white font-bold text-xs sm:text-sm tracking-wider uppercase shadow-soft transition flex items-center justify-center gap-2 disabled:opacity-60"
+                      className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-[#F3C675] via-[#E5B358] to-[#C78B30] hover:from-[#fbe1b3] hover:to-[#db9d41] text-[#1a1204] font-bold text-base tracking-wide shadow-[0_4px_25px_rgba(229,179,88,0.35)] hover:shadow-[0_6px_30px_rgba(229,179,88,0.5)] active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 mt-1"
                     >
                       {isLoggingIn ? (
                         <>
-                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                          <span>Verifying Credentials...</span>
+                          <div className="w-4 h-4 border-2 border-[#1a1204]/40 border-t-[#1a1204] rounded-full animate-spin" />
+                          <span>Logging in...</span>
                         </>
                       ) : (
                         <>
-                          <span>Sign In to Church Portal</span>
-                          <ArrowRight className="w-4 h-4" />
+                          <span>Login</span>
+                          <span className="text-xl leading-none font-bold">›</span>
                         </>
                       )}
                     </button>
                   </form>
+
+                  {/* 5. Divider (or) */}
+                  <div className="relative flex items-center justify-center py-1">
+                    <div className="w-full border-t border-[#234330]/80" />
+                    <span className="px-3 bg-transparent text-[11px] text-[#A6BDAE] uppercase tracking-widest font-semibold">
+                      or
+                    </span>
+                    <div className="w-full border-t border-[#234330]/80" />
+                  </div>
+
+                  {/* 6. Admin Access Button (Outlined Golden Pill) */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      window.location.href = '/admin.html';
+                    }}
+                    className="w-full py-3 px-5 rounded-2xl border border-[#C5A46D]/60 hover:border-[#E5B358] bg-[#081810]/60 hover:bg-[#0c2317]/85 backdrop-blur-md transition-all flex items-center justify-center gap-3 group cursor-pointer shadow-soft"
+                  >
+                    <div className="w-8 h-8 rounded-xl bg-[#C5A46D]/15 border border-[#C5A46D]/40 text-[#E5B358] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                      <Shield className="w-4 h-4 text-[#E5B358]" />
+                    </div>
+                    <div className="text-left">
+                      <div className="text-white font-bold text-sm tracking-wide group-hover:text-[#F3C675] transition">
+                        Admin Access
+                      </div>
+                      <div className="text-[10px] text-[#C5A46D]/90 italic font-serif leading-none mt-0.5">
+                        For authorized administrators only
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* 7. Register Link */}
+                  <div className="text-center pt-2 text-xs text-[#D7CEBD]">
+                    <span>Don&apos;t have an account? </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTab('register');
+                        setRegErrors({});
+                        setRegSuccessBanner(null);
+                      }}
+                      className="font-bold text-[#E5B358] hover:text-[#f8d48e] underline underline-offset-2 transition ml-1 cursor-pointer"
+                    >
+                      Register Now
+                    </button>
+                  </div>
                 </>
               )}
 
             </div>
           )}
 
-          {/* ========================================================== */}
-          {/* TAB 2: REGISTRATION FORM                                   */}
-          {/* ========================================================== */}
+          {/* ------------------------------------------------------------ */}
+          {/* VIEW 2: REGISTRATION                                         */}
+          {/* ------------------------------------------------------------ */}
           {tab === 'register' && (
-            <div className="p-6 sm:p-8 space-y-4">
+            <div className="p-5 sm:p-6 rounded-3xl bg-[#081c11]/85 backdrop-blur-md border border-[#2d553d]/80 space-y-4 animate-fade-in shadow-2xl">
               
-              <div className="text-xs text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 space-y-1">
-                <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                  <Shield className="w-3.5 h-3.5 text-gold" />
-                  <span>Church Registration & Role Selection</span>
-                </div>
-                <p className="text-[11px] leading-relaxed">
-                  Join the body of Beholding Jesus Church. Register as a Church Member for immediate access, or apply as a Ministry Member to serve on our worship, ushering, or multimedia teams (pending Super Admin verification).
+              <div className="text-center space-y-1">
+                <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-[#E5B358]/20 text-[#E5B358] font-bold uppercase tracking-wider">
+                  New Member Signup
+                </span>
+                <h2 className="font-serif font-bold text-2xl text-white">
+                  Join Our Church Family
+                </h2>
+                <p className="text-xs text-[#D7CEBD]">
+                  Connect with worship, fellowship, prayer, and discipleship.
                 </p>
               </div>
 
               {regErrors.form && (
-                <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
+                <div className="p-3 rounded-2xl bg-rose-950/80 border border-rose-500/50 text-rose-200 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
                   <span>{regErrors.form}</span>
                 </div>
               )}
 
               <form onSubmit={handleRegister} className="space-y-3.5">
-                {/* Role Choice: Church Member vs Ministry Member */}
+                
+                {/* Role choice */}
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  <label className="block text-xs font-bold text-[#E0D7C6]">
                     Registering As *
                   </label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
                       onClick={() => setRegRole('regular_member')}
-                      className={`p-3.5 rounded-2xl border text-left transition cursor-pointer flex flex-col justify-between ${
+                      className={`p-3 rounded-2xl border text-left transition cursor-pointer flex flex-col justify-between ${
                         regRole === 'regular_member'
-                          ? 'bg-primary text-white border-primary shadow-soft ring-2 ring-gold/40'
-                          : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 hover:border-gold/50 text-slate-700 dark:text-slate-300'
+                          ? 'bg-[#E5B358] text-[#1a1204] border-[#E5B358] font-bold shadow-md'
+                          : 'bg-[#06140b]/70 border-[#2d553d] text-[#D7CEBD] hover:border-[#E5B358]/60'
                       }`}
                     >
                       <div className="flex items-center justify-between">
-                        <Users className="w-4 h-4 text-gold" />
-                        <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded ${
-                          regRole === 'regular_member' ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-500'
-                        }`}>
-                          Immediate Login
-                        </span>
+                        <Users className="w-4 h-4" />
+                        <span className="text-[9px] uppercase px-1.5 py-0.2 rounded bg-black/15 font-semibold">Immediate</span>
                       </div>
-                      <div className="mt-2.5">
-                        <div className="font-bold text-xs">Church Member</div>
-                        <p className={`text-[10px] mt-0.5 leading-snug ${regRole === 'regular_member' ? 'text-slate-300' : 'text-slate-500'}`}>
-                          Standard congregation member. Sign in immediately to Scripture, prayer chain, and fellowship feed.
-                        </p>
-                      </div>
+                      <div className="text-xs font-bold mt-1">Church Member</div>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => setRegRole('ministry_member')}
-                      className={`p-3.5 rounded-2xl border text-left transition cursor-pointer flex flex-col justify-between ${
+                      className={`p-3 rounded-2xl border text-left transition cursor-pointer flex flex-col justify-between ${
                         regRole === 'ministry_member'
-                          ? 'bg-primary text-white border-primary shadow-soft ring-2 ring-gold/40'
-                          : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 hover:border-gold/50 text-slate-700 dark:text-slate-300'
+                          ? 'bg-[#E5B358] text-[#1a1204] border-[#E5B358] font-bold shadow-md'
+                          : 'bg-[#06140b]/70 border-[#2d553d] text-[#D7CEBD] hover:border-[#E5B358]/60'
                       }`}
                     >
                       <div className="flex items-center justify-between">
-                        <Sparkles className="w-4 h-4 text-gold" />
-                        <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded ${
-                          regRole === 'ministry_member' ? 'bg-amber-500/30 text-amber-300' : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-400'
-                        }`}>
-                          Admin Approval
-                        </span>
+                        <Sparkles className="w-4 h-4" />
+                        <span className="text-[9px] uppercase px-1.5 py-0.2 rounded bg-black/15 font-semibold">Review</span>
                       </div>
-                      <div className="mt-2.5">
-                        <div className="font-bold text-xs">Ministry Member</div>
-                        <p className={`text-[10px] mt-0.5 leading-snug ${regRole === 'ministry_member' ? 'text-slate-300' : 'text-slate-500'}`}>
-                          Serve in Worship, Ushering, or Multimedia. Account requires Super Admin verification before activation.
-                        </p>
-                      </div>
+                      <div className="text-xs font-bold mt-1">Ministry Member</div>
                     </button>
                   </div>
                 </div>
 
-                {/* If Ministry Member is chosen, show ministry picker & message */}
+                {/* If Ministry Member */}
                 {regRole === 'ministry_member' && (
-                  <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-3 animate-fade-in text-xs">
-                    <div className="space-y-1">
-                      <label className="block text-xs font-bold text-slate-800 dark:text-slate-200">
-                        Select Ministry Team *
+                  <div className="p-3.5 rounded-2xl bg-[#0c2417]/80 border border-[#E5B358]/40 space-y-2.5 text-xs">
+                    <div>
+                      <label className="block text-[11px] font-bold text-[#E5B358]">
+                        Choose Ministry Team *
                       </label>
                       <select
                         value={regMinistryId}
                         onChange={(e) => setRegMinistryId(e.target.value as any)}
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-900 dark:text-white outline-none"
+                        className="w-full mt-1 px-3 py-2 rounded-xl bg-[#07150c] border border-[#2d553d] text-white text-xs outline-none"
                       >
-                        <option value="ministry-worship">Worship Team (Praise, Vocals & Band)</option>
-                        <option value="ministry-usher">Ushering Team (Hospitality & Greeters)</option>
-                        <option value="ministry-multimedia">Multimedia Team (Sound, Slides & Livestream)</option>
+                        <option value="ministry-worship">Worship Team (Praise & Vocals)</option>
+                        <option value="ministry-usher">Ushering Team (Hospitality & Welcome)</option>
+                        <option value="ministry-multimedia">Multimedia Team (Sound & Tech)</option>
                       </select>
                     </div>
-
-                    <div className="space-y-1">
-                      <label className="block text-xs font-bold text-slate-800 dark:text-slate-200">
-                        Service Heart & Experience / Message (Optional)
+                    <div>
+                      <label className="block text-[11px] font-bold text-[#E5B358]">
+                        Heart to Serve / Note (Optional)
                       </label>
                       <textarea
                         value={regMinistryMessage}
                         onChange={(e) => setRegMinistryMessage(e.target.value)}
-                        placeholder="Tell leadership about your heart to serve, instruments played, vocal range, or technical AV skills..."
-                        className="w-full p-2.5 rounded-xl border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 h-20 outline-none"
+                        placeholder="Tell leadership about your instrument, vocals, or heart to serve..."
+                        rows={2}
+                        className="w-full mt-1 p-2 rounded-xl bg-[#07150c] border border-[#2d553d] text-white text-xs outline-none resize-none placeholder:text-[#6e8a77]"
                       />
-                    </div>
-
-                    <div className="text-[11px] text-amber-800 dark:text-amber-300 flex items-start gap-1.5 leading-snug pt-1">
-                      <Clock className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-600" />
-                      <span>Upon registration, your account will be pending confirmation by the Super Admin in the Admin Dashboard.</span>
                     </div>
                   </div>
                 )}
 
-                {/* 1. Full Name */}
+                {/* Full Name */}
                 <div className="space-y-1">
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                    1. Full Name *
+                  <label className="block text-xs font-bold text-[#E0D7C6]">
+                    Full Name *
                   </label>
                   <input
                     type="text"
                     required
                     value={regFullName}
                     onChange={(e) => setRegFullName(e.target.value)}
-                    placeholder="e.g. Timothy Reyes"
-                    className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold transition"
+                    placeholder="e.g. John Emmanuel"
+                    className="w-full px-4 py-2.5 rounded-2xl bg-[#07150c] border border-[#2d553d] text-white placeholder:text-[#6e8a77] text-xs sm:text-sm focus:outline-none focus:border-[#E5B358]"
                   />
                   {regErrors.fullName && (
-                    <p className="text-[11px] text-rose-500 font-medium">{regErrors.fullName}</p>
+                    <p className="text-[10px] text-rose-400">{regErrors.fullName}</p>
                   )}
                 </div>
 
-                {/* 2. Unique Username */}
+                {/* Username */}
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                      2. Choose Username *
+                    <label className="block text-xs font-bold text-[#E0D7C6]">
+                      Username *
                     </label>
                     {usernameStatus.checked && (
-                      <span className={`text-[10px] font-bold flex items-center gap-1 ${
-                        usernameStatus.available ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500'
+                      <span className={`text-[10px] font-bold ${
+                        usernameStatus.available ? 'text-emerald-400' : 'text-rose-400'
                       }`}>
-                        {usernameStatus.available ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
-                        <span>{usernameStatus.message}</span>
+                        {usernameStatus.message}
                       </span>
                     )}
                   </div>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 font-bold text-xs">
-                      @
-                    </div>
-                    <input
-                      type="text"
-                      required
-                      autoCapitalize="none"
-                      autoCorrect="off"
-                      value={regUsername}
-                      onChange={(e) => setRegUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_.]/g, ''))}
-                      placeholder="timothy (3-20 letters/numbers)"
-                      className="w-full pl-8 pr-3.5 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold transition"
-                    />
-                  </div>
+                  <input
+                    type="text"
+                    required
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    value={regUsername}
+                    onChange={(e) => setRegUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_.]/g, ''))}
+                    placeholder="e.g. johnemmanuel (letters & numbers)"
+                    className="w-full px-4 py-2.5 rounded-2xl bg-[#07150c] border border-[#2d553d] text-white placeholder:text-[#6e8a77] text-xs sm:text-sm focus:outline-none focus:border-[#E5B358]"
+                  />
                   {regErrors.username && (
-                    <p className="text-[11px] text-rose-500 font-medium">{regErrors.username}</p>
+                    <p className="text-[10px] text-rose-400">{regErrors.username}</p>
                   )}
                 </div>
 
-                {/* 3. Password */}
+                {/* Password */}
                 <div className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                      3. Create Password *
-                    </label>
-                    <span className="text-[10px] text-slate-400">Min 8 chars, letters & numbers</span>
-                  </div>
+                  <label className="block text-xs font-bold text-[#E0D7C6]">
+                    Password * (Min 8 chars)
+                  </label>
                   <div className="relative">
                     <input
                       type={regShowPassword ? 'text' : 'password'}
@@ -670,24 +711,24 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                       value={regPassword}
                       onChange={(e) => setRegPassword(e.target.value)}
                       placeholder="At least 8 characters"
-                      className="w-full px-3.5 pr-10 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold transition"
+                      className="w-full px-4 pr-10 py-2.5 rounded-2xl bg-[#07150c] border border-[#2d553d] text-white placeholder:text-[#6e8a77] text-xs sm:text-sm focus:outline-none focus:border-[#E5B358]"
                     />
                     <button
                       type="button"
                       onClick={() => setRegShowPassword(!regShowPassword)}
-                      className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                      className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-[#9FB5A6]"
                     >
                       {regShowPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
                   {regErrors.password && (
-                    <p className="text-[11px] text-rose-500 font-medium">{regErrors.password}</p>
+                    <p className="text-[10px] text-rose-400">{regErrors.password}</p>
                   )}
                 </div>
 
-                {/* 4. Confirm Password */}
+                {/* Confirm Password */}
                 <div className="space-y-1">
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  <label className="block text-xs font-bold text-[#E0D7C6]">
                     Confirm Password *
                   </label>
                   <input
@@ -695,79 +736,69 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                     required
                     value={regConfirmPassword}
                     onChange={(e) => setRegConfirmPassword(e.target.value)}
-                    placeholder="Re-enter password to confirm"
-                    className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold transition"
+                    placeholder="Re-enter password"
+                    className="w-full px-4 py-2.5 rounded-2xl bg-[#07150c] border border-[#2d553d] text-white placeholder:text-[#6e8a77] text-xs sm:text-sm focus:outline-none focus:border-[#E5B358]"
                   />
                   {regErrors.confirmPassword && (
-                    <p className="text-[11px] text-rose-500 font-medium">{regErrors.confirmPassword}</p>
+                    <p className="text-[10px] text-rose-400">{regErrors.confirmPassword}</p>
                   )}
                 </div>
 
-                {/* Submit Registration Button */}
+                {/* Register Submit */}
                 <button
                   type="submit"
                   disabled={isRegistering || (usernameStatus.checked && !usernameStatus.available)}
-                  className="w-full mt-2 py-3 rounded-2xl bg-gold hover:bg-[#b08e57] text-slate-950 font-bold text-xs sm:text-sm tracking-wider uppercase shadow-soft transition flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-[#F3C675] via-[#E5B358] to-[#C78B30] text-[#1a1204] font-bold text-sm tracking-wide shadow-lg hover:brightness-105 transition disabled:opacity-50 cursor-pointer mt-1"
                 >
-                  {isRegistering ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-slate-950/30 border-t-slate-950 rounded-full animate-spin"></div>
-                      <span>Creating Church Identity...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>Complete Registration</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </>
-                  )}
+                  {isRegistering ? 'Registering Account...' : 'Complete Registration ›'}
                 </button>
               </form>
 
-              <div className="text-center pt-2 text-xs text-slate-500">
+              <div className="text-center pt-1 text-xs text-[#D7CEBD]">
                 Already registered?{' '}
                 <button
                   type="button"
                   onClick={() => setTab('login')}
-                  className="text-gold font-bold hover:underline"
+                  className="text-[#E5B358] font-bold hover:underline"
                 >
-                  Sign In
+                  Sign In Here
                 </button>
               </div>
 
             </div>
           )}
 
-          {/* ========================================================== */}
-          {/* TAB 3: ACCOUNT RECOVERY FORM                               */}
-          {/* ========================================================== */}
+          {/* ------------------------------------------------------------ */}
+          {/* VIEW 3: RECOVERY                                             */}
+          {/* ------------------------------------------------------------ */}
           {tab === 'recovery' && (
-            <div className="p-6 sm:p-8 space-y-4">
+            <div className="p-5 sm:p-6 rounded-3xl bg-[#081c11]/85 backdrop-blur-md border border-[#2d553d]/80 space-y-4 animate-fade-in shadow-2xl">
               
-              <div className="text-xs text-slate-600 dark:text-slate-400 bg-amber-50/70 dark:bg-slate-800/60 p-3.5 rounded-2xl border border-gold/30 space-y-1">
-                <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5 text-gold-dark dark:text-gold">
-                  <HelpCircle className="w-4 h-4 text-gold" />
-                  <span>Pastoral Account Assistance</span>
-                </div>
-                <p className="text-[11px] leading-relaxed">
-                  For spiritual accountability and security, password resets are verified and resolved by church pastoral leadership. Submit your username and reason below.
+              <div className="text-center space-y-1">
+                <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-[#E5B358]/20 text-[#E5B358] font-bold uppercase tracking-wider">
+                  Account Assistance
+                </span>
+                <h2 className="font-serif font-bold text-2xl text-white">
+                  Reset Password
+                </h2>
+                <p className="text-xs text-[#D7CEBD]">
+                  Pastoral administrators will verify and restore your access.
                 </p>
               </div>
 
               {recResult && (
-                <div className={`p-3.5 rounded-2xl text-xs flex items-start gap-2.5 ${
+                <div className={`p-3 rounded-2xl text-xs flex items-start gap-2.5 ${
                   recResult.type === 'success'
-                    ? 'bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300'
-                    : 'bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300'
+                    ? 'bg-emerald-950/80 border border-emerald-500/50 text-emerald-200'
+                    : 'bg-rose-950/80 border border-rose-500/50 text-rose-200'
                 }`}>
                   {recResult.type === 'success' ? (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                   ) : (
-                    <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+                    <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
                   )}
                   <div>
-                    <div className="font-bold">
-                      {recResult.type === 'success' ? 'Request Submitted' : 'Notice'}
-                    </div>
+                    <div className="font-bold">{recResult.type === 'success' ? 'Submitted' : 'Notice'}</div>
                     <div className="text-[11px] mt-0.5 leading-relaxed">{recResult.message}</div>
                   </div>
                 </div>
@@ -775,60 +806,48 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 
               <form onSubmit={handleRecoverySubmit} className="space-y-3.5">
                 <div className="space-y-1">
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  <label className="block text-xs font-bold text-[#E0D7C6]">
                     Church Username *
                   </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 text-xs font-bold">
-                      @
-                    </div>
-                    <input
-                      type="text"
-                      required
-                      value={recUsername}
-                      onChange={(e) => setRecUsername(e.target.value.toLowerCase())}
-                      placeholder="Enter registered username"
-                      className="w-full pl-8 pr-3.5 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold transition"
-                    />
-                  </div>
+                  <input
+                    type="text"
+                    required
+                    value={recUsername}
+                    onChange={(e) => setRecUsername(e.target.value.toLowerCase())}
+                    placeholder="Enter registered username"
+                    className="w-full px-4 py-2.5 rounded-2xl bg-[#07150c] border border-[#2d553d] text-white placeholder:text-[#6e8a77] text-xs sm:text-sm focus:outline-none focus:border-[#E5B358]"
+                  />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                    Reason for Recovery Request *
+                  <label className="block text-xs font-bold text-[#E0D7C6]">
+                    Reason for Recovery *
                   </label>
                   <textarea
                     required
                     rows={3}
                     value={recReason}
                     onChange={(e) => setRecReason(e.target.value)}
-                    placeholder="e.g. Changed mobile phone and forgot password. Need access for youth fellowship."
-                    className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold transition resize-none"
+                    placeholder="e.g. Changed phone, need access for Sunday service..."
+                    className="w-full p-3 rounded-2xl bg-[#07150c] border border-[#2d553d] text-white placeholder:text-[#6e8a77] text-xs sm:text-sm focus:outline-none focus:border-[#E5B358] resize-none"
                   />
                 </div>
 
                 <button
                   type="submit"
                   disabled={isRecovering}
-                  className="w-full py-3 rounded-2xl bg-primary hover:bg-slate-800 text-white font-bold text-xs sm:text-sm tracking-wider uppercase shadow-soft transition flex items-center justify-center gap-2 disabled:opacity-60"
+                  className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-[#F3C675] via-[#E5B358] to-[#C78B30] text-[#1a1204] font-bold text-sm tracking-wide shadow-lg hover:brightness-105 transition disabled:opacity-50 cursor-pointer"
                 >
-                  {isRecovering ? (
-                    <span>Submitting to Pastoral Team...</span>
-                  ) : (
-                    <>
-                      <span>Submit Recovery Request</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </>
-                  )}
+                  {isRecovering ? 'Submitting Request...' : 'Send Recovery Request ›'}
                 </button>
               </form>
 
-              <div className="pt-2 text-center text-xs text-slate-500">
+              <div className="text-center pt-1 text-xs text-[#D7CEBD]">
                 Remember your password?{' '}
                 <button
                   type="button"
                   onClick={() => setTab('login')}
-                  className="text-gold font-bold hover:underline"
+                  className="text-[#E5B358] font-bold hover:underline"
                 >
                   Back to Sign In
                 </button>
@@ -837,37 +856,35 @@ export const AuthPage: React.FC<AuthPageProps> = ({
             </div>
           )}
 
-        </div>
+        </main>
 
-        {/* Mobile App Download Card */}
-        <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-md rounded-2xl p-4 border border-gold/30 dark:border-gold/20 shadow-soft flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-gold/20 to-gold/10 flex items-center justify-center text-gold flex-shrink-0 shadow-inner">
-              <Smartphone className="w-5 h-5" />
+        {/* ============================================================== */}
+        {/* FOOTER & MOBILE PWA SHORTCUT                                   */}
+        {/* ============================================================== */}
+        <footer className="pt-3 pb-2 text-center space-y-2.5">
+          
+          {/* Subtle Mobile App Promo Pill */}
+          <div className="inline-flex items-center justify-between gap-3 px-3.5 py-1.5 rounded-full bg-[#081810]/70 border border-[#C5A46D]/30 backdrop-blur-md mx-auto shadow-sm">
+            <div className="flex items-center gap-2 text-left">
+              <Smartphone className="w-3.5 h-3.5 text-[#E5B358]" />
+              <span className="text-[10px] text-[#D7CEBD]">
+                Install BJC Church Mobile App
+              </span>
             </div>
-            <div className="text-left">
-              <p className="text-xs font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
-                Get BJC Mobile App
-                <span className="text-[10px] font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 px-1.5 py-0.5 rounded-full">iOS & Android</span>
-              </p>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">Install directly to your phone screen</p>
-            </div>
+            <button
+              type="button"
+              onClick={() => setIsDownloadModalOpen(true)}
+              className="text-[10px] font-bold text-[#E5B358] hover:underline flex items-center gap-1 cursor-pointer"
+            >
+              <span>Install</span>
+              <Download className="w-3 h-3" />
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => setIsDownloadModalOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-2 bg-gold hover:bg-gold/90 text-slate-900 rounded-xl font-bold text-xs shadow-sm transition active:scale-95 flex-shrink-0"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>Install</span>
-          </button>
-        </div>
 
-        {/* Footer */}
-        <div className="text-center text-xs text-slate-400 space-y-1">
-          <p>© {new Date().getFullYear()} Beholding Jesus Church. All rights reserved.</p>
-          <p className="text-[11px] text-slate-400/80">A place of worship, discipleship, and prayer.</p>
-        </div>
+          <div className="text-[10px] text-[#8AA492]/80">
+            © {new Date().getFullYear()} Beholding Jesus Church • Bacoor, Cavite
+          </div>
+        </footer>
 
       </div>
 
