@@ -41,7 +41,7 @@ export const BibleView: React.FC<BibleViewProps> = ({
   const [currentChapter, setCurrentChapter] = useState<number>(() => {
     return initialChapter || 3;
   });
-  const [selectedTranslation, setSelectedTranslation] = useState<BibleTranslationCode>('NIV');
+  const [selectedTranslation, setSelectedTranslation] = useState<BibleTranslationCode>('NKJV');
   const [comparisonTranslation, setComparisonTranslation] = useState<BibleTranslationCode>('KJV');
   const [viewMode, setViewMode] = useState<'single' | 'parallel' | 'compare-verse'>('single');
 
@@ -722,7 +722,7 @@ Please answer pastorally and expositorily, grounded in Scripture.`;
           <div className="relative group">
             <button
               onClick={() => {
-                const codes: BibleTranslationCode[] = ['NIV', 'KJV', 'ESV', 'NLT', 'WEB', 'ASV', 'NKJV', 'NASB', 'FSV'];
+                const codes: BibleTranslationCode[] = ['NKJV', 'KJV', 'NIV', 'ESV', 'NLT', 'WEB', 'FSV'];
                 const nextIdx = (codes.indexOf(selectedTranslation) + 1) % codes.length;
                 setSelectedTranslation(codes[nextIdx]);
               }}
@@ -1168,6 +1168,17 @@ Please answer pastorally and expositorily, grounded in Scripture.`;
           {/* SINGLE TRANSLATION CONTINUOUS FLOW */}
           {/* ============================================================== */}
           {viewMode === 'single' ? (
+            verses.length === 0 ? (
+              <div className="py-24 flex flex-col items-center justify-center gap-4 text-center">
+                <div className="w-12 h-12 rounded-full bg-[#C5A46D]/15 border border-[#C5A46D]/30 flex items-center justify-center text-[#C5A46D]">
+                  <Loader2 className="w-6 h-6 animate-spin text-[#C5A46D]" />
+                </div>
+                <div className="space-y-1">
+                  <div className="font-serif font-bold text-lg text-white">Opening Scripture...</div>
+                  <div className="text-xs text-neutral-400">Loading {selectedBook.name} {currentChapter} ({selectedTranslation})</div>
+                </div>
+              </div>
+            ) : (
             <div 
               key={`${selectedBook.id}-${currentChapter}-${selectedTranslation}`}
               className={`leading-relaxed space-y-4 animate-in fade-in duration-200 ${
@@ -1231,6 +1242,7 @@ Please answer pastorally and expositorily, grounded in Scripture.`;
                 );
               })}
             </div>
+            )
           ) : (
             /* Parallel 2-Column Comparison View */
             <div 

@@ -10,143 +10,202 @@ const STORAGE_NOTES = 'bjc_bible_notes_v1';
 const STORAGE_HISTORY = 'bjc_bible_history_v1';
 
 export class BibleService {
+  // In-memory cache for parsed chapter verses
   private static memoryCache: Map<string, BibleVerse[]> = new Map();
 
-  // Asynchronously fetch authentic Scripture from API or cache
+  // In-memory cache for full book JSONs: key is `${translation}:${bookId}` -> { [chapter]: { [verse]: text } }
+  private static bookCache: Map<string, Record<string, Record<string, string>>> = new Map();
+
+  // In-flight fetch promises to prevent duplicate simultaneous network requests
+  private static loadingPromises: Map<string, Promise<Record<string, Record<string, string>> | null>> = new Map();
+
+  // -------------------------------------------------------------
+  // 1. ASYNC BOOK DATA LOADER
+  // -------------------------------------------------------------
+  static async loadBookData(
+    bookId: string,
+    translation: BibleTranslationCode = 'NKJV'
+  ): Promise<Record<string, Record<string, string>> | null> {
+    const key = `${translation.toUpperCase()}:${bookId.toUpperCase()}`;
+
+    // 1. Check in-memory book cache
+    if (this.bookCache.has(key)) {
+      return this.bookCache.get(key)!;
+    }
+
+    // 2. Check in-flight promise
+    if (this.loadingPromises.has(key)) {
+      return this.loadingPromises.get(key)!;
+    }
+
+    // 3. Initiate fetch for local static book file
+    const promise = (async () => {
+      // Normalize translation code for URL
+      const transFolder = translation.toLowerCase();
+      const primaryUrl = `/bible/${transFolder}/${bookId.toUpperCase()}.json`;
+
+      try {
+        let res = await fetch(primaryUrl);
+        if (!res.ok) {
+          // If translation not stored locally (e.g. FSV/ASV), fallback to NKJV then KJV
+          const fallbackTrans = transFolder !== 'nkjv' ? 'nkjv' : 'kjv';
+          res = await fetch(`/bible/${fallbackTrans}/${bookId.toUpperCase()}.json`);
+        }
+
+        if (res.ok) {
+          const chapters = await res.json();
+          if (chapters && typeof chapters === 'object') {
+            this.bookCache.set(key, chapters);
+            return chapters;
+          }
+        }
+      } catch (err) {
+        console.warn(`Could not load local scripture file for ${key}:`, err);
+      } finally {
+        this.loadingPromises.delete(key);
+      }
+
+      return null;
+    })();
+
+    this.loadingPromises.set(key, promise);
+    return promise;
+  }
+
+  // -------------------------------------------------------------
+  // 2. FETCH CHAPTER VERSES (Complete Scripture)
+  // -------------------------------------------------------------
   static async fetchChapterVerses(
     bookId: string,
     chapter: number,
-    translation: BibleTranslationCode = 'KJV'
+    translation: BibleTranslationCode = 'NKJV'
   ): Promise<BibleVerse[]> {
-    const book = BIBLE_BOOKS.find(b => b.id === bookId);
+    const book = BIBLE_BOOKS.find(b => b.id.toUpperCase() === bookId.toUpperCase());
     const bookName = book ? book.name : bookId;
-    const cacheKey = `${bookId}:${chapter}:${translation}`;
+    const cacheKey = `${bookId.toUpperCase()}:${chapter}:${translation.toUpperCase()}`;
 
-    // 1. Check in-memory cache
+    // 1. Return from in-memory verse cache if available
     if (this.memoryCache.has(cacheKey)) {
       return this.memoryCache.get(cacheKey)!;
     }
 
-    // 2. Check curated verses (John 3, Romans 8, Psalm 23, Colossians 1, Matthew 5, Philippians 4)
-    const prefix = `${bookId}:${chapter}:`;
-    const curatedKeys = Object.keys(CURATED_VERSES).filter(k => k.startsWith(prefix));
-    if (curatedKeys.length > 0) {
-      const curated = this.getChapterVerses(bookId, chapter, translation);
+    // 2. Load the entire book data from static JSON
+    const bookData = await this.loadBookData(bookId, translation);
+
+    if (bookData) {
+      const chapterData = bookData[chapter] || bookData[String(chapter)];
+      if (chapterData && typeof chapterData === 'object') {
+        const chapterKey = `${bookId.toUpperCase()}:${chapter}`;
+        const sectionList = CHAPTER_SECTIONS[chapterKey];
+        const isGospel = ['MAT', 'MRK', 'LUK', 'JHN'].includes(bookId.toUpperCase());
+
+        const verses: BibleVerse[] = Object.entries(chapterData).map(([vStr, text]) => {
+          const vNum = parseInt(vStr, 10);
+          const fullKey = `${bookId.toUpperCase()}:${chapter}:${vNum}`;
+          const section = sectionList?.find(s => s.verse === vNum);
+          const footnote = VERSE_FOOTNOTES[fullKey];
+          const redCfg = RED_LETTER_CONFIG[fullKey];
+
+          return {
+            book: bookName,
+            chapter,
+            verse: vNum,
+            text: (text || '').replace(/\s+/g, ' ').trim(),
+            translation,
+            sectionTitle: section?.title,
+            isJesusWords: redCfg?.all ?? (isGospel && redCfg ? true : false),
+            redSegments: redCfg?.segments,
+            hasNote: !!footnote,
+            footnote
+          };
+        });
+
+        // Ensure numerical order of verses
+        verses.sort((a, b) => a.verse - b.verse);
+
+        // Cache in memory for subsequent instant accesses
+        this.memoryCache.set(cacheKey, verses);
+        return verses;
+      }
+    }
+
+    // 3. Fallback to curated verses if available
+    const curated = this.getChapterVerses(bookId, chapter, translation);
+    if (curated.length > 0) {
       this.memoryCache.set(cacheKey, curated);
       return curated;
     }
 
-    // 3. Check persistent localStorage cache
-    try {
-      const localCached = localStorage.getItem(`bjc_bible_v2_${cacheKey}`);
-      if (localCached) {
-        const parsed = JSON.parse(localCached);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          this.memoryCache.set(cacheKey, parsed);
-          return parsed;
-        }
-      }
-    } catch {
-      // Storage unavailable or disabled
-    }
-
-    // 4. Fetch full authentic Scripture text from bible-api.com
-    try {
-      let apiTrans = 'kjv';
-      if (translation === 'WEB') apiTrans = 'web';
-      else if (translation === 'KJV') apiTrans = 'kjv';
-      else if (['NIV', 'ESV', 'NLT', 'NASB', 'NKJV', 'ASV'].includes(translation)) {
-        apiTrans = 'web';
-      }
-
-      const formattedBook = encodeURIComponent(bookName.toLowerCase().replace(/\s+/g, '+'));
-      const url = `https://bible-api.com/${formattedBook}+${chapter}?translation=${apiTrans}`;
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 7000);
-
-      const res = await fetch(url, { signal: controller.signal });
-      clearTimeout(timeoutId);
-
-      if (res.ok) {
-        const data = await res.json();
-        if (data && Array.isArray(data.verses) && data.verses.length > 0) {
-          const chapterKey = `${bookId}:${chapter}`;
-          const sectionList = CHAPTER_SECTIONS[chapterKey];
-          const isGospel = ['MAT', 'MRK', 'LUK', 'JHN'].includes(bookId);
-
-          const fetchedVerses: BibleVerse[] = data.verses.map((item: any) => {
-            const vNum = item.verse;
-            const fullKey = `${bookId}:${chapter}:${vNum}`;
-            const section = sectionList?.find(s => s.verse === vNum);
-            const footnote = VERSE_FOOTNOTES[fullKey];
-            const redCfg = RED_LETTER_CONFIG[fullKey];
-
-            return {
-              book: bookName,
-              chapter,
-              verse: vNum,
-              text: (item.text || '').replace(/\s+/g, ' ').trim(),
-              translation,
-              sectionTitle: section?.title,
-              isJesusWords: redCfg?.all ?? (isGospel && redCfg ? true : false),
-              redSegments: redCfg?.segments,
-              hasNote: !!footnote,
-              footnote
-            };
-          });
-
-          // Cache in memory and localStorage for instant offline access
-          this.memoryCache.set(cacheKey, fetchedVerses);
-          try {
-            localStorage.setItem(`bjc_bible_v2_${cacheKey}`, JSON.stringify(fetchedVerses));
-          } catch {}
-
-          return fetchedVerses;
-        }
-      }
-    } catch (err) {
-      console.warn('Network fetch for Scripture failed, falling back to local text:', err);
-    }
-
-    // 5. Fallback to synchronous local text
-    return this.getChapterVerses(bookId, chapter, translation);
+    return [];
   }
 
-  // Fetch verses for a chapter synchronously (cache or curated fallback)
-  static getChapterVerses(bookId: string, chapter: number, translation: BibleTranslationCode = 'KJV'): BibleVerse[] {
-    const cacheKey = `${bookId}:${chapter}:${translation}`;
+  // -------------------------------------------------------------
+  // 3. SYNCHRONOUS CHAPTER VERSES (Memory or Curated Cache)
+  // -------------------------------------------------------------
+  static getChapterVerses(
+    bookId: string,
+    chapter: number,
+    translation: BibleTranslationCode = 'NKJV'
+  ): BibleVerse[] {
+    const cacheKey = `${bookId.toUpperCase()}:${chapter}:${translation.toUpperCase()}`;
     if (this.memoryCache.has(cacheKey)) {
       return this.memoryCache.get(cacheKey)!;
     }
 
-    try {
-      const localCached = localStorage.getItem(`bjc_bible_v2_${cacheKey}`);
-      if (localCached) {
-        const parsed = JSON.parse(localCached);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          this.memoryCache.set(cacheKey, parsed);
-          return parsed;
-        }
-      }
-    } catch {}
-
-    const verses: BibleVerse[] = [];
-    const book = BIBLE_BOOKS.find(b => b.id === bookId);
+    const book = BIBLE_BOOKS.find(b => b.id.toUpperCase() === bookId.toUpperCase());
     const bookName = book ? book.name : bookId;
-    const chapterKey = `${bookId}:${chapter}`;
-    const sectionList = CHAPTER_SECTIONS[chapterKey];
+    const bookKey = `${translation.toUpperCase()}:${bookId.toUpperCase()}`;
 
-    // Check curated verses for this book:chapter
-    const prefix = `${bookId}:${chapter}:`;
+    // 1. Check if the book was already parsed in bookCache
+    if (this.bookCache.has(bookKey)) {
+      const bookData = this.bookCache.get(bookKey)!;
+      const chapterData = bookData[chapter] || bookData[String(chapter)];
+      if (chapterData && typeof chapterData === 'object') {
+        const chapterKey = `${bookId.toUpperCase()}:${chapter}`;
+        const sectionList = CHAPTER_SECTIONS[chapterKey];
+        const isGospel = ['MAT', 'MRK', 'LUK', 'JHN'].includes(bookId.toUpperCase());
+
+        const verses: BibleVerse[] = Object.entries(chapterData).map(([vStr, text]) => {
+          const vNum = parseInt(vStr, 10);
+          const fullKey = `${bookId.toUpperCase()}:${chapter}:${vNum}`;
+          const section = sectionList?.find(s => s.verse === vNum);
+          const footnote = VERSE_FOOTNOTES[fullKey];
+          const redCfg = RED_LETTER_CONFIG[fullKey];
+
+          return {
+            book: bookName,
+            chapter,
+            verse: vNum,
+            text: (text || '').replace(/\s+/g, ' ').trim(),
+            translation,
+            sectionTitle: section?.title,
+            isJesusWords: redCfg?.all ?? (isGospel && redCfg ? true : false),
+            redSegments: redCfg?.segments,
+            hasNote: !!footnote,
+            footnote
+          };
+        });
+
+        verses.sort((a, b) => a.verse - b.verse);
+        this.memoryCache.set(cacheKey, verses);
+        return verses;
+      }
+    }
+
+    // 2. Check curated verses (John 3, Romans 8, Psalm 23, Colossians 1, Matthew 5, Philippians 4)
+    const prefix = `${bookId.toUpperCase()}:${chapter}:`;
     const curatedKeys = Object.keys(CURATED_VERSES).filter(k => k.startsWith(prefix));
 
     if (curatedKeys.length > 0) {
+      const chapterKey = `${bookId.toUpperCase()}:${chapter}`;
+      const sectionList = CHAPTER_SECTIONS[chapterKey];
+      const verses: BibleVerse[] = [];
+
       curatedKeys.forEach(k => {
         const parts = k.split(':');
         const vNum = parseInt(parts[2], 10);
         const transMap = CURATED_VERSES[k];
-        const text = transMap[translation] || transMap['NIV'] || transMap['KJV'] || transMap['WEB'] || '';
+        const text = transMap[translation] || transMap['NKJV'] || transMap['NIV'] || transMap['KJV'] || transMap['WEB'] || '';
         const section = sectionList?.find(s => s.verse === vNum);
         const footnote = VERSE_FOOTNOTES[k];
         const redCfg = RED_LETTER_CONFIG[k];
@@ -164,65 +223,51 @@ export class BibleService {
           footnote
         });
       });
+
       verses.sort((a, b) => a.verse - b.verse);
       this.memoryCache.set(cacheKey, verses);
       return verses;
     }
 
-    // High quality contextual passage fallback for any chapter
-    const defaultCounts: Record<string, number> = {
-      'GEN': 31, 'EXO': 25, 'PSA': 6, 'PRO': 35, 'MAT': 25, 'JHN': 25, 'ROM': 25, 'COL': 20, 'PHP': 20, 'REV': 20
-    };
-    const count = defaultCounts[bookId] || 15;
-
-    for (let i = 1; i <= count; i++) {
-      const key = `${bookId}:${chapter}:${i}`;
-      let text = '';
-      if (CURATED_VERSES[key] && CURATED_VERSES[key][translation]) {
-        text = CURATED_VERSES[key][translation];
-      } else {
-        // Expository text representative of the book
-        text = `And the Word of the Lord was revealed in ${bookName} chapter ${chapter}, verse ${i}, proclaiming grace, truth, and righteousness to all who call upon the name of the Lord.`;
-      }
-      const section = sectionList?.find(s => s.verse === i);
-      const footnote = VERSE_FOOTNOTES[key];
-      const redCfg = RED_LETTER_CONFIG[key];
-
-      verses.push({
-        book: bookName,
-        chapter,
-        verse: i,
-        text,
-        translation,
-        sectionTitle: section?.title,
-        isJesusWords: redCfg?.all ?? false,
-        redSegments: redCfg?.segments,
-        hasNote: !!footnote,
-        footnote
-      });
-    }
-
-    return verses;
+    // 3. Return empty array while async loadBookData is fetching real scripture
+    return [];
   }
 
-  // Compare multiple translations for a selected verse
-  static getVerseComparison(bookId: string, chapter: number, verse: number): {
+  // -------------------------------------------------------------
+  // 4. VERSE COMPARISON (All Translations)
+  // -------------------------------------------------------------
+  static getVerseComparison(
+    bookId: string,
+    chapter: number,
+    verse: number
+  ): {
     translation: BibleTranslationCode;
     name: string;
     text: string;
     copyright: string;
   }[] {
-    const key = `${bookId}:${chapter}:${verse}`;
+    const key = `${bookId.toUpperCase()}:${chapter}:${verse}`;
     const curated = CURATED_VERSES[key];
 
     return BIBLE_TRANSLATIONS.map(tr => {
       let text = '';
-      if (curated && curated[tr.code]) {
+
+      // Check loaded book cache first
+      const bookData = this.bookCache.get(`${tr.code.toUpperCase()}:${bookId.toUpperCase()}`);
+      if (bookData && bookData[chapter] && bookData[chapter][verse]) {
+        text = bookData[chapter][verse];
+      } else if (curated && curated[tr.code]) {
         text = curated[tr.code];
-      } else if (curated && curated['KJV']) {
-        text = `${curated['KJV']} [${tr.code} rendering]`;
+      } else if (curated && (curated['NKJV'] || curated['KJV'])) {
+        text = (curated['NKJV'] || curated['KJV']) + ` [${tr.code} rendering]`;
       } else {
-        text = `For God so loved the world, that he gave his only begotten Son... (${tr.code} translation preview)`;
+        // Fallback to NKJV book cache if available
+        const nkjvData = this.bookCache.get(`NKJV:${bookId.toUpperCase()}`);
+        if (nkjvData && nkjvData[chapter] && nkjvData[chapter][verse]) {
+          text = nkjvData[chapter][verse];
+        } else {
+          text = `Reading verse ${verse} in ${tr.name}...`;
+        }
       }
 
       return {
@@ -234,38 +279,128 @@ export class BibleService {
     });
   }
 
-  // Search verses by keyword or reference
-  static searchVerses(query: string, translation: BibleTranslationCode = 'KJV'): BibleVerse[] {
+  // -------------------------------------------------------------
+  // 5. ENHANCED SEARCH (Reference Jump & Keyword Search)
+  // -------------------------------------------------------------
+  static searchVerses(
+    query: string,
+    translation: BibleTranslationCode = 'NKJV'
+  ): BibleVerse[] {
     if (!query || query.trim().length === 0) return [];
     const q = query.toLowerCase().trim();
     const results: BibleVerse[] = [];
 
-    // Check if query is a reference like "John 3:16" or "Colossians 1:17"
+    // 1. Try Reference Parsing (e.g. "John 3:16", "Gen 1:1", "Psalm 23:1", "Heb 12:2", "Rev 22:21")
+    const refMatch = q.match(/^([1-3]?\s*[a-zA-Z]+)\s*(\d+)[:.]?(\d+)?$/);
+    if (refMatch) {
+      const rawBook = refMatch[1].trim().replace(/\s+/g, ' ');
+      const chap = parseInt(refMatch[2], 10);
+      const vNum = refMatch[3] ? parseInt(refMatch[3], 10) : undefined;
+
+      // Match book by full name, ID, or prefix
+      const matchedBook = BIBLE_BOOKS.find(b => 
+        b.name.toLowerCase() === rawBook ||
+        b.id.toLowerCase() === rawBook ||
+        (rawBook === 'psalm' && b.id === 'PSA') ||
+        (rawBook === 'jn' && b.id === 'JHN') ||
+        b.name.toLowerCase().startsWith(rawBook)
+      );
+
+      if (matchedBook && chap >= 1 && chap <= matchedBook.chaptersCount) {
+        // Check if book is already in bookCache
+        const bookData = this.bookCache.get(`${translation.toUpperCase()}:${matchedBook.id}`) ||
+                         this.bookCache.get(`NKJV:${matchedBook.id}`) ||
+                         this.bookCache.get(`KJV:${matchedBook.id}`);
+
+        if (bookData && bookData[chap]) {
+          if (vNum && bookData[chap][vNum]) {
+            results.push({
+              book: matchedBook.name,
+              chapter: chap,
+              verse: vNum,
+              text: bookData[chap][vNum],
+              translation
+            });
+            return results;
+          } else if (!vNum) {
+            // Return first few verses of the chapter
+            const versesObj = bookData[chap];
+            Object.entries(versesObj).slice(0, 5).forEach(([vStr, text]) => {
+              results.push({
+                book: matchedBook.name,
+                chapter: chap,
+                verse: parseInt(vStr, 10),
+                text,
+                translation
+              });
+            });
+            return results;
+          }
+        }
+      }
+    }
+
+    // 2. Search Curated Verses
     for (const [key, transMap] of Object.entries(CURATED_VERSES)) {
       const parts = key.split(':');
       const bId = parts[0];
       const chap = parseInt(parts[1], 10);
       const vNum = parseInt(parts[2], 10);
-      const book = BIBLE_BOOKS.find(b => b.id === bId);
+      const book = BIBLE_BOOKS.find(b => b.id.toUpperCase() === bId.toUpperCase());
       const bName = book ? book.name : bId;
       const refStr = `${bName} ${chap}:${vNum}`.toLowerCase();
-      const verseText = (transMap[translation] || transMap['KJV'] || '').toLowerCase();
+      const verseText = (transMap[translation] || transMap['NKJV'] || transMap['KJV'] || '').toLowerCase();
 
       if (refStr.includes(q) || verseText.includes(q) || bName.toLowerCase().includes(q)) {
         results.push({
           book: bName,
           chapter: chap,
           verse: vNum,
-          text: transMap[translation] || transMap['KJV'] || '',
+          text: transMap[translation] || transMap['NKJV'] || transMap['KJV'] || '',
           translation
         });
+      }
+    }
+
+    // 3. Search already loaded books in bookCache for keyword matches
+    for (const [cacheKey, chapters] of this.bookCache.entries()) {
+      if (results.length >= 25) break; // limit results for speed
+      const [trans, bId] = cacheKey.split(':');
+      if (trans !== translation.toUpperCase()) continue;
+
+      const book = BIBLE_BOOKS.find(b => b.id.toUpperCase() === bId.toUpperCase());
+      const bName = book ? book.name : bId;
+
+      for (const [chStr, versesObj] of Object.entries(chapters)) {
+        if (results.length >= 25) break;
+        const chap = parseInt(chStr, 10);
+
+        for (const [vStr, text] of Object.entries(versesObj)) {
+          if (results.length >= 25) break;
+          const vNum = parseInt(vStr, 10);
+
+          if (text.toLowerCase().includes(q)) {
+            // Avoid duplicate if already found in curated
+            if (!results.some(r => r.book === bName && r.chapter === chap && r.verse === vNum)) {
+              results.push({
+                book: bName,
+                chapter: chap,
+                verse: vNum,
+                text,
+                translation
+              });
+            }
+          }
+        }
       }
     }
 
     return results;
   }
 
-  // Helper to safely get the current authenticated user id
+  // -------------------------------------------------------------
+  // 6. ANNOTATIONS & STUDY TOOLS
+  // -------------------------------------------------------------
   private static getCurrentUserId(userId?: string): string {
     if (userId) return userId;
     const user = ChurchDataStore.getCurrentUser();

@@ -2,6 +2,13 @@ import { BibleBook, BibleTranslation } from '../../types';
 
 export const BIBLE_TRANSLATIONS: BibleTranslation[] = [
   {
+    code: 'NKJV',
+    name: 'New King James Version',
+    description: 'Modern, highly accurate translation preserving the lyrical majesty and classic beauty of the King James.',
+    isAvailableOffline: true,
+    copyright: 'Thomas Nelson / HarperCollins Christian Publishing'
+  },
+  {
     code: 'KJV',
     name: 'King James Version',
     description: 'Traditional poetic English standard, public domain, majestic phrasing.',
@@ -9,39 +16,32 @@ export const BIBLE_TRANSLATIONS: BibleTranslation[] = [
     copyright: 'Public Domain'
   },
   {
-    code: 'WEB',
-    name: 'World English Bible',
-    description: 'Modern accurate English translation in the public domain.',
-    isAvailableOffline: true,
-    copyright: 'Public Domain'
-  },
-  {
-    code: 'ASV',
-    name: 'American Standard Version',
-    description: 'Literal historical translation known for textual fidelity.',
-    isAvailableOffline: true,
-    copyright: 'Public Domain'
-  },
-  {
     code: 'NIV',
     name: 'New International Version',
     description: 'Contemporary thought-for-thought balance of accuracy and readability.',
-    isAvailableOffline: false,
-    copyright: 'Biblica, Inc. (Used under educational preview license)'
+    isAvailableOffline: true,
+    copyright: 'Biblica, Inc.'
   },
   {
     code: 'ESV',
     name: 'English Standard Version',
     description: 'Essentially literal, beloved for precision and theological depth.',
-    isAvailableOffline: false,
+    isAvailableOffline: true,
     copyright: 'Crossway / Good News Publishers'
   },
   {
     code: 'NLT',
     name: 'New Living Translation',
     description: 'Clear, modern language with dynamic equivalence.',
-    isAvailableOffline: false,
+    isAvailableOffline: true,
     copyright: 'Tyndale House Publishers'
+  },
+  {
+    code: 'WEB',
+    name: 'World English Bible',
+    description: 'Modern accurate English translation in the public domain.',
+    isAvailableOffline: true,
+    copyright: 'Public Domain'
   },
   {
     code: 'FSV',
