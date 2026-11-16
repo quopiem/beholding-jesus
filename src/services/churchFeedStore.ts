@@ -5,12 +5,12 @@ import {
 import { supabase } from '../lib/supabase';
 import { ChurchDataStore } from './churchDataStore';
 
-const KEY_FEED_POSTS = 'bjc_feed_posts_v10';
-const KEY_REACTIONS = 'bjc_post_reactions_v10';
-const KEY_COMMENTS = 'bjc_post_comments_v10';
-const KEY_REPORTS = 'bjc_post_reports_v10';
-const KEY_MODERATION_LOGS = 'bjc_moderation_logs_v10';
-const KEY_DELETED_POST_IDS = 'bjc_deleted_feed_ids_v10';
+const KEY_FEED_POSTS = 'bjc_feed_posts_v11';
+const KEY_REACTIONS = 'bjc_post_reactions_v11';
+const KEY_COMMENTS = 'bjc_post_comments_v11';
+const KEY_REPORTS = 'bjc_post_reports_v11';
+const KEY_MODERATION_LOGS = 'bjc_moderation_logs_v11';
+const KEY_DELETED_POST_IDS = 'bjc_deleted_feed_ids_v11';
 const DEFAULT_DELETED_IDS: string[] = [];
 
 // Helper to check if a user is an authorized Church Admin or Pastor
@@ -389,19 +389,17 @@ export class ChurchFeedStore {
 
           // CRITICAL: An announcement is pinned ONLY if priority is explicitly 'pinned'
           const isPinned = a.priority === 'pinned';
-          const authorAvatar = (a.author_name && a.author_name.toLowerCase().includes('manjares'))
-            ? '/images/pastor-john-eric-manjares.png'
-            : (a.author_name && a.author_name.toLowerCase().includes('miko'))
+          const authorAvatar = (a.author_name && a.author_name.toLowerCase().includes('miko'))
             ? '/images/avatar-john-miko.png'
             : '/icons/church-logo.png';
 
           mappedAnnouncements.push({
             id: a.id,
-            authorId: a.created_by || 'usr-pastor-john-eric',
-            authorName: a.author_name || 'John Eric Manjares',
+            authorId: a.created_by || 'church-admin',
+            authorName: a.author_name || 'Church Leadership',
             authorAvatar,
-            authorRole: a.author_role || 'Senior Pastor',
-            ministryLabel: 'Pastoral Leadership',
+            authorRole: a.author_role || 'Church Administration',
+            ministryLabel: a.category || 'Church Leadership',
             content: a.description || a.content || '',
             postType: 'announcement',
             category: a.category || 'Sunday Services',

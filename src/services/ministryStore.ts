@@ -238,21 +238,21 @@ export interface MediaRequestItem {
 }
 
 const STORAGE_KEYS = {
-  MINISTRIES: 'bjc_ministry_defs_v2',
-  MEMBERS: 'bjc_ministry_members_v2',
-  TASKS: 'bjc_ministry_tasks_v2',
-  SCHEDULES: 'bjc_ministry_schedules_v2',
-  ANNOUNCEMENTS: 'bjc_ministry_announcements_v2',
-  RESOURCES: 'bjc_ministry_resources_v2',
-  ATTENDANCE: 'bjc_ministry_attendance_v2',
-  AVAILABILITY: 'bjc_ministry_availability_v2',
-  SERVICE_PLANS: 'bjc_ministry_service_plans_v2',
-  VISITORS: 'bjc_ministry_visitors_v2',
-  LOST_FOUND: 'bjc_ministry_lost_found_v2',
-  INCIDENTS: 'bjc_ministry_incidents_v2',
-  EQUIPMENT: 'bjc_ministry_equipment_v2',
-  PRESENTATIONS: 'bjc_ministry_presentations_v2',
-  MEDIA_REQUESTS: 'bjc_ministry_media_requests_v2',
+  MINISTRIES: 'bjc_ministry_defs_v4',
+  MEMBERS: 'bjc_ministry_members_v4',
+  TASKS: 'bjc_ministry_tasks_v4',
+  SCHEDULES: 'bjc_ministry_schedules_v4',
+  ANNOUNCEMENTS: 'bjc_ministry_announcements_v4',
+  RESOURCES: 'bjc_ministry_resources_v4',
+  ATTENDANCE: 'bjc_ministry_attendance_v4',
+  AVAILABILITY: 'bjc_ministry_availability_v4',
+  SERVICE_PLANS: 'bjc_ministry_service_plans_v4',
+  VISITORS: 'bjc_ministry_visitors_v4',
+  LOST_FOUND: 'bjc_ministry_lost_found_v4',
+  INCIDENTS: 'bjc_ministry_incidents_v4',
+  EQUIPMENT: 'bjc_ministry_equipment_v4',
+  PRESENTATIONS: 'bjc_ministry_presentations_v4',
+  MEDIA_REQUESTS: 'bjc_ministry_media_requests_v4',
 };
 
 // Initial Data Seed
@@ -263,14 +263,14 @@ const INITIAL_MINISTRY_ITEMS: MinistryItem[] = [
     slug: 'worship-team',
     category: 'Praise & Music Ministry',
     leaderTitle: 'Worship Director',
-    leaderName: 'Mica Ramos',
-    assistantLeaderName: 'Pastor John Eric Manjares',
+    leaderName: 'Worship Leadership',
+    assistantLeaderName: 'Music Team',
     icon: 'Music',
     color: '#C5A46D',
     description: 'Responsible for leading congregational worship through music, singing, and musical instruments, beholding the sufficiency of Jesus Christ in every song.',
     meetingTime: 'Saturdays 3:00 PM – 5:30 PM (Vocal & Band Rehearsal)',
     location: 'Main Sanctuary Stage',
-    membersCount: 9,
+    membersCount: 1,
     coverImage: '/images/worship_service_poster.jpg',
     upcomingSchedule: 'Rehearsal: Sat 3:00 PM • Sunday Service: 8:00 AM Call Time',
     activities: [
@@ -287,13 +287,13 @@ const INITIAL_MINISTRY_ITEMS: MinistryItem[] = [
     category: 'Hospitality & Order',
     leaderTitle: 'Head Usher & Welcome Lead',
     leaderName: 'John Miko Sarsalijo',
-    assistantLeaderName: 'Kennedy Lopez',
+    assistantLeaderName: 'Hospitality Team',
     icon: 'Users',
     color: '#059669',
     description: 'Responsible for welcoming visitors, assisting church members, organizing seating, facilitating offerings, and supporting the congregation during all worship services.',
     meetingTime: 'Sundays 8:00 AM (Briefing) • 1st Sat of Month 5:00 PM',
     location: 'Sanctuary Foyer, Doors & Aisles',
-    membersCount: 8,
+    membersCount: 1,
     coverImage: '/images/bjc-family-fellowship.jpg',
     upcomingSchedule: 'Sunday Service Duty: 8:00 AM Call Time (Foyer & Welcome)',
     activities: [
@@ -309,14 +309,14 @@ const INITIAL_MINISTRY_ITEMS: MinistryItem[] = [
     slug: 'multimedia-team',
     category: 'Technical & Production',
     leaderTitle: 'Media & Tech Director',
-    leaderName: 'Tech Lead / Production Team',
-    assistantLeaderName: 'Bro. Joshua Tan',
+    leaderName: 'John Miko Sarsalijo',
+    assistantLeaderName: 'Technical Production Team',
     icon: 'Monitor',
     color: '#0284c7',
     description: 'Responsible for audio engineering, visual presentations, photography, video recording, livestreaming, and technical production for church services and digital outreach.',
     meetingTime: 'Sundays 7:15 AM (System Calibration & Soundcheck)',
     location: 'Media Booth & Tech Station',
-    membersCount: 7,
+    membersCount: 1,
     coverImage: '/images/theology-class-poster.png',
     upcomingSchedule: 'Sunday Tech Run: 7:15 AM (Sound, Livestream & Slides Test)',
     activities: [
@@ -359,29 +359,7 @@ export class MinistryStore {
 
   // --- MEMBERS ---
   static getMembers(ministryId?: MinistryId): MinistryMemberItem[] {
-    const list = this.load<MinistryMemberItem[]>(STORAGE_KEYS.MEMBERS, [
-      // Worship Team
-      { id: 'mem-w-1', userId: 'usr-mica-01', name: 'Mica Ramos', role: 'leader', roleTitle: 'Worship Director & Lead Vocal', avatar: '/icons/church-logo.png', ministryId: 'ministry-worship', joinedDate: '2023-02-01', phone: '+63 917 123 4567' },
-      { id: 'mem-w-2', userId: 'usr-pastor-john-eric', name: 'Pastor John Eric Manjares', role: 'assistant_leader', roleTitle: 'Pastoral Advisor & Acoustic', avatar: '/images/pastor-john-eric-manjares.png', ministryId: 'ministry-worship', joinedDate: '2023-01-01' },
-      { id: 'mem-w-3', userId: 'usr-owner-001', name: 'John Miko Sarsalijo', role: 'core_member', roleTitle: 'Keyboard & Bass Support', avatar: '/images/avatar-john-miko.png', ministryId: 'ministry-worship', joinedDate: '2024-01-15' },
-      { id: 'mem-w-4', userId: 'usr-sarah-g', name: 'Sarah Gomez', role: 'core_member', roleTitle: 'Alto Vocalist', avatar: '/icons/church-logo.png', ministryId: 'ministry-worship', joinedDate: '2024-05-10' },
-      { id: 'mem-w-5', userId: 'usr-david-c', name: 'David Cruz', role: 'core_member', roleTitle: 'Drummer', avatar: '/icons/church-logo.png', ministryId: 'ministry-worship', joinedDate: '2024-03-20' },
-      { id: 'mem-w-6', userId: 'usr-chloe-d', name: 'Chloe Diaz', role: 'volunteer', roleTitle: 'Soprano Vocalist', avatar: '/icons/church-logo.png', ministryId: 'ministry-worship', joinedDate: '2025-01-12' },
-      
-      // Ushering Team
-      { id: 'mem-u-1', userId: 'usr-owner-001', name: 'John Miko Sarsalijo', role: 'leader', roleTitle: 'Head Usher', avatar: '/images/avatar-john-miko.png', ministryId: 'ministry-usher', joinedDate: '2024-01-15', phone: '+63 920 987 6543' },
-      { id: 'mem-u-2', userId: 'user-1793740018746', name: 'Kennedy Lopez', role: 'assistant_leader', roleTitle: 'Assistant Head Usher', avatar: '/icons/church-logo.png', ministryId: 'ministry-usher', joinedDate: '2025-02-14' },
-      { id: 'mem-u-3', userId: 'user-1793738310185', name: 'Justin Dasco', role: 'core_member', roleTitle: 'Sanctuary Usher', avatar: '/icons/church-logo.png', ministryId: 'ministry-usher', joinedDate: '2026-11-04' },
-      { id: 'mem-u-4', userId: 'usr-grace-l', name: 'Grace Lim', role: 'core_member', roleTitle: 'Foyer Greeter', avatar: '/icons/church-logo.png', ministryId: 'ministry-usher', joinedDate: '2024-06-01' },
-      { id: 'mem-u-5', userId: 'usr-daniel-k', name: 'Daniel Kim', role: 'volunteer', roleTitle: 'Offering Steward', avatar: '/icons/church-logo.png', ministryId: 'ministry-usher', joinedDate: '2025-04-18' },
-      
-      // Multimedia Team
-      { id: 'mem-m-1', userId: 'usr-tech-01', name: 'Markus Tech', role: 'leader', roleTitle: 'Audio Engineer Lead', avatar: '/icons/church-logo.png', ministryId: 'ministry-multimedia', joinedDate: '2023-06-01', phone: '+63 918 333 4455' },
-      { id: 'mem-m-2', userId: 'usr-joshua-t', name: 'Joshua Tan', role: 'assistant_leader', roleTitle: 'Livestream Operator', avatar: '/icons/church-logo.png', ministryId: 'ministry-multimedia', joinedDate: '2024-02-15' },
-      { id: 'mem-m-3', userId: 'usr-carlo-m', name: 'Carlo Medina', role: 'core_member', roleTitle: 'Presentation & Lyrics Operator', avatar: '/icons/church-logo.png', ministryId: 'ministry-multimedia', joinedDate: '2024-08-20' },
-      { id: 'mem-m-4', userId: 'usr-alyssa-r', name: 'Alyssa Reyes', role: 'core_member', roleTitle: 'Church Photographer', avatar: '/icons/church-logo.png', ministryId: 'ministry-multimedia', joinedDate: '2025-03-01' },
-      { id: 'mem-m-5', userId: 'usr-owner-001', name: 'John Miko Sarsalijo', role: 'core_member', roleTitle: 'Digital Engagement & Graphics', avatar: '/images/avatar-john-miko.png', ministryId: 'ministry-multimedia', joinedDate: '2024-01-15' }
-    ]);
+    const list = this.load<MinistryMemberItem[]>(STORAGE_KEYS.MEMBERS, []);
     return ministryId ? list.filter(m => m.ministryId === ministryId) : list;
   }
 
@@ -422,22 +400,7 @@ export class MinistryStore {
 
   // --- TASKS ---
   static getTasks(ministryId?: MinistryId): MinistryTask[] {
-    const list = this.load<MinistryTask[]>(STORAGE_KEYS.TASKS, [
-      // Worship
-      { id: 'tsk-w-1', ministryId: 'ministry-worship', title: 'Prepare Colossians Praise Setlist', description: 'Confirm song keys with Mica Ramos and review transition chords for Colossians series.', assignedTo: 'Mica Ramos', assignedToId: 'usr-mica-01', dueDate: '2026-11-07', priority: 'high', status: 'completed', createdAt: '2026-11-02' },
-      { id: 'tsk-w-2', ministryId: 'ministry-worship', title: 'Acoustic Guitar String Replacement', description: 'Restring church acoustic guitar before Saturday 3PM rehearsal.', assignedTo: 'David Cruz', assignedToId: 'usr-david-c', dueDate: '2026-11-07', priority: 'medium', status: 'in_progress', createdAt: '2026-11-04' },
-      { id: 'tsk-w-3', ministryId: 'ministry-worship', title: 'Vocal Harmony Notes for "King of Kings"', description: 'Write alto and tenor vocal parts for the chorus bridge.', assignedTo: 'Sarah Gomez', assignedToId: 'usr-sarah-g', dueDate: '2026-11-08', priority: 'normal', status: 'pending', createdAt: '2026-11-05' },
-      
-      // Ushering
-      { id: 'tsk-u-1', ministryId: 'ministry-usher', title: 'Print 120 Sunday Bulletins & Visitor Cards', description: 'Ensure welcome packets are stocked at the foyer table with pens.', assignedTo: 'Grace Lim', assignedToId: 'usr-grace-l', dueDate: '2026-11-07', priority: 'high', status: 'completed', createdAt: '2026-11-03' },
-      { id: 'tsk-u-2', ministryId: 'ministry-usher', title: 'Sanctuary Row Setup & Aisle Check', description: 'Verify row spacing, reserve pastoral seating, clean front rows.', assignedTo: 'Justin Dasco', assignedToId: 'user-1793738310185', dueDate: '2026-11-08', priority: 'medium', status: 'pending', createdAt: '2026-11-05' },
-      { id: 'tsk-u-3', ministryId: 'ministry-usher', title: 'Sanitize Offering Pouches & Envelopes', description: 'Prepare 6 offering bags with fresh envelopes for worship service.', assignedTo: 'Kennedy Lopez', assignedToId: 'user-1793740018746', dueDate: '2026-11-07', priority: 'normal', status: 'in_progress', createdAt: '2026-11-04' },
-      
-      // Multimedia
-      { id: 'tsk-m-1', ministryId: 'ministry-multimedia', title: 'Colossians 1 Scripture Slide Deck', description: 'Format lyrics for 4 songs and Scripture passages in presentation slides.', assignedTo: 'Carlo Medina', assignedToId: 'usr-carlo-m', dueDate: '2026-11-07', priority: 'high', status: 'in_progress', createdAt: '2026-11-04' },
-      { id: 'tsk-m-2', ministryId: 'ministry-multimedia', title: 'Wireless Microphone Frequency & Battery Check', description: 'Inspect 4 handheld microphones and ensure fresh rechargeable batteries.', assignedTo: 'Markus Tech', assignedToId: 'usr-tech-01', dueDate: '2026-11-08', priority: 'high', status: 'completed', createdAt: '2026-11-05' },
-      { id: 'tsk-m-3', ministryId: 'ministry-multimedia', title: 'Livestream Stream Key & Audio Level Test', description: 'Run test broadcast 15 mins before service to verify YouTube & FB sync.', assignedTo: 'Joshua Tan', assignedToId: 'usr-joshua-t', dueDate: '2026-11-08', priority: 'medium', status: 'pending', createdAt: '2026-11-05' }
-    ]);
+    const list = this.load<MinistryTask[]>(STORAGE_KEYS.TASKS, []);
     return ministryId ? list.filter(t => t.ministryId === ministryId) : list;
   }
 
@@ -481,14 +444,7 @@ export class MinistryStore {
 
   // --- SCHEDULES ---
   static getSchedules(ministryId?: MinistryId): MinistrySchedule[] {
-    const list = this.load<MinistrySchedule[]>(STORAGE_KEYS.SCHEDULES, [
-      { id: 'sch-w-1', ministryId: 'ministry-worship', title: 'Weekly Praise & Vocal Rehearsal', date: '2026-11-07', time: '3:00 PM – 5:30 PM', location: 'Main Sanctuary Stage', type: 'rehearsal', notes: 'Full band and vocal warmup. Focus on key transitions.', assignedMemberNames: ['Mica Ramos', 'David Cruz', 'Sarah Gomez', 'John Miko Sarsalijo'] },
-      { id: 'sch-w-2', ministryId: 'ministry-worship', title: 'Sunday Worship Service Leading', date: '2026-11-08', time: '8:00 AM Call Time (9:00 AM Service)', location: 'Main Sanctuary', type: 'service', notes: '4-song setlist for Walking in Colossians Series.', assignedMemberNames: ['Mica Ramos', 'Pastor John Eric', 'Sarah Gomez', 'David Cruz'] },
-      { id: 'sch-u-1', ministryId: 'ministry-usher', title: 'Sunday Foyer & Entrance Welcome', date: '2026-11-08', time: '8:00 AM – 11:30 AM', location: 'Sanctuary Main Doors', type: 'service', notes: 'Warm greeting, distributing church bulletins, and welcoming visitors.', assignedMemberNames: ['John Miko Sarsalijo', 'Grace Lim', 'Justin Dasco', 'Kennedy Lopez'] },
-      { id: 'sch-u-2', ministryId: 'ministry-usher', title: 'Monthly Ushering & Hospitality Alignment', date: '2026-11-14', time: '5:00 PM – 6:15 PM', location: 'Fellowship Hall Room 2', type: 'meeting', notes: 'Review communion procedures and guest follow-up workflow.', assignedMemberNames: ['All Ushering Members'] },
-      { id: 'sch-m-1', ministryId: 'ministry-multimedia', title: 'Sunday Audio/Visual & Livestream Setup', date: '2026-11-08', time: '7:15 AM – 11:30 AM', location: 'Media Booth', type: 'service', notes: 'Calibrate mics, test livestream bitrates, and verify song slides.', assignedMemberNames: ['Markus Tech', 'Joshua Tan', 'Carlo Medina', 'Alyssa Reyes'] },
-      { id: 'sch-m-2', ministryId: 'ministry-multimedia', title: 'Presentation & ProPresenter Workshop', date: '2026-11-14', time: '2:00 PM – 4:00 PM', location: 'Tech Booth', type: 'meeting', notes: 'Hands-on training for slide formatting and background loop syncing.', assignedMemberNames: ['Carlo Medina', 'Joshua Tan'] }
-    ]);
+    const list = this.load<MinistrySchedule[]>(STORAGE_KEYS.SCHEDULES, []);
     return ministryId ? list.filter(s => s.ministryId === ministryId) : list;
   }
 
@@ -517,11 +473,7 @@ export class MinistryStore {
 
   // --- ANNOUNCEMENTS ---
   static getAnnouncements(ministryId?: MinistryId): MinistryAnnouncement[] {
-    const list = this.load<MinistryAnnouncement[]>(STORAGE_KEYS.ANNOUNCEMENTS, [
-      { id: 'ann-w-1', ministryId: 'ministry-worship', title: 'New Song Keys Added for Colossians Series', content: 'Beloved worship team, we have added new key variations for "King of Kings" and "Living Hope" in the Song & Vocal Key Manager. Please practice your vocal ranges.', authorName: 'Mica Ramos', authorRole: 'Worship Director', createdAt: '2026-11-04T10:00:00Z', acknowledgedUserIds: ['usr-owner-001'] },
-      { id: 'ann-u-1', ministryId: 'ministry-usher', title: 'Visitor Care: Warm Hospitality Reminder', content: 'Team, let us remember to extend Christ-like warmth to everyone walking through our doors. First-time visitors will receive our church welcome kit and pen.', authorName: 'John Miko Sarsalijo', authorRole: 'Head Usher', createdAt: '2026-11-03T14:30:00Z', acknowledgedUserIds: ['usr-owner-001', 'user-1793740018746'] },
-      { id: 'ann-m-1', ministryId: 'ministry-multimedia', title: 'New HDMI 4K Cables Installed at Main Stage', content: 'The stage monitor and projector feeds have been upgraded with new high-speed shielded cables. Please do not disconnect cables during rehearsal.', authorName: 'Markus Tech', authorRole: 'Tech Director', createdAt: '2026-11-05T09:15:00Z', acknowledgedUserIds: ['usr-owner-001'] }
-    ]);
+    const list = this.load<MinistryAnnouncement[]>(STORAGE_KEYS.ANNOUNCEMENTS, []);
     return ministryId ? list.filter(a => a.ministryId === ministryId) : list;
   }
 
@@ -556,14 +508,7 @@ export class MinistryStore {
 
   // --- RESOURCES ---
   static getResources(ministryId?: MinistryId): MinistryResource[] {
-    const list = this.load<MinistryResource[]>(STORAGE_KEYS.RESOURCES, [
-      { id: 'res-w-1', ministryId: 'ministry-worship', title: 'BJC Worship Team Handbook & Guidelines', category: 'Guidelines', fileType: 'PDF Document', uploadedBy: 'Mica Ramos', uploadedAt: '2026-10-15', size: '1.4 MB' },
-      { id: 'res-w-2', ministryId: 'ministry-worship', title: 'Vocal Harmony & Solfa Reference Sheet', category: 'Reference', fileType: 'PDF Document', uploadedBy: 'Mica Ramos', uploadedAt: '2026-10-20', size: '820 KB' },
-      { id: 'res-u-1', ministryId: 'ministry-usher', title: 'Ushering Protocol & Sanctuary Safety Guide', category: 'Guidelines', fileType: 'PDF Document', uploadedBy: 'John Miko Sarsalijo', uploadedAt: '2026-09-10', size: '2.1 MB' },
-      { id: 'res-u-2', ministryId: 'ministry-usher', title: 'Visitor Follow-up Care Protocol', category: 'Training', fileType: 'Document', uploadedBy: 'Kennedy Lopez', uploadedAt: '2026-10-01', size: '540 KB' },
-      { id: 'res-m-1', ministryId: 'ministry-multimedia', title: 'Beholding Jesus Church Slide Template (16:9 4K)', category: 'Media', fileType: 'Presentation File', uploadedBy: 'Markus Tech', uploadedAt: '2026-10-28', size: '8.5 MB' },
-      { id: 'res-m-2', ministryId: 'ministry-multimedia', title: 'Digital Audio Mixer Channel Mapping Guide', category: 'Training', fileType: 'PDF Document', uploadedBy: 'Joshua Tan', uploadedAt: '2026-11-01', size: '1.2 MB' }
-    ]);
+    const list = this.load<MinistryResource[]>(STORAGE_KEYS.RESOURCES, []);
     return ministryId ? list.filter(r => r.ministryId === ministryId) : list;
   }
 
@@ -586,37 +531,7 @@ export class MinistryStore {
 
   // --- ATTENDANCE ---
   static getAttendance(ministryId?: MinistryId): MinistryAttendanceRecord[] {
-    const list = this.load<MinistryAttendanceRecord[]>(STORAGE_KEYS.ATTENDANCE, [
-      {
-        id: 'att-w-1',
-        ministryId: 'ministry-worship',
-        date: '2026-11-01',
-        eventTitle: 'Sunday Worship Service',
-        recordedBy: 'Mica Ramos',
-        recordedAt: '2026-11-01T12:00:00Z',
-        attendees: [
-          { userId: 'usr-mica-01', userName: 'Mica Ramos', status: 'present' },
-          { userId: 'usr-owner-001', userName: 'John Miko Sarsalijo', status: 'present' },
-          { userId: 'usr-sarah-g', userName: 'Sarah Gomez', status: 'present' },
-          { userId: 'usr-david-c', userName: 'David Cruz', status: 'present' },
-          { userId: 'usr-chloe-d', userName: 'Chloe Diaz', status: 'excused', notes: 'Out of town family commitment' }
-        ]
-      },
-      {
-        id: 'att-u-1',
-        ministryId: 'ministry-usher',
-        date: '2026-11-01',
-        eventTitle: 'Sunday Service Duty',
-        recordedBy: 'John Miko Sarsalijo',
-        recordedAt: '2026-11-01T12:30:00Z',
-        attendees: [
-          { userId: 'usr-owner-001', userName: 'John Miko Sarsalijo', status: 'present' },
-          { userId: 'user-1793740018746', userName: 'Kennedy Lopez', status: 'present' },
-          { userId: 'usr-grace-l', userName: 'Grace Lim', status: 'present' },
-          { userId: 'user-1793738310185', userName: 'Justin Dasco', status: 'present' }
-        ]
-      }
-    ]);
+    const list = this.load<MinistryAttendanceRecord[]>(STORAGE_KEYS.ATTENDANCE, []);
     return ministryId ? list.filter(a => a.ministryId === ministryId) : list;
   }
 
@@ -634,18 +549,7 @@ export class MinistryStore {
 
   // --- MEMBER AVAILABILITY ---
   static getAvailability(ministryId?: MinistryId, serviceDate?: string): MemberAvailability[] {
-    const list = this.load<MemberAvailability[]>(STORAGE_KEYS.AVAILABILITY, [
-      { id: 'av-1', userId: 'usr-mica-01', userName: 'Mica Ramos', ministryId: 'ministry-worship', serviceDate: '2026-11-08', status: 'available', updatedAt: '2026-11-03' },
-      { id: 'av-2', userId: 'usr-sarah-g', userName: 'Sarah Gomez', ministryId: 'ministry-worship', serviceDate: '2026-11-08', status: 'available', updatedAt: '2026-11-04' },
-      { id: 'av-3', userId: 'usr-david-c', userName: 'David Cruz', ministryId: 'ministry-worship', serviceDate: '2026-11-08', status: 'available', updatedAt: '2026-11-04' },
-      { id: 'av-4', userId: 'usr-chloe-d', userName: 'Chloe Diaz', ministryId: 'ministry-worship', serviceDate: '2026-11-08', status: 'unavailable', reason: 'College midterm exam study', updatedAt: '2026-11-05' },
-      { id: 'av-5', userId: 'usr-owner-001', userName: 'John Miko Sarsalijo', ministryId: 'ministry-usher', serviceDate: '2026-11-08', status: 'available', updatedAt: '2026-11-02' },
-      { id: 'av-6', userId: 'user-1793740018746', userName: 'Kennedy Lopez', ministryId: 'ministry-usher', serviceDate: '2026-11-08', status: 'available', updatedAt: '2026-11-03' },
-      { id: 'av-7', userId: 'user-1793738310185', userName: 'Justin Dasco', ministryId: 'ministry-usher', serviceDate: '2026-11-08', status: 'available', updatedAt: '2026-11-04' },
-      { id: 'av-8', userId: 'usr-tech-01', userName: 'Markus Tech', ministryId: 'ministry-multimedia', serviceDate: '2026-11-08', status: 'available', updatedAt: '2026-11-03' },
-      { id: 'av-9', userId: 'usr-joshua-t', userName: 'Joshua Tan', ministryId: 'ministry-multimedia', serviceDate: '2026-11-08', status: 'available', updatedAt: '2026-11-04' },
-      { id: 'av-10', userId: 'usr-carlo-m', userName: 'Carlo Medina', ministryId: 'ministry-multimedia', serviceDate: '2026-11-08', status: 'available', updatedAt: '2026-11-04' }
-    ]);
+    const list = this.load<MemberAvailability[]>(STORAGE_KEYS.AVAILABILITY, []);
 
     return list.filter(item => {
       if (ministryId && item.ministryId !== ministryId) return false;
@@ -746,123 +650,7 @@ export class MinistryStore {
 
   // --- UNIFIED SUNDAY SERVICE PLANNER ---
   static getServicePlans(): UnifiedServicePlan[] {
-    return this.load<UnifiedServicePlan[]>(STORAGE_KEYS.SERVICE_PLANS, [
-      {
-        id: 'plan-2026-11-08',
-        serviceDate: '2026-11-08',
-        title: 'Sunday Worship Celebration',
-        theme: 'Walking in Colossians: The Supreme Sufficiency of Jesus Christ',
-        serviceLeader: 'Pastor Daniel Santos',
-        worship: {
-          worshipLeader: 'Mica Ramos',
-          singers: ['Sarah Gomez (Alto)', 'Mica Ramos (Lead)'],
-          instrumentalists: ['David Cruz (Drums)', 'John Miko Sarsalijo (Keys/Bass)'],
-          setlistIds: ['setlist-colossians-1'],
-          songsSummary: ['King of Kings (D)', 'Living Hope (C)', 'Yet Not I But Through Christ In Me (C)', 'What A Beautiful Name (D)'],
-          rehearsalStatus: 'Completed',
-          checklist: {
-            songsSelected: true,
-            keysConfirmed: true,
-            worshipLeaderAssigned: true,
-            vocalistsAssigned: true,
-            instrumentalistsAssigned: true,
-            harmoniesPrepared: true,
-            rehearsalScheduled: true,
-            finalSetlistApproved: true
-          },
-          notes: 'Congregational response prayer after 3rd song.'
-        },
-        ushering: {
-          assignedUshers: ['John Miko Sarsalijo', 'Grace Lim', 'Kennedy Lopez', 'Justin Dasco'],
-          welcomeTeam: ['Grace Lim (Main Door)', 'Justin Dasco (Foyer Table)'],
-          seatingLead: 'John Miko Sarsalijo',
-          offeringTeam: ['Kennedy Lopez', 'Justin Dasco'],
-          bulletinsReady: true,
-          checklist: {
-            entranceAreaPrepared: true,
-            seatingAreaOrganized: true,
-            welcomeTeamAssigned: true,
-            guestAssistanceReady: true,
-            serviceMaterialsPrepared: true,
-            finalCoordinationDone: true
-          },
-          notes: 'Special visitor gift bags ready at the foyer.'
-        },
-        multimedia: {
-          soundOperator: 'Markus Tech',
-          presentationOperator: 'Carlo Medina',
-          cameraOperator: 'Alyssa Reyes',
-          livestreamOperator: 'Joshua Tan',
-          photographer: 'Alyssa Reyes',
-          presentationStatus: 'Sunday Ready',
-          checklist: {
-            soundChecked: true,
-            projectorScreensReady: true,
-            lyricsVersesSynced: true,
-            camerasPositioned: true,
-            livestreamTested: true,
-            cablesSecured: true
-          },
-          notes: 'Livestream start at 8:50 AM with countdown timer.'
-        }
-      },
-      {
-        id: 'plan-2026-11-15',
-        serviceDate: '2026-11-15',
-        title: 'Sunday Worship Celebration',
-        theme: 'Colossians Chapter 2: Alive in Christ',
-        serviceLeader: 'Pastor Daniel Santos',
-        worship: {
-          worshipLeader: 'Mica Ramos',
-          singers: ['Sarah Gomez', 'Chloe Diaz'],
-          instrumentalists: ['David Cruz', 'Nathan Reyes'],
-          setlistIds: [],
-          songsSummary: ['10,000 Reasons (G)', 'In Christ Alone (D)', 'Holy Forever (A#)'],
-          rehearsalStatus: 'Scheduled',
-          checklist: {
-            songsSelected: true,
-            keysConfirmed: true,
-            worshipLeaderAssigned: true,
-            vocalistsAssigned: true,
-            instrumentalistsAssigned: false,
-            harmoniesPrepared: false,
-            rehearsalScheduled: true,
-            finalSetlistApproved: false
-          }
-        },
-        ushering: {
-          assignedUshers: ['Kennedy Lopez', 'Grace Lim'],
-          welcomeTeam: ['Grace Lim'],
-          seatingLead: 'Kennedy Lopez',
-          offeringTeam: ['Justin Dasco'],
-          bulletinsReady: false,
-          checklist: {
-            entranceAreaPrepared: false,
-            seatingAreaOrganized: false,
-            welcomeTeamAssigned: true,
-            guestAssistanceReady: false,
-            serviceMaterialsPrepared: false,
-            finalCoordinationDone: false
-          }
-        },
-        multimedia: {
-          soundOperator: 'Markus Tech',
-          presentationOperator: 'Carlo Medina',
-          cameraOperator: 'Joshua Tan',
-          livestreamOperator: 'Joshua Tan',
-          photographer: 'Alyssa Reyes',
-          presentationStatus: 'In Review',
-          checklist: {
-            soundChecked: false,
-            projectorScreensReady: true,
-            lyricsVersesSynced: false,
-            camerasPositioned: false,
-            livestreamTested: false,
-            cablesSecured: false
-          }
-        }
-      }
-    ]);
+    return this.load<UnifiedServicePlan[]>(STORAGE_KEYS.SERVICE_PLANS, []);
   }
 
   static getServicePlanByDate(date: string): UnifiedServicePlan {
@@ -984,10 +772,7 @@ export class MinistryStore {
 
   // --- USHERING: VISITORS ---
   static getVisitors(): UsheringVisitorRecord[] {
-    return this.load<UsheringVisitorRecord[]>(STORAGE_KEYS.VISITORS, [
-      { id: 'vis-1', name: 'Ronald De Guzman', phone: '+63 917 555 1234', email: 'ronald.dg@example.com', serviceDate: '2026-11-01', isFirstTime: true, prayerRequest: 'Prayer for family guidance and job transition.', followUpStatus: 'welcomed', assignedLeader: 'John Miko Sarsalijo', notes: 'Sent church welcome SMS.' },
-      { id: 'vis-2', name: 'Patricia Evangelista', phone: '+63 920 444 8899', email: 'patricia.e@example.com', serviceDate: '2026-11-01', isFirstTime: true, prayerRequest: 'Healing for my mother.', followUpStatus: 'prayed_for', assignedLeader: 'Kennedy Lopez', notes: 'Prayer warriors contacted her.' }
-    ]);
+    return this.load<UsheringVisitorRecord[]>(STORAGE_KEYS.VISITORS, []);
   }
 
   static saveVisitor(visitor: Omit<UsheringVisitorRecord, 'id'> & { id?: string }): UsheringVisitorRecord {
@@ -1013,10 +798,7 @@ export class MinistryStore {
 
   // --- USHERING: LOST & FOUND ---
   static getLostFound(): UsheringLostFoundItem[] {
-    return this.load<UsheringLostFoundItem[]>(STORAGE_KEYS.LOST_FOUND, [
-      { id: 'lf-1', item: 'Black Bible with Gold Zipper (NIV)', location: 'Row 4 Center Seat', date: '2026-11-01', isClaimed: true, claimedBy: 'Bro. Samuel' },
-      { id: 'lf-2', item: 'Silver Water Flask (Hydro)', location: 'Foyer Table', date: '2026-11-01', isClaimed: false }
-    ]);
+    return this.load<UsheringLostFoundItem[]>(STORAGE_KEYS.LOST_FOUND, []);
   }
 
   static saveLostFound(item: Omit<UsheringLostFoundItem, 'id'> & { id?: string }): UsheringLostFoundItem {
@@ -1042,9 +824,7 @@ export class MinistryStore {
 
   // --- USHERING: INCIDENT REPORTS ---
   static getIncidents(): UsheringIncidentReport[] {
-    return this.load<UsheringIncidentReport[]>(STORAGE_KEYS.INCIDENTS, [
-      { id: 'inc-1', date: '2026-10-25', title: 'Water Spill in Right Aisle', description: 'Minor beverage spill during fellowship time; cleaned and dried within 3 minutes. No injuries.', severity: 'low', isResolved: true, reportedBy: 'Kennedy Lopez' }
-    ]);
+    return this.load<UsheringIncidentReport[]>(STORAGE_KEYS.INCIDENTS, []);
   }
 
   static saveIncident(report: Omit<UsheringIncidentReport, 'id'> & { id?: string }): UsheringIncidentReport {
@@ -1086,10 +866,7 @@ export class MinistryStore {
 
   // --- MULTIMEDIA: PRESENTATION MANAGER ---
   static getPresentations(): MultimediaPresentationItem[] {
-    return this.load<MultimediaPresentationItem[]>(STORAGE_KEYS.PRESENTATIONS, [
-      { id: 'pres-1', serviceDate: '2026-11-08', title: 'Sunday Praise & Colossians 1 Slide Deck', slidesCount: 38, lyricsReady: true, versesReady: true, status: 'ready', downloadUrl: '#' },
-      { id: 'pres-2', serviceDate: '2026-11-15', title: 'Walking in Colossians 2 Slide Deck', slidesCount: 22, lyricsReady: true, versesReady: false, status: 'in_review', downloadUrl: '#' }
-    ]);
+    return this.load<MultimediaPresentationItem[]>(STORAGE_KEYS.PRESENTATIONS, []);
   }
 
   static savePresentation(item: Omit<MultimediaPresentationItem, 'id'> & { id?: string }): MultimediaPresentationItem {
@@ -1109,10 +886,7 @@ export class MinistryStore {
 
   // --- MULTIMEDIA: MEDIA REQUESTS ---
   static getMediaRequests(): MediaRequestItem[] {
-    return this.load<MediaRequestItem[]>(STORAGE_KEYS.MEDIA_REQUESTS, [
-      { id: 'req-1', title: 'Christmas Outreach Banner & Social Posters', requestType: 'Event Posters', requestedBy: 'Pastor John Eric', requestedRole: 'Senior Pastor', dueDate: '2026-11-20', status: 'in_progress', description: 'Design 1080x1080 Instagram & 1920x1080 TV slide for our Dec 21 Street Outreach.' },
-      { id: 'req-2', title: 'Youth Ignite Fellowship Promo Video Reel', requestType: 'Video Editing', requestedBy: 'Youth Ministry Lead', requestedRole: 'Youth Director', dueDate: '2026-11-12', status: 'submitted', description: '60-second highlight reel with energetic worship clips and invitation voiceover.' }
-    ]);
+    return this.load<MediaRequestItem[]>(STORAGE_KEYS.MEDIA_REQUESTS, []);
   }
 
   static saveMediaRequest(req: Omit<MediaRequestItem, 'id'> & { id?: string }): MediaRequestItem {

@@ -3,8 +3,8 @@ import { AdminAnnouncement, AdminAuditLog, AdminDashboardStats } from '../types'
 import { AdminAuthService } from './adminAuthService';
 import { ChurchDataStore } from '../../services/churchDataStore';
 
-const KEY_LOCAL_ANNOUNCEMENTS = 'bjc_admin_announcements_cache_v1';
-const KEY_LOCAL_AUDIT_LOGS = 'bjc_admin_audit_logs_v1';
+const KEY_LOCAL_ANNOUNCEMENTS = 'bjc_admin_announcements_cache_v2';
+const KEY_LOCAL_AUDIT_LOGS = 'bjc_admin_audit_logs_v2';
 
 export class AdminAnnouncementService {
   /**
@@ -17,28 +17,7 @@ export class AdminAnnouncementService {
     } catch {
       // fallback
     }
-    return [
-      {
-        id: 'ann-1',
-        title: 'Upcoming Expository Series: Walking in Colossians',
-        description: 'Starting this Sunday, Pastor Daniel Santos will lead the church through a verse-by-verse journey in Colossians, beholding the preeminence and sufficiency of Jesus Christ.',
-        content: 'Starting this Sunday, Pastor Daniel Santos will lead the church through a verse-by-verse journey in Colossians, beholding the preeminence and sufficiency of Jesus Christ.',
-        category: 'Sunday Services',
-        date: '2026-11-04',
-        event_date: '2026-11-08T09:00:00Z',
-        status: 'published',
-        priority: 'pinned',
-        is_important: true,
-        author_name: 'Pastor Daniel Santos',
-        author_role: 'Senior Pastor',
-        target_audience: 'all',
-        cover_image: '/images/church-service-banner.png',
-        image_url: '/images/church-service-banner.png',
-        created_by: 'usr-owner-001',
-        created_at: '2026-11-03T22:00:21Z',
-        updated_at: '2026-11-03T22:00:21Z'
-      }
-    ];
+    return [];
   }
 
   private static saveLocalAnnouncements(list: AdminAnnouncement[]): void {
@@ -90,8 +69,8 @@ export class AdminAnnouncementService {
               priority: d.priority === 'draft' ? 'normal' : ((d.priority as any) || 'normal'),
               is_important: d.priority === 'pinned' || d.priority === 'high',
               is_read: d.is_read ?? false,
-              author_name: d.author_name || 'Pastor Daniel Santos',
-              author_role: d.author_role || 'Senior Pastor',
+              author_name: d.author_name || 'Church Leadership',
+              author_role: d.author_role || 'Church Administration',
               target_audience: d.target_audience || 'all',
               cover_image: d.cover_image || d.image_url || undefined,
               image_url: d.image_url || d.cover_image || undefined,
@@ -135,8 +114,8 @@ export class AdminAnnouncementService {
     const img = data.cover_image || data.image_url || existing?.cover_image || existing?.image_url || '';
     const eventDate = data.event_date !== undefined ? data.event_date : existing?.event_date;
     const expirationDate = data.expiration_date !== undefined ? data.expiration_date : existing?.expiration_date;
-    const authorName = data.author_name || existing?.author_name || admin?.name || 'Pastor Daniel Santos';
-    const authorRole = data.author_role || existing?.author_role || admin?.role_title || 'Super Admin';
+    const authorName = data.author_name || existing?.author_name || admin?.name || 'Church Leadership';
+    const authorRole = data.author_role || existing?.author_role || admin?.role_title || 'Administration';
     const targetAudience = data.target_audience || existing?.target_audience || 'all';
 
     const announcement: AdminAnnouncement = {
@@ -174,9 +153,9 @@ export class AdminAnnouncementService {
       console.warn('saveLocalAnnouncements error suppressed:', e);
     }
 
-    // DIRECT FEED POSTS SYNC: update bjc_feed_posts_v2 so member hero & feed update instantly
+    // DIRECT FEED POSTS SYNC: update feed cache so member hero & feed update instantly
     try {
-      const feedKey = 'bjc_feed_posts_v2';
+      const feedKey = 'bjc_feed_posts_v11';
       const rawFeed = localStorage.getItem(feedKey);
       if (rawFeed) {
         const feedPosts = JSON.parse(rawFeed);
@@ -200,7 +179,7 @@ export class AdminAnnouncementService {
               authorName: announcement.author_name,
               authorAvatar: '/icons/church-logo.png',
               authorRole: announcement.author_role,
-              ministryLabel: 'Pastoral Leadership',
+              ministryLabel: announcement.category || 'Church Announcement',
               content: announcement.description || announcement.content,
               postType: 'announcement',
               category: announcement.category,

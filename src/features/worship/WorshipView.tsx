@@ -745,7 +745,7 @@ export const WorshipView: React.FC = () => {
                       {selectedSetlist.title}
                     </h2>
                     <div className="text-xs text-slate-500 mt-1">
-                      Date: {selectedSetlist.serviceDate} • Leader: {selectedSetlist.worshipLeader || 'Mica Ramos'}
+                      Date: {selectedSetlist.serviceDate} • Leader: {selectedSetlist.worshipLeader || 'Unassigned'}
                     </div>
                   </div>
 

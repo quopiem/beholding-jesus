@@ -96,32 +96,7 @@ export const FeedSidebarLeft: React.FC<FeedSidebarLeftProps> = ({
         })}
       </div>
 
-      {/* 3. Senior Pastor Leadership Highlight */}
-      <div className="rounded-3xl bg-gradient-to-br from-[#1A1414] via-[#2A1F1F] to-[#120F0F] text-white p-4 border border-gold/30 shadow-card space-y-3">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-full overflow-hidden shrink-0 border border-gold/50 shadow-md">
-            <img 
-              src="/images/pastor-john-eric-manjares.png" 
-              alt="Pastor John Eric Manjares" 
-              className="w-full h-full object-cover"
-            />
-          </div>
-          <div>
-            <div className="text-[10px] uppercase font-bold text-gold tracking-wider">
-              Senior Pastor
-            </div>
-            <div className="font-serif font-bold text-sm text-white">
-              John Eric Manjares
-            </div>
-          </div>
-        </div>
-
-        <p className="text-[11px] text-stone-300 italic leading-relaxed">
-          &ldquo;Beholding the glory of the Lord, we are being transformed into His same image from glory to glory.&rdquo;
-        </p>
-      </div>
-
-      {/* 4. Admin Moderation Center (Admin exclusive) */}
+      {/* 3. Admin Moderation Center (Admin exclusive) */}
       {isAdmin && onOpenAdminModeration && (
         <div className="rounded-3xl bg-amber-500/10 border border-amber-500/20 p-4 shadow-card space-y-2">
           <div className="flex items-center gap-2 text-xs font-bold text-amber-700 dark:text-amber-400">

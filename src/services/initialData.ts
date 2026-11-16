@@ -38,7 +38,7 @@ export const INITIAL_MINISTRIES: Ministry[] = [
     slug: "worship-team",
     category: "Worship & Liturgy",
     leaderTitle: "Worship Director",
-    leaderName: "Mica Ramos",
+    leaderName: "Worship Leadership",
     icon: "music",
     color: "#d97706",
     description: "Leading the church family in God-exalting, Christ-centered, Spirit-filled praise, vocal harmony, and corporate adoration.",
@@ -120,18 +120,6 @@ export const INITIAL_ANNOUNCEMENTS: Announcement[] = [];
 export const INITIAL_PRAYER_REQUESTS: PrayerRequest[] = [];
 
 export const INITIAL_USERS: UserProfile[] = [
-  {
-    id: 'usr-pastor-john-eric',
-    name: 'John Eric Manjares',
-    username: 'pastorjohneric',
-    email: 'johneric.manjares@beholdingjesus.org',
-    role: 'pastor',
-    roleTitle: 'Senior Pastor',
-    avatar: '/images/pastor-john-eric-manjares.png',
-    ministryIds: ['ministry-pastoral', 'ministry-worship'],
-    bio: 'Senior Pastor of Beholding Jesus Church. Passionate about expository preaching, Christ-centered discipleship, and beholding the glory of God in our generation.',
-    joinedDate: '2023-01-01'
-  },
   {
     id: 'usr-owner-001',
     name: 'John Miko Sarsalijo',

@@ -222,22 +222,9 @@ function loadAllCachedMessages(currentUserId?: string): Record<string, ChatMessa
     console.warn('Error loading cached chat messages:', e);
   }
 
-  // Ensure default fellowship room has inspiring welcome seeds if completely empty
-  if (!result['fellowship'] || result['fellowship'].length === 0) {
-    result['fellowship'] = [
-      {
-        id: 'msg-seed-fellowship-1',
-        senderId: 'usr-pastor-john-eric',
-        senderName: 'John Erick Manjares',
-        senderAvatar: '/images/pastor-john-eric-manjares.png',
-        senderRole: 'Senior Pastor',
-        isMe: currentUserId === 'usr-pastor-john-eric',
-        content: 'Welcome to Beholding Jesus Church community fellowship! "Let us consider how we may spur one another on toward love and good deeds." (Hebrews 10:24) Grace and peace to everyone!',
-        timestamp: '9:00 AM',
-        isDelivered: true,
-        reactions: [{ emoji: '🙏', count: 6, reacted: false, userIds: [] }, { emoji: '❤️', count: 4, reacted: false, userIds: [] }]
-      }
-    ];
+  // Ensure default fellowship room exists
+  if (!result['fellowship']) {
+    result['fellowship'] = [];
   }
 
   // Sort each room's messages chronologically

@@ -381,12 +381,12 @@ export const MultimediaTeamWorkspace: React.FC<MultimediaTeamWorkspaceProps> = (
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {[
-              { role: 'Sound Operator', name: 'Mark Anthony Diaz', icon: Speaker, desc: 'Sanctuary PA levels, wireless mics, stage in-ear monitors, and sound dynamics.' },
-              { role: 'Presentation Operator', name: 'Alyssa Reyes', icon: Monitor, desc: 'Advancing praise lyrics, scripture slides, and announcement loops on cue.' },
-              { role: 'Camera Operator', name: 'Joshua Tan', icon: Camera, desc: 'Directing stage cameras, tracking worship leader and pastor preaching.' },
-              { role: 'Livestream Operator', name: 'Joshua Tan', icon: Wifi, desc: 'Managing OBS / ATEM streaming switcher, stream bitrate, and online viewer feed.' },
-              { role: 'Photographer', name: 'Alyssa Reyes', icon: Camera, desc: 'Capturing reverent church moments, guest greetings, and sermon highlights.' },
-              { role: 'Video Editor & Motion', name: 'Mark Anthony Diaz', icon: Film, desc: 'Post-service sermon clip editing, YouTube upload, and social highlights.' }
+              { role: 'Sound Operator', name: 'Open Role', icon: Speaker, desc: 'Sanctuary PA levels, wireless mics, stage in-ear monitors, and sound dynamics.' },
+              { role: 'Presentation Operator', name: 'Open Role', icon: Monitor, desc: 'Advancing praise lyrics, scripture slides, and announcement loops on cue.' },
+              { role: 'Camera Operator', name: 'Open Role', icon: Camera, desc: 'Directing stage cameras, tracking worship leader and pastor preaching.' },
+              { role: 'Livestream Operator', name: 'Open Role', icon: Wifi, desc: 'Managing OBS / ATEM streaming switcher, stream bitrate, and online viewer feed.' },
+              { role: 'Photographer', name: 'Open Role', icon: Camera, desc: 'Capturing reverent church moments, guest greetings, and sermon highlights.' },
+              { role: 'Video Editor & Motion', name: 'Open Role', icon: Film, desc: 'Post-service sermon clip editing, YouTube upload, and social highlights.' }
             ].map((crew, idx) => {
               const Icon = crew.icon;
               return (
