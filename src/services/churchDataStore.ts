@@ -219,6 +219,10 @@ export class ChurchDataStore {
       if (sessRaw) {
         const sess = JSON.parse(sessRaw);
         if (sess && sess.userId && new Date(sess.expiresAt).getTime() > Date.now()) {
+          // 1. If full user profile was stored directly in session, use it immediately
+          if (sess.user && (sess.user.id === sess.userId || (sess.username && sess.user.username?.toLowerCase() === sess.username.toLowerCase()))) {
+            return sess.user;
+          }
           const users = this.getUsers();
           const found = users.find(u => u.id === sess.userId || (sess.username && u.username?.toLowerCase() === sess.username.toLowerCase()));
           if (found) return found;

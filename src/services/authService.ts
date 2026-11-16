@@ -419,24 +419,25 @@ export class AuthService {
       ChurchDataStore.addUser(cloudUserObj);
     } else {
       const users = ChurchDataStore.getUsers();
-      user = users.find(u => u.id === credential!.userId || u.username === username) || users[0];
-
-      // Auto-sync demo user / App Owner to Supabase so they can log in from mobile too!
-      if (supabase && credential) {
-        supabase.from('church_members_auth').upsert({
-          id: user.id,
+      const found = users.find(u => u.id === credential!.userId || u.username?.toLowerCase() === username.toLowerCase());
+      if (found) {
+        user = found;
+      } else {
+        // Construct a safe, clean profile for this specific user — NEVER default to John Miko or users[0]!
+        const capitalizedName = credential.username.charAt(0).toUpperCase() + credential.username.slice(1);
+        user = {
+          id: credential.userId || `user-${Date.now()}`,
+          name: capitalizedName,
           username: credential.username,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          role_title: user.roleTitle,
-          avatar: user.avatar,
-          bio: user.bio,
-          salt: credential.salt,
-          password_hash: credential.passwordHash,
-          failed_attempts: 0,
-          lockout_until: null
-        }).then();
+          email: `${credential.username}@beholdingjesus.org`,
+          role: 'regular_member',
+          roleTitle: 'Church Member',
+          avatar: '/icons/church-logo.png',
+          bio: 'Faithful member of Beholding Jesus Church.',
+          ministryIds: [],
+          joinedDate: new Date().toISOString().split('T')[0]
+        };
+        ChurchDataStore.addUser(user);
       }
     }
 
@@ -464,8 +465,9 @@ export class AuthService {
     const session: AuthSession = {
       token: sessionToken,
       userId: user.id,
-      username: credential.username,
+      username: user.username || credential.username,
       role: user.role,
+      user,
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
       createdAt: new Date().toISOString()
     };
