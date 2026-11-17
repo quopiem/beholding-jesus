@@ -251,6 +251,15 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
             {/* ── Right Controls ── */}
             <div className="flex items-center gap-2 shrink-0">
 
+              {/* View Public Church Website */}
+              <button
+                onClick={() => onNavigate('public-website')}
+                className="px-3 py-1.5 rounded-xl border border-stone-200 dark:border-slate-700 hover:border-gold text-stone-600 dark:text-stone-300 hover:text-gold font-bold text-[11px] transition-colors cursor-pointer hidden sm:flex items-center gap-1 shadow-xs"
+                title="View Public Church Website"
+              >
+                <span>Public Website</span>
+              </button>
+
               {/* Theme toggle — refined pill */}
               <button
                 onClick={toggleTheme}

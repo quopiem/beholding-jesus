@@ -13,6 +13,7 @@ import { DownloadAppModal } from '../../components/DownloadAppModal';
 interface AuthPageProps {
   onAuthSuccess: (user: UserProfile) => void;
   initialTab?: 'login' | 'register' | 'recovery';
+  onBackToPublic?: () => void;
 }
 
 // Vector emblem matching the Holy Bible, White Dove & Gold Halo
@@ -68,7 +69,8 @@ const ChurchDoveEmblem: React.FC<{ className?: string }> = ({ className = 'w-14 
 
 export const AuthPage: React.FC<AuthPageProps> = ({
   onAuthSuccess,
-  initialTab = 'login'
+  initialTab = 'login',
+  onBackToPublic
 }) => {
   const [tab, setTab] = useState<'login' | 'register' | 'recovery'>(initialTab);
   const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
@@ -315,6 +317,18 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       {/* 3. Main Center Content Container */}
       <div className="relative z-10 w-full max-w-sm sm:max-w-md mx-auto px-5 py-6 sm:py-8 flex flex-col justify-between min-h-screen">
         
+        {onBackToPublic && (
+          <div className="pt-2 pb-1 flex justify-start">
+            <button
+              type="button"
+              onClick={onBackToPublic}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/40 hover:bg-black/60 border border-[#E5B358]/40 text-[#E5B358] text-xs font-bold transition-all shadow-sm cursor-pointer hover:scale-105 active:scale-95"
+            >
+              <span>&larr; Back to Church Website</span>
+            </button>
+          </div>
+        )}
+
         {/* ============================================================== */}
         {/* TOP BRANDING & LOGO                                            */}
         {/* ============================================================== */}

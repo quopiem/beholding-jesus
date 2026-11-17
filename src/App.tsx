@@ -14,6 +14,7 @@ import { BjcAiView } from './features/ai/BjcAiView';
 import { BjcAiFloatingButton } from './features/ai/BjcAiFloatingButton';
 import { AuthPage } from './features/auth/AuthPage';
 import { LandingPageView } from './features/landing/LandingPageView';
+import { PublicSiteLayout } from './public-site';
 import { ChurchDataStore } from './services/churchDataStore';
 import { AuthService } from './services/authService';
 import { PresenceService } from './services/presenceService';
@@ -24,6 +25,13 @@ const MAIN_SWIPE_SECTIONS = ['home', 'feed', 'bible', 'stories', 'community', 'm
 export function App() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => ChurchDataStore.getCurrentUser());
   const [currentTab, setCurrentTab] = useState<string>('home');
+  const [unauthView, setUnauthView] = useState<'public' | 'login' | 'register'>(() => {
+    if (typeof window !== 'undefined') {
+      if (window.location.hash === '#login') return 'login';
+      if (window.location.hash === '#register') return 'register';
+    }
+    return 'public';
+  });
   const [bibleTarget, setBibleTarget] = useState<{ bookId: string; chapter: number } | null>(null);
   const [visitedTabs, setVisitedTabs] = useState<Set<string>>(() => new Set(['home', 'community', currentTab]));
   const [isChatConversationOpen, setIsChatConversationOpen] = useState(false);
@@ -76,16 +84,39 @@ export function App() {
     });
   }, [currentTab]);
 
-  // Strict Authentication Gate:
-  // New or unauthenticated users ONLY see the Login or Registration screen.
-  // The landing page is shown immediately AFTER registering or logging in.
+  // Public Church Website & Authentication Gateway:
+  // Unauthenticated visitors land on the Public Church Website (Home, About, Beliefs, etc.).
+  // Clicking "Login" or "Join Us" transitions smoothly to the existing AuthPage.
   if (!currentUser) {
+    if (unauthView === 'login' || unauthView === 'register') {
+      return (
+        <AuthPage 
+          initialTab={unauthView}
+          onBackToPublic={() => setUnauthView('public')}
+          onAuthSuccess={(user) => {
+            setCurrentUser(user);
+            setCurrentTab('home'); // First view after login/register is the Member Landing Page
+          }} 
+        />
+      );
+    }
+
     return (
-      <AuthPage 
-        onAuthSuccess={(user) => {
-          setCurrentUser(user);
-          setCurrentTab('home'); // First view after login/register is the Landing Page
-        }} 
+      <PublicSiteLayout
+        onOpenLogin={() => setUnauthView('login')}
+        onOpenRegister={() => setUnauthView('register')}
+      />
+    );
+  }
+
+  // Authenticated Member viewing Public Website
+  if (currentUser && currentTab === 'public-website') {
+    return (
+      <PublicSiteLayout
+        isLoggedIn={true}
+        onGoToApp={() => setCurrentTab('home')}
+        onOpenLogin={() => {}}
+        onOpenRegister={() => {}}
       />
     );
   }
