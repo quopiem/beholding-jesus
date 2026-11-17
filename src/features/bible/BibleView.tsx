@@ -63,7 +63,9 @@ export const BibleView: React.FC<BibleViewProps> = ({
   const [redLetterEnabled, setRedLetterEnabled] = useState<boolean>(true);
   const [isDisplayMenuOpen, setIsDisplayMenuOpen] = useState<boolean>(false);
   const [isBookPickerOpen, setIsBookPickerOpen] = useState<boolean>(false);
-  const [bookPickerTab, setBookPickerTab] = useState<'OT' | 'NT'>('NT');
+  const [bookPickerTab, setBookPickerTab] = useState<'OT' | 'NT'>('OT');
+  const [tempBook, setTempBook] = useState<BibleBook>(() => selectedBook);
+  const [pickerMode, setPickerMode] = useState<'books' | 'chapters'>('books');
 
   // -------------------------------------------------------------
   // CONTENT & VERSES STATE
@@ -743,7 +745,12 @@ Please answer pastorally and expositorily, grounded in Scripture.`;
         <div className="flex items-center">
           <div className="inline-flex items-center rounded-full bg-[#242528] hover:bg-[#2c2d31] border border-neutral-700/60 p-0.5 text-xs sm:text-sm font-semibold shadow-xs transition-colors">
             <button
-              onClick={() => setIsBookPickerOpen(true)}
+              onClick={() => {
+                setTempBook(selectedBook);
+                setBookPickerTab(selectedBook.testament);
+                setPickerMode('books');
+                setIsBookPickerOpen(true);
+              }}
               className="px-3 py-1.5 text-white hover:text-gold transition rounded-full flex items-center gap-1 active:scale-95 cursor-pointer"
               title="Choose Scripture Book & Chapter"
             >
@@ -1145,6 +1152,150 @@ Please answer pastorally and expositorily, grounded in Scripture.`;
           >
             <ChevronRight className="w-5 h-5 stroke-[2.5]" />
           </button>
+        </div>,
+        document.body
+      )}
+
+      {/* ============================================================== */}
+      {/* BOOK & CHAPTER SELECTOR MODAL (YouVersion Style)               */}
+      {/* ============================================================== */}
+      {isBookPickerOpen && typeof document !== 'undefined' && createPortal(
+        <div 
+          className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsBookPickerOpen(false);
+          }}
+        >
+          <div className="w-full max-w-xl bg-neutral-900 border border-neutral-800 rounded-3xl p-5 sm:p-6 shadow-2xl text-white space-y-4 max-h-[88vh] flex flex-col">
+            
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-neutral-800 shrink-0">
+              <div className="flex items-center gap-2">
+                <BookOpen className="w-5 h-5 text-gold" />
+                <h3 className="font-serif font-bold text-base sm:text-lg">
+                  {pickerMode === 'chapters' ? `${tempBook.name} — Select Chapter` : 'Select Scripture Book'}
+                </h3>
+              </div>
+              <button 
+                onClick={() => setIsBookPickerOpen(false)}
+                className="p-1.5 rounded-full hover:bg-neutral-800 text-neutral-400 hover:text-white transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Step Toggle: Books vs Chapters */}
+            <div className="flex gap-2 p-1 bg-neutral-950/80 rounded-2xl border border-neutral-800 shrink-0">
+              <button
+                onClick={() => setPickerMode('books')}
+                className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                  pickerMode === 'books' ? 'bg-gold text-slate-950 shadow-xs' : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                1. Book ({tempBook.name})
+              </button>
+              <button
+                onClick={() => setPickerMode('chapters')}
+                className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                  pickerMode === 'chapters' ? 'bg-gold text-slate-950 shadow-xs' : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                2. Chapter ({currentChapter})
+              </button>
+            </div>
+
+            {pickerMode === 'books' ? (
+              <>
+                {/* Testament Tabs */}
+                <div className="flex gap-2 shrink-0">
+                  <button
+                    onClick={() => setBookPickerTab('OT')}
+                    className={`flex-1 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                      bookPickerTab === 'OT' ? 'bg-white/15 text-white border border-white/20' : 'bg-neutral-800/60 text-neutral-400 hover:text-white'
+                    }`}
+                  >
+                    Old Testament (39)
+                  </button>
+                  <button
+                    onClick={() => setBookPickerTab('NT')}
+                    className={`flex-1 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                      bookPickerTab === 'NT' ? 'bg-white/15 text-white border border-white/20' : 'bg-neutral-800/60 text-neutral-400 hover:text-white'
+                    }`}
+                  >
+                    New Testament (27)
+                  </button>
+                </div>
+
+                {/* Books Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 overflow-y-auto flex-1 pr-1 max-h-[50vh]">
+                  {BIBLE_BOOKS.filter(b => b.testament === bookPickerTab).map(book => {
+                    const isCurrent = tempBook.id === book.id;
+                    return (
+                      <button
+                        key={book.id}
+                        onClick={() => {
+                          setTempBook(book);
+                          if (book.chaptersCount === 1) {
+                            setSelectedBook(book);
+                            setCurrentChapter(1);
+                            setIsBookPickerOpen(false);
+                          } else {
+                            setPickerMode('chapters');
+                          }
+                        }}
+                        className={`p-3 rounded-2xl border text-left transition cursor-pointer active:scale-95 ${
+                          isCurrent 
+                            ? 'border-gold bg-gold/20 text-gold-200 font-bold' 
+                            : 'border-neutral-800 hover:border-neutral-700 bg-neutral-800/40 text-neutral-300 hover:bg-neutral-800'
+                        }`}
+                      >
+                        <div className="text-xs sm:text-sm font-bold truncate">{book.name}</div>
+                        <div className="text-[10px] text-neutral-400 mt-0.5">{book.chaptersCount} {book.chaptersCount === 1 ? 'chapter' : 'chapters'}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
+              /* Chapters Grid */
+              <div className="space-y-3 flex-1 flex flex-col overflow-hidden">
+                <div className="flex items-center justify-between text-xs text-neutral-400 shrink-0">
+                  <span>Select a chapter in <strong className="text-white">{tempBook.name}</strong>:</span>
+                  <button
+                    onClick={() => setPickerMode('books')}
+                    className="text-gold hover:underline font-semibold cursor-pointer"
+                  >
+                    Change Book
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 gap-2 overflow-y-auto flex-1 pr-1 max-h-[50vh]">
+                  {Array.from({ length: tempBook.chaptersCount }, (_, i) => i + 1).map(num => {
+                    const isCurrent = selectedBook.id === tempBook.id && currentChapter === num;
+                    return (
+                      <button
+                        key={num}
+                        onClick={() => {
+                          setSelectedBook(tempBook);
+                          setCurrentChapter(num);
+                          setIsBookPickerOpen(false);
+                          setPickerMode('books');
+                        }}
+                        className={`h-11 rounded-xl text-sm font-bold transition flex items-center justify-center cursor-pointer active:scale-95 ${
+                          isCurrent
+                            ? 'bg-gold text-slate-950 font-bold shadow-gold ring-2 ring-gold/40'
+                            : 'bg-neutral-800/80 hover:bg-neutral-700 text-neutral-200 hover:text-white border border-neutral-700/60'
+                        }`}
+                      >
+                        {num}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+          </div>
         </div>,
         document.body
       )}
