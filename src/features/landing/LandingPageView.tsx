@@ -763,7 +763,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                   Visit Us in Cavite
                 </h2>
                 <p className="text-xs sm:text-sm text-stone-500 dark:text-stone-400">
-                  Join us in person for an uplifting Sunday worship experience.
+                  Come join us this Sunday! Everyone will happily greet you and help you find a seat for an uplifting worship experience.
                 </p>
               </div>
 
@@ -824,7 +824,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                   First Time Visiting?
                 </h4>
                 <p className="text-xs text-stone-600 dark:text-stone-300 leading-relaxed max-w-sm">
-                  Our welcoming ushering and hospitality team will greet you at the door. There is no dress code—come as you are!
+                  Come join us this Sunday! Everyone will happily greet you at the door, help you find a comfortable seat, and make you feel right at home. There is no dress code—come as you are!
                 </p>
                 <button
                   onClick={handleEnterFeed}
