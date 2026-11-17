@@ -57,13 +57,15 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
       }`}
     >
       {/* Top Banner Notice: Sunday Gathering */}
-      <div className="bg-gradient-to-r from-stone-900 via-emerald-950 to-stone-900 text-stone-100 text-[11px] py-1.5 px-4 text-center border-b border-gold/30">
-        <div className="max-w-7xl mx-auto flex items-center justify-center gap-2 font-medium">
-          <span className="w-2 h-2 rounded-full bg-gold animate-pulse shrink-0" />
-          <span>Sunday Worship Celebration at <strong>9:00 AM</strong> • Camella Springville Molino 3, Bacoor</span>
+      <div className="bg-gradient-to-r from-stone-900 via-stone-800 to-slate-900 text-stone-100 text-[10px] sm:text-[11px] py-1.5 px-3 sm:px-4 text-center border-b border-gold/30">
+        <div className="max-w-7xl mx-auto flex items-center justify-center gap-1.5 sm:gap-2 font-medium">
+          <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-gold animate-pulse shrink-0" />
+          <span className="truncate max-w-[280px] min-[400px]:max-w-none">
+            Sunday Worship: <strong className="text-gold font-bold">9:00 AM</strong> • Camella Springville Molino 3, Bacoor
+          </span>
           <button 
             onClick={() => handlePageSelect('first-time')}
-            className="hidden sm:inline-flex items-center gap-1 text-gold hover:text-amber-300 font-bold ml-2 underline underline-offset-2 cursor-pointer"
+            className="hidden md:inline-flex items-center gap-1 text-gold hover:text-amber-300 font-bold ml-2 underline underline-offset-2 cursor-pointer transition-colors"
           >
             <span>Plan Your Visit</span>
             <ArrowRight className="w-3 h-3" />
@@ -71,33 +73,33 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 sm:h-20">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between gap-2 h-16 sm:h-20">
           
           {/* Logo & Church Name */}
           <button
             onClick={() => handlePageSelect('home')}
-            className="flex items-center gap-3 text-left cursor-pointer group"
+            className="flex items-center gap-2 sm:gap-3 text-left cursor-pointer group min-w-0 shrink-0 select-none"
           >
-            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-br from-gold/25 via-gold/15 to-transparent border border-gold/40 flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform shrink-0">
+            <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-br from-gold/25 via-gold/15 to-transparent border border-gold/40 flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform shrink-0">
               <img 
                 src="/icons/church-seal-gold.png" 
                 alt="Beholding Jesus Church" 
-                className="w-8 h-8 sm:w-9 sm:h-9 object-contain drop-shadow-xs" 
+                className="w-7 h-7 sm:w-9 sm:h-9 object-contain drop-shadow-xs" 
               />
             </div>
-            <div>
-              <div className="font-serif font-bold text-sm sm:text-base text-slate-900 dark:text-white uppercase tracking-wider group-hover:text-gold transition-colors">
+            <div className="min-w-0 flex flex-col justify-center">
+              <div className="font-serif font-black text-xs min-[380px]:text-[13px] sm:text-base text-slate-900 dark:text-white uppercase tracking-wider group-hover:text-gold transition-colors whitespace-nowrap leading-tight">
                 Beholding Jesus
               </div>
-              <div className="text-[10px] text-stone-500 dark:text-stone-400 font-semibold tracking-widest uppercase">
+              <div className="text-[8.5px] sm:text-[10px] text-amber-700/80 dark:text-gold/80 font-bold tracking-widest uppercase leading-none mt-0.5">
                 Church • Cavite
               </div>
             </div>
           </button>
 
           {/* Desktop Navigation Links */}
-          <nav className="hidden lg:flex items-center gap-1 xl:gap-2" aria-label="Public website navigation">
+          <nav className="hidden xl:flex items-center gap-1 xl:gap-2" aria-label="Public website navigation">
             <button
               onClick={() => handlePageSelect('home')}
               className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
@@ -246,23 +248,24 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
           </nav>
 
           {/* Right Action Controls: Theme + Member Login / Register */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
             {/* Theme Toggle Button */}
             <button
               onClick={onToggleTheme}
-              className="p-2 sm:p-2.5 rounded-xl border border-stone-200 dark:border-slate-800 bg-stone-100 dark:bg-slate-900 text-stone-600 dark:text-stone-300 hover:text-gold transition-colors cursor-pointer"
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl border border-stone-200/70 dark:border-slate-800 bg-stone-100/90 dark:bg-slate-900 text-stone-600 dark:text-stone-300 hover:text-gold transition-colors cursor-pointer flex items-center justify-center shrink-0 shadow-2xs"
               title={isDarkMode ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
               aria-label="Toggle Theme"
             >
-              {isDarkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-stone-600" />}
+              {isDarkMode ? <Sun className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" /> : <Moon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-stone-600" />}
             </button>
 
             {isLoggedIn ? (
               <button
                 onClick={onGoToApp}
-                className="px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl bg-gold hover:bg-amber-400 text-slate-950 font-bold text-xs sm:text-sm shadow-xs transition-all flex items-center gap-1.5 cursor-pointer hover:scale-[1.02] active:scale-95"
+                className="px-3 py-1.5 sm:px-4 sm:py-2.5 rounded-xl bg-gold hover:bg-amber-400 text-slate-950 font-bold text-xs sm:text-sm shadow-xs transition-all flex items-center gap-1.5 cursor-pointer hover:scale-[1.02] active:scale-95 shrink-0"
               >
-                <span>Back to Member App</span>
+                <span className="hidden sm:inline">Back to Member App</span>
+                <span className="sm:hidden">App</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             ) : (
@@ -270,30 +273,30 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
                 {/* Existing Login Button */}
                 <button
                   onClick={onOpenLogin}
-                  className="px-3 py-2 sm:px-4 sm:py-2 rounded-xl border border-stone-300 dark:border-slate-700 hover:border-gold text-stone-800 dark:text-stone-100 font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer hover:scale-[1.02] active:scale-95 shadow-xs"
+                  className="px-2.5 py-1.5 sm:px-3.5 sm:py-2 rounded-xl border border-stone-300 dark:border-slate-700 hover:border-gold text-stone-800 dark:text-stone-100 font-bold text-xs transition-all flex items-center gap-1 sm:gap-1.5 cursor-pointer hover:scale-[1.02] active:scale-95 shadow-xs shrink-0"
                 >
-                  <LogIn className="w-3.5 h-3.5 text-gold" />
+                  <LogIn className="w-3.5 h-3.5 text-gold shrink-0" />
                   <span>Login</span>
                 </button>
 
-                {/* Existing Register / Join Us Button */}
+                {/* Existing Register / Join Us Button (shown on tablet & desktop) */}
                 <button
                   onClick={onOpenRegister}
-                  className="px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl bg-gradient-to-r from-gold via-amber-400 to-gold hover:from-amber-400 hover:to-gold text-slate-950 font-extrabold text-xs transition-all flex items-center gap-1.5 cursor-pointer hover:scale-[1.03] active:scale-95 shadow-sm"
+                  className="hidden sm:flex px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl bg-gradient-to-r from-gold via-amber-400 to-gold hover:from-amber-400 hover:to-gold text-slate-950 font-extrabold text-xs transition-all items-center gap-1.5 cursor-pointer hover:scale-[1.03] active:scale-95 shadow-sm shrink-0"
                 >
-                  <UserPlus className="w-3.5 h-3.5 text-slate-950" />
+                  <UserPlus className="w-3.5 h-3.5 text-slate-950 shrink-0" />
                   <span>Join Us</span>
                 </button>
               </>
             )}
 
-            {/* Mobile Hamburger Button */}
+            {/* Mobile / Tablet Hamburger Button */}
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="lg:hidden p-2 rounded-xl border border-stone-200 dark:border-slate-800 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-slate-900 transition-colors cursor-pointer"
+              className="xl:hidden w-8 h-8 sm:w-9 sm:h-9 rounded-xl border border-stone-200/70 dark:border-slate-800 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-slate-900 transition-colors cursor-pointer flex items-center justify-center shrink-0"
               aria-label="Toggle navigation menu"
             >
-              {isMobileMenuOpen ? <X className="w-5 h-5 text-gold" /> : <Menu className="w-5 h-5" />}
+              {isMobileMenuOpen ? <X className="w-4 h-4 sm:w-5 sm:h-5 text-gold" /> : <Menu className="w-4 h-4 sm:w-5 sm:h-5" />}
             </button>
           </div>
 
@@ -302,7 +305,33 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
 
       {/* Mobile Drawer Menu */}
       {isMobileMenuOpen && (
-        <div className="lg:hidden border-b border-stone-200 dark:border-slate-800 bg-white/98 dark:bg-slate-950/98 backdrop-blur-xl px-4 py-6 space-y-4 max-h-[85vh] overflow-y-auto animate-in slide-in-from-top duration-200">
+        <div className="xl:hidden border-b border-stone-200 dark:border-slate-800 bg-white/98 dark:bg-slate-950/98 backdrop-blur-xl px-4 py-5 space-y-4 max-h-[85vh] overflow-y-auto animate-in slide-in-from-top duration-200">
+          
+          {/* Top Quick Actions in Drawer */}
+          {!isLoggedIn && (
+            <div className="grid grid-cols-2 gap-2 pb-3 border-b border-stone-200 dark:border-slate-800">
+              <button
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  onOpenLogin();
+                }}
+                className="py-2.5 px-3 rounded-xl border border-stone-300 dark:border-slate-700 font-bold text-xs text-stone-800 dark:text-stone-100 flex items-center justify-center gap-1.5 hover:border-gold transition shadow-2xs"
+              >
+                <LogIn className="w-3.5 h-3.5 text-gold" />
+                <span>Member Login</span>
+              </button>
+              <button
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  onOpenRegister();
+                }}
+                className="py-2.5 px-3 rounded-xl bg-gradient-to-r from-gold via-amber-400 to-gold text-slate-950 font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-sm hover:opacity-95 transition"
+              >
+                <UserPlus className="w-3.5 h-3.5 text-slate-950" />
+                <span>Join Church</span>
+              </button>
+            </div>
+          )}
           <div className="space-y-1">
             <button
               onClick={() => handlePageSelect('home')}
