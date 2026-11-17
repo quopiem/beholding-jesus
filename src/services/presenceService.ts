@@ -9,10 +9,12 @@ export interface PresenceUserPayload {
   avatar: string;
   onlineAt: string;
   device: 'mobile' | 'desktop';
+  faithNote?: string;
 }
 
 const STORAGE_KEY_LAST_SEEN = 'bjc_user_last_seen_map_v2';
 const STORAGE_KEY_SESSION_ID = 'bjc_client_session_id_v2';
+const STORAGE_KEY_FAITH_NOTES = 'bjc_user_faith_notes_map_v2';
 
 // Human-friendly last seen formatting (e.g. Active Now, Active 5m ago, Active 1h ago, Active yesterday)
 export function formatLastSeenTimestamp(timestampMs: number | string | Date | undefined | null): string {
@@ -45,11 +47,13 @@ class PresenceServiceImpl {
   private sessionId: string;
   private onlineUsersMap: Map<string, PresenceUserPayload[]> = new Map();
   private lastSeenMap: Map<string, number> = new Map();
+  private userFaithNotesMap: Map<string, string> = new Map();
   private isInitialized = false;
 
   constructor() {
     this.sessionId = this.getOrCreateSessionId();
     this.loadLastSeenFromStorage();
+    this.loadFaithNotesFromStorage();
 
     // Listen to network connection changes
     if (typeof window !== 'undefined') {
@@ -100,12 +104,45 @@ class PresenceServiceImpl {
     } catch {}
   }
 
+  private loadFaithNotesFromStorage() {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY_FAITH_NOTES);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') {
+          Object.entries(parsed).forEach(([uid, note]) => {
+            if (typeof note === 'string' && note.trim()) {
+              this.userFaithNotesMap.set(uid, note);
+            }
+          });
+        }
+      }
+    } catch {}
+  }
+
+  private saveFaithNotesToStorage() {
+    if (typeof window === 'undefined') return;
+    try {
+      const obj: Record<string, string> = {};
+      this.userFaithNotesMap.forEach((note, uid) => {
+        obj[uid] = note;
+      });
+      localStorage.setItem(STORAGE_KEY_FAITH_NOTES, JSON.stringify(obj));
+    } catch {}
+  }
+
   /**
    * Initializes real-time presence for the authenticated user.
    * Tracks this tab's unique session under the user's presence key.
    */
-  public init(currentUser: UserProfile) {
+  public init(currentUser: UserProfile, initialFaithNote?: string) {
     if (!currentUser || !currentUser.id) return;
+
+    if (initialFaithNote && initialFaithNote.trim()) {
+      this.userFaithNotesMap.set(currentUser.id, initialFaithNote.trim());
+      this.saveFaithNotesToStorage();
+    }
 
     // If already tracking same user, ensure tracking payload is up to date
     if (this.currentUserId === currentUser.id && this.channel) {
@@ -146,8 +183,12 @@ class PresenceServiceImpl {
         existing.forEach(p => sessionMap.set(p.sessionId, p));
         (newPresences || []).forEach((p: PresenceUserPayload) => {
           if (p.sessionId) sessionMap.set(p.sessionId, p);
+          if (p.faithNote && p.faithNote.trim()) {
+            this.userFaithNotesMap.set(key, p.faithNote.trim());
+          }
         });
         this.onlineUsersMap.set(key, Array.from(sessionMap.values()));
+        this.saveFaithNotesToStorage();
         this.notifyPresenceChange();
       });
 
@@ -184,6 +225,7 @@ class PresenceServiceImpl {
   }
 
   private recordSelfPresence(currentUser: UserProfile) {
+    const currentNote = this.userFaithNotesMap.get(currentUser.id);
     const selfPayload: PresenceUserPayload = {
       userId: currentUser.id,
       sessionId: this.sessionId,
@@ -191,7 +233,8 @@ class PresenceServiceImpl {
       role: currentUser.roleTitle,
       avatar: currentUser.avatar,
       onlineAt: new Date().toISOString(),
-      device: typeof navigator !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ? 'mobile' : 'desktop'
+      device: typeof navigator !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ? 'mobile' : 'desktop',
+      faithNote: currentNote
     };
     this.onlineUsersMap.set(currentUser.id, [selfPayload]);
   }
@@ -199,6 +242,7 @@ class PresenceServiceImpl {
   private async trackCurrentSession(currentUser: UserProfile) {
     if (!this.channel) return;
     try {
+      const currentNote = this.userFaithNotesMap.get(currentUser.id);
       const payload: PresenceUserPayload = {
         userId: currentUser.id,
         sessionId: this.sessionId,
@@ -206,7 +250,8 @@ class PresenceServiceImpl {
         role: currentUser.roleTitle,
         avatar: currentUser.avatar,
         onlineAt: new Date().toISOString(),
-        device: typeof navigator !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ? 'mobile' : 'desktop'
+        device: typeof navigator !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ? 'mobile' : 'desktop',
+        faithNote: currentNote
       };
       await this.channel.track(payload);
     } catch (e) {
@@ -231,16 +276,21 @@ class PresenceServiceImpl {
             role: '',
             avatar: '',
             onlineAt: new Date().toISOString(),
-            device: 'desktop'
+            device: 'desktop',
+            faithNote: this.userFaithNotesMap.get(this.currentUserId)
           });
         }
         newMap.set(this.currentUserId, selfList);
       }
 
-      // Check all remote users
+      // Check all remote users and collect faith notes
       Object.entries(state).forEach(([userId, presences]) => {
         if (Array.isArray(presences) && presences.length > 0) {
           newMap.set(userId, presences);
+          const withNote = presences.find(p => p.faithNote && p.faithNote.trim());
+          if (withNote?.faithNote) {
+            this.userFaithNotesMap.set(userId, withNote.faithNote.trim());
+          }
         } else {
           // If a user was previously online and now has 0 presences, update last seen
           if (this.onlineUsersMap.has(userId) && userId !== this.currentUserId) {
@@ -258,6 +308,7 @@ class PresenceServiceImpl {
 
       this.onlineUsersMap = newMap;
       this.saveLastSeenToStorage();
+      this.saveFaithNotesToStorage();
       this.notifyPresenceChange();
     } catch (err) {
       console.warn('handlePresenceSync error:', err);
@@ -300,10 +351,62 @@ class PresenceServiceImpl {
       window.dispatchEvent(new CustomEvent('bjc_presence_change', {
         detail: {
           onlineCount: this.getOnlineCount(),
-          onlineUserIds: Array.from(this.onlineUsersMap.keys())
+          onlineUserIds: Array.from(this.onlineUsersMap.keys()),
+          faithNotes: this.getAllFaithNotes()
         }
       }));
     }
+  }
+
+  /**
+   * Get real faith note / thought status for a specific user.
+   */
+  public getUserFaithNote(userId?: string | null): string | undefined {
+    if (!userId) return undefined;
+    return this.userFaithNotesMap.get(userId);
+  }
+
+  /**
+   * Set or update faith note for a user.
+   */
+  public setUserFaithNote(userId: string, note: string) {
+    if (!userId) return;
+    const trimmed = (note || '').trim();
+    if (trimmed) {
+      this.userFaithNotesMap.set(userId, trimmed);
+    } else {
+      this.userFaithNotesMap.delete(userId);
+    }
+    this.saveFaithNotesToStorage();
+    this.notifyPresenceChange();
+  }
+
+  /**
+   * Update current user's faith note and broadcast to Realtime presence channel.
+   */
+  public async updateFaithNote(note: string) {
+    if (!this.currentUserId) return;
+    this.setUserFaithNote(this.currentUserId, note);
+    if (this.channel && this.isInitialized) {
+      const u = { 
+        id: this.currentUserId, 
+        name: '', 
+        roleTitle: '', 
+        avatar: '' 
+      } as any;
+      await this.trackCurrentSession(u);
+    }
+  }
+
+  /**
+   * Get all cached and active faith notes as a key-value record.
+   */
+  public getAllFaithNotes(): Record<string, string> {
+    const obj: Record<string, string> = {};
+    this.userFaithNotesMap.forEach((note, uid) => {
+      obj[uid] = note;
+    });
+    return obj;
   }
 
   /**

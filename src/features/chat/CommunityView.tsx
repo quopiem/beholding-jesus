@@ -5,13 +5,14 @@ import {
   Sparkles, CheckCircle2, X, Plus, PhoneCall, ChevronLeft, ChevronDown,
   Trash2, Image as ImageIcon, Camera, MessageSquare, User, Mail, Phone, ExternalLink, Shield, Maximize2,
   CornerUpLeft, Reply, Film, Download, ZoomIn, ZoomOut, Bell, BellRing, Play, Pause, Circle,
-  ThumbsUp, Mic, Forward, UserPlus, LogOut, EyeOff
+  ThumbsUp, Mic, Forward, UserPlus, LogOut, EyeOff, BookOpen, Share2
 } from 'lucide-react';
 import { ChurchDataStore } from '../../services/churchDataStore';
-import { UserProfile } from '../../types';
+import { UserProfile, BibleNote } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { NotificationService } from '../../services/notificationService';
 import { PresenceService, formatLastSeenTimestamp } from '../../services/presenceService';
+import { BibleService } from '../bible/bibleService';
 
 // Available faith & community reaction emojis
 const COMMUNITY_EMOJIS = [
@@ -251,7 +252,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
   onConversationActiveChange
 }) => {
   const currentUser: UserProfile = userProp || ChurchDataStore.getCurrentUser() || ChurchDataStore.getRequiredCurrentUser();
-  const [filterTab, setFilterTab] = useState<'all' | 'groups' | 'direct'>('all');
+  const [filterTab, setFilterTab] = useState<'all' | 'groups' | 'direct' | 'members'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeRoomId, setActiveRoomId] = useState<string>(() => {
     try {
@@ -299,6 +300,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
       return 'Grace is sufficient';
     }
   });
+  const [userFaithNotes, setUserFaithNotes] = useState<Record<string, string>>(() => PresenceService.getAllFaithNotes());
   const [isFaithNoteModalOpen, setIsFaithNoteModalOpen] = useState(false);
   const [noteInput, setNoteInput] = useState(userFaithNote);
 
@@ -591,12 +593,14 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
   const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(() => PresenceService.getOnlineUserIds());
 
   useEffect(() => {
-    // Initialize presence for current user session
-    PresenceService.init(currentUser);
-    setOnlineUserIds(PresenceService.getOnlineUserIds());
+    // Initialize presence for current user session with active faith note
+    PresenceService.init(currentUser, userFaithNote);
+    setOnlineUserIds(new Set(PresenceService.getOnlineUserIds()));
+    setUserFaithNotes(PresenceService.getAllFaithNotes());
 
     const handlePresenceUpdate = () => {
-      setOnlineUserIds(PresenceService.getOnlineUserIds());
+      setOnlineUserIds(new Set(PresenceService.getOnlineUserIds()));
+      setUserFaithNotes(PresenceService.getAllFaithNotes());
     };
 
     window.addEventListener('bjc_presence_change', handlePresenceUpdate);
@@ -847,17 +851,50 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
   }, []);
 
   // Filter conversations & STRICT SORTING: Newest chat ALWAYS on top!
-  const filteredConversations = conversations
-    .filter(c => {
-      if (filterTab === 'groups' && c.type !== 'group') return false;
-      if (filterTab === 'direct' && c.type !== 'direct') return false;
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        return c.title.toLowerCase().includes(q) || c.lastMessage.toLowerCase().includes(q);
-      }
-      return true;
-    })
-    .sort((a, b) => (b.lastMessageTimestamp || 0) - (a.lastMessageTimestamp || 0));
+  const filteredConversations = useMemo(() => {
+    return conversations
+      .filter(c => {
+        if (filterTab === 'groups' && c.type !== 'group') return false;
+        if (filterTab === 'direct' && c.type !== 'direct') return false;
+        if (filterTab === 'members') return false;
+        if (searchQuery.trim()) {
+          const q = searchQuery.toLowerCase();
+          return c.title.toLowerCase().includes(q) || c.lastMessage.toLowerCase().includes(q);
+        }
+        return true;
+      })
+      .sort((a, b) => (b.lastMessageTimestamp || 0) - (a.lastMessageTimestamp || 0));
+  }, [conversations, filterTab, searchQuery]);
+
+  // Real-time member search across all registered church members
+  const searchedMembers = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q && filterTab !== 'members') return [];
+
+    return registeredUsers
+      .filter(u => {
+        if (!q) return true; // On 'members' tab with no search query, show all
+        const note = (userFaithNotes[u.id] || PresenceService.getUserFaithNote(u.id) || '').toLowerCase();
+        return (
+          u.name.toLowerCase().includes(q) ||
+          (u.username || '').toLowerCase().includes(q) ||
+          (u.roleTitle || '').toLowerCase().includes(q) ||
+          (u.bio || '').toLowerCase().includes(q) ||
+          note.includes(q)
+        );
+      })
+      .sort((a, b) => {
+        // Online users first!
+        const aOnline = PresenceService.isUserOnline(a.id);
+        const bOnline = PresenceService.isUserOnline(b.id);
+        if (aOnline && !bOnline) return -1;
+        if (!aOnline && bOnline) return 1;
+        // Pastors / Leaders
+        if (a.role === 'pastor' && b.role !== 'pastor') return -1;
+        if (a.role !== 'pastor' && b.role === 'pastor') return 1;
+        return a.name.localeCompare(b.name);
+      });
+  }, [registeredUsers, searchQuery, filterTab, onlineUserIds, userFaithNotes]);
 
   // Scroll to bottom on new message
   useEffect(() => {
@@ -1390,6 +1427,14 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
       channel.on('broadcast', { event: 'chat_delete' }, ({ payload }: any) => {
         if (!isSubscribed) return;
         handleIncomingBroadcastDelete(payload);
+      });
+
+      channel.on('broadcast', { event: 'faith_note_sync' }, ({ payload }: any) => {
+        if (!isSubscribed) return;
+        if (payload?.userId && payload?.note !== undefined) {
+          PresenceService.setUserFaithNote(payload.userId, payload.note);
+          setUserFaithNotes(PresenceService.getAllFaithNotes());
+        }
       });
 
       channel.subscribe((status: string) => {
@@ -2059,24 +2104,39 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
     });
   };
 
-  // Truly active church members only (verified online presence or current session)
-  const activeMembers = registeredUsers
-    .filter(u => PresenceService.isUserOnline(u.id))
-    .map(user => ({
-      ...user,
-      isOnline: true,
-      activityBadge: user.id === currentUser.id 
-        ? 'You (Active)' 
-        : (user.role === 'pastor' ? 'Pastor Online' : 'Active Now')
-    }));
+  // Real church members for the top story reel: online members first, and members with notes
+  const storyTrayMembers = useMemo(() => {
+    return registeredUsers
+      .filter(u => u.id !== currentUser.id)
+      .map(u => {
+        const isOnline = PresenceService.isUserOnline(u.id);
+        const note = userFaithNotes[u.id] || PresenceService.getUserFaithNote(u.id);
+        return {
+          ...u,
+          isOnline,
+          note: note || (u.role === 'pastor' ? 'Preaching Grace 📖' : null)
+        };
+      })
+      .filter(u => u.isOnline || Boolean(u.note))
+      .sort((a, b) => {
+        if (a.isOnline && !b.isOnline) return -1;
+        if (!a.isOnline && b.isOnline) return 1;
+        return a.name.localeCompare(b.name);
+      });
+  }, [registeredUsers, onlineUserIds, userFaithNotes, currentUser.id]);
 
-  // Faith thought note generator for Messenger-style story bubbles
-  const getFaithNote = (user: { id: string; role?: string }) => {
+  // Real Faith thought note getter (no fake or hardcoded random generation)
+  const getFaithNote = (user: { id: string; role?: string; bio?: string }) => {
+    if (user.id === currentUser.id) {
+      return userFaithNote && userFaithNote.trim() ? userFaithNote.trim() : null;
+    }
+    const realNote = userFaithNotes[user.id] || PresenceService.getUserFaithNote(user.id);
+    if (realNote && realNote.trim()) {
+      return realNote.trim();
+    }
     if (user.role === 'pastor') return 'Preaching Grace 📖';
     if (user.role === 'ministry_leader') return 'Serving Christ ✨';
-    const notes = ['Blessed 🙏', 'Sunday 9AM 🎶', 'Grace & Peace 🕊️', 'In Prayer ✝️', 'Faithful ❤️', 'Joy in Lord 🙌', 'Love God 👑'];
-    const code = user.id.charCodeAt(user.id.length - 1) || 0;
-    return notes[code % notes.length];
+    return null;
   };
 
   const extractUrl = (text: string): string | null => {
@@ -2206,7 +2266,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
               <Search className="w-4 h-4 text-slate-400 shrink-0 mr-2" />
               <input
                 type="text"
-                placeholder="Ask BJC AI or search..."
+                placeholder="Search messages or all church members..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full bg-transparent text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none"
@@ -2253,45 +2313,55 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
               </span>
             </div>
 
-            {/* Other Active Members with Thought Bubbles */}
-            {activeMembers.filter(m => m.id !== currentUser.id).map(member => (
-              <div
-                key={member.id}
-                onClick={() => handleViewProfile(member.id, member.name, member.avatar, member.roleTitle)}
-                className="flex flex-col items-center shrink-0 w-16 cursor-pointer group text-center"
-                title={`${member.name} (${member.roleTitle}) - Active now`}
-              >
-                <div className="relative mb-1 flex flex-col items-center">
-                  {/* Speech note bubble above head */}
-                  <div className="mb-1 px-2 py-0.5 rounded-full bg-[#1e293b] dark:bg-[#1a2b42] text-[#EADBB8] text-[9px] font-bold max-w-[68px] truncate shadow-xs border border-gold/25">
-                    {getFaithNote(member)}
+            {/* Other Active Members & Believers with Faith Notes */}
+            {storyTrayMembers.map(member => {
+              const note = getFaithNote(member);
+              return (
+                <div
+                  key={member.id}
+                  onClick={() => handleViewProfile(member.id, member.name, member.avatar, member.roleTitle)}
+                  className="flex flex-col items-center shrink-0 w-16 cursor-pointer group text-center"
+                  title={`${member.name} (${member.roleTitle}) - ${member.isOnline ? 'Active now' : 'Offline'}`}
+                >
+                  <div className="relative mb-1 flex flex-col items-center">
+                    {/* Speech note bubble above head if note exists */}
+                    {note && (
+                      <div className="mb-1 px-2 py-0.5 rounded-full bg-[#1e293b] dark:bg-[#1a2b42] text-[#EADBB8] text-[9px] font-bold max-w-[68px] truncate shadow-xs border border-gold/25">
+                        {note}
+                      </div>
+                    )}
+                    {/* Fixed-size circular avatar container */}
+                    <div 
+                      className="relative rounded-full p-0.5 shrink-0"
+                      style={{ width: '56px', height: '56px', minWidth: '56px', minHeight: '56px', maxWidth: '56px', maxHeight: '56px' }}
+                    >
+                      <img 
+                        src={member.avatar || '/icons/church-logo.png'} 
+                        alt={member.name} 
+                        className={`w-full h-full rounded-full object-cover border-2 ${
+                          member.isOnline ? 'border-emerald-400 group-hover:border-gold' : 'border-slate-300 dark:border-slate-700'
+                        } transition shadow-xs shrink-0 block`} 
+                      />
+                      <span className={`absolute bottom-0.5 right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-slate-900 shadow-xs ${
+                        member.isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'
+                      }`}></span>
+                    </div>
                   </div>
-                  {/* Fixed-size circular avatar container */}
-                  <div 
-                    className="relative rounded-full p-0.5 shrink-0"
-                    style={{ width: '56px', height: '56px', minWidth: '56px', minHeight: '56px', maxWidth: '56px', maxHeight: '56px' }}
-                  >
-                    <img 
-                      src={member.avatar || '/icons/church-logo.png'} 
-                      alt={member.name} 
-                      className="w-full h-full rounded-full object-cover border-2 border-emerald-400 group-hover:border-gold transition shadow-xs shrink-0 block" 
-                    />
-                    <span className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 shadow-xs"></span>
-                  </div>
+                  <span className="text-[11px] font-medium text-slate-700 dark:text-slate-200 group-hover:text-gold truncate max-w-[64px]">
+                    {member.name.split(' ')[0]}
+                  </span>
                 </div>
-                <span className="text-[11px] font-medium text-slate-700 dark:text-slate-200 group-hover:text-gold truncate max-w-[64px]">
-                  {member.name.split(' ')[0]}
-                </span>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
-          {/* Filter Pills (All, Groups, Direct) */}
+          {/* Filter Pills (All, Groups, Direct, Members) */}
           <div className="shrink-0 px-4 py-2 flex items-center gap-1.5 overflow-x-auto text-xs no-scrollbar">
             {[
               { id: 'all', label: 'All', count: totalUnreadCount },
               { id: 'groups', label: 'Groups', count: groupsUnreadCount },
-              { id: 'direct', label: 'Direct', count: directUnreadCount }
+              { id: 'direct', label: 'Direct', count: directUnreadCount },
+              { id: 'members', label: 'Members', count: 0 }
             ].map(tab => (
               <button
                 key={tab.id}
@@ -2302,6 +2372,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
                     : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
                 }`}
               >
+                {tab.id === 'members' && <Users className="w-3.5 h-3.5 text-gold shrink-0" />}
                 <span>{tab.label}</span>
                 {tab.count > 0 && (
                   <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-black ${
@@ -2314,141 +2385,347 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
             ))}
           </div>
 
-          {/* Conversations Scroll Area (Messenger Luxury Cards) */}
+          {/* Conversations or Member Directory Scroll Area */}
           <div className="flex-1 min-h-0 overflow-y-auto py-1 px-1.5 space-y-0.5">
-            {filteredConversations.length === 0 ? (
-              <div className="p-8 text-center text-slate-400 space-y-3">
-                <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto text-slate-400">
-                  <MessageSquare className="w-6 h-6" />
+            {filterTab === 'members' ? (
+              /* All Church Members Directory View */
+              <div className="space-y-2 p-1">
+                <div className="flex items-center justify-between px-2 py-1 text-xs text-slate-500 dark:text-slate-400">
+                  <span className="font-bold flex items-center gap-1.5 text-slate-800 dark:text-slate-200">
+                    <Users className="w-3.5 h-3.5 text-gold" />
+                    <span>Church Members ({searchedMembers.length})</span>
+                  </span>
+                  <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span>{PresenceService.getOnlineCount()} Online Now</span>
+                  </span>
                 </div>
-                <p className="text-sm font-bold text-slate-700 dark:text-slate-200">
-                  {filterTab === 'direct'
-                    ? 'No direct messages yet.'
-                    : filterTab === 'groups'
-                    ? 'No group chats yet.'
-                    : 'No conversations yet.'}
-                </p>
-                <p className="text-xs text-slate-500 max-w-[220px] mx-auto">
-                  {filterTab === 'direct'
-                    ? 'Start a private 1-on-1 conversation with a registered church member!'
-                    : filterTab === 'groups'
-                    ? 'Create a fellowship group or join one with church believers!'
-                    : 'No conversations yet. Start a conversation!'}
-                </p>
-                <button 
-                  onClick={() => {
-                    setComposeTab(filterTab === 'groups' ? 'group' : 'direct');
-                    setIsComposeModalOpen(true);
-                  }}
-                  className="px-4 py-2 rounded-xl bg-gold text-slate-950 font-bold text-xs shadow-gold hover:bg-gold-dark hover:text-white transition"
-                >
-                  + Start a Conversation
-                </button>
+
+                {searchedMembers.length === 0 ? (
+                  <div className="p-8 text-center text-slate-400 space-y-2">
+                    <Users className="w-8 h-8 mx-auto text-slate-300 dark:text-slate-600" />
+                    <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                      {searchQuery.trim() ? `No members found matching "${searchQuery}"` : 'No registered members found.'}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    {searchedMembers.map(member => {
+                      const isOnline = PresenceService.isUserOnline(member.id);
+                      const lastSeen = isOnline ? 'Active Now' : PresenceService.getLastSeenText(member.id);
+                      const note = getFaithNote(member);
+                      const isMe = member.id === currentUser.id;
+
+                      return (
+                        <div
+                          key={member.id}
+                          className="p-2.5 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition flex items-center justify-between gap-3 group border border-transparent hover:border-slate-100 dark:hover:border-slate-800"
+                        >
+                          <div 
+                            onClick={() => handleViewProfile(member.id, member.name, member.avatar, member.roleTitle)}
+                            className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer"
+                          >
+                            <div className="relative shrink-0">
+                              <img
+                                src={member.avatar || '/icons/church-logo.png'}
+                                alt={member.name}
+                                className="w-11 h-11 rounded-full object-cover border border-slate-200 dark:border-slate-700 shadow-xs"
+                              />
+                              <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white dark:border-slate-900 shadow-xs ${
+                                isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'
+                              }`} />
+                            </div>
+
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900 dark:text-white truncate">
+                                <span className="truncate">{member.name}</span>
+                                {isMe && <span className="text-[10px] text-gold font-normal shrink-0">(You)</span>}
+                                {member.role === 'pastor' && (
+                                  <span className="px-1.5 py-0.2 rounded-full bg-gold/20 text-gold-dark text-[9px] font-bold shrink-0">PASTOR</span>
+                                )}
+                              </div>
+                              <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate flex items-center gap-1.5">
+                                <span>@{member.username || 'member'}</span>
+                                <span>•</span>
+                                <span className={isOnline ? 'text-emerald-600 dark:text-emerald-400 font-semibold' : ''}>
+                                  {lastSeen}
+                                </span>
+                              </div>
+                              {note && (
+                                <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gold/10 text-gold-dark dark:text-gold text-[10px] font-medium max-w-full truncate border border-gold/20">
+                                  <span>💭</span>
+                                  <span className="truncate">{note}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              onClick={() => handleViewProfile(member.id, member.name, member.avatar, member.roleTitle)}
+                              className="px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold text-[11px] hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center gap-1"
+                              title="View Profile and Study Notes"
+                            >
+                              <BookOpen className="w-3 h-3 text-gold" />
+                              <span>Notes</span>
+                            </button>
+                            {!isMe && (
+                              <button
+                                onClick={() => handleStartDirectMessage(member)}
+                                className="px-3 py-1.5 rounded-xl bg-gold text-slate-950 font-bold text-[11px] hover:bg-gold-dark hover:text-white transition shadow-2xs flex items-center gap-1"
+                              >
+                                <MessageSquare className="w-3 h-3" />
+                                <span>Chat</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             ) : (
-              filteredConversations.map(conv => {
-                const isActive = conv.id === activeRoomId;
-                const hasUnread = Boolean(conv.unreadCount && conv.unreadCount > 0);
-
-                return (
-                  <div
-                    key={conv.id}
-                    onTouchStart={() => startLongPress(conv)}
-                    onTouchEnd={cancelLongPress}
-                    onTouchMove={cancelLongPress}
-                    onMouseDown={() => startLongPress(conv)}
-                    onMouseUp={cancelLongPress}
-                    onMouseLeave={cancelLongPress}
-                    onContextMenu={(e) => {
-                      e.preventDefault();
-                      if (['super_admin', 'church_admin', 'pastor'].includes(currentUser.role) || conv.type === 'group') {
-                        setLongPressedConv(conv);
-                      }
-                    }}
-                    onClick={() => {
-                      if (isLongPressTriggeredRef.current) {
-                        isLongPressTriggeredRef.current = false;
-                        return;
-                      }
-                      markRoomAsRead(conv.id);
-                      setActiveRoomId(conv.id);
-                      setMobileActiveView('chat');
-                    }}
-                    className={`px-3 py-2.5 rounded-2xl cursor-pointer transition-all flex items-center gap-3.5 select-none relative ${
-                      isActive
-                        ? 'bg-slate-100 dark:bg-slate-800/90 shadow-2xs'
-                        : hasUnread
-                          ? 'bg-amber-500/[0.07] dark:bg-amber-400/[0.08] hover:bg-amber-500/[0.12] border-l-3 border-amber-500 shadow-2xs'
-                          : 'hover:bg-slate-50 dark:hover:bg-slate-800/40'
-                    }`}
-                  >
-                    {/* Large circular avatar with online indicator and unread ring */}
-                    <div className="relative shrink-0">
-                      <img
-                        src={conv.avatar}
-                        alt={conv.title}
-                        className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full object-cover transition-all ${
-                          hasUnread
-                            ? 'ring-2 ring-amber-500 ring-offset-2 ring-offset-white dark:ring-offset-slate-900 shadow-sm'
-                            : 'border border-slate-200/80 dark:border-slate-700/80 shadow-xs'
-                        }`}
-                      />
-                      {(() => {
-                        const directId = conv.type === 'direct'
-                          ? (conv.otherUserId || conv.id.replace('dm_', '').split('_').find(id => id !== currentUser.id))
-                          : null;
-                        const isOnline = conv.type === 'direct'
-                          ? PresenceService.isUserOnline(directId)
-                          : (PresenceService.getOnlineCount() > 0);
-                        return isOnline ? (
-                          <span className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 shadow-xs"></span>
-                        ) : null;
-                      })()}
-                    </div>
-
-                    {/* Conversation Title & Preview */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between text-xs mb-0.5">
-                        <div className={`flex items-center gap-1.5 text-sm truncate ${
-                          hasUnread ? 'font-black text-slate-950 dark:text-white' : 'font-bold text-slate-800 dark:text-slate-100'
-                        }`}>
-                          <span className="truncate">{conv.title}</span>
-                          {conv.id === 'fellowship' && (
-                            <Pin className="w-3.5 h-3.5 text-gold shrink-0 rotate-45" />
-                          )}
-                        </div>
-                        <span className={`text-[11px] shrink-0 ml-1 transition-colors ${
-                          hasUnread ? 'font-bold text-amber-600 dark:text-amber-400' : 'text-slate-400 font-medium'
-                        }`}>
-                          {conv.timestamp}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <p className={`text-xs truncate flex items-center gap-1 ${
-                          hasUnread 
-                            ? 'font-bold text-slate-900 dark:text-white' 
-                            : 'text-slate-500 dark:text-slate-400 font-normal'
-                        }`}>
-                          {conv.isDirectCheck && (
-                            <CheckCheck className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                          )}
-                          <span className="truncate">{conv.lastMessage}</span>
-                        </p>
-
-                        {/* Aesthetic Unread Number Badge */}
-                        {hasUnread ? (
-                          <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                            <span className="min-w-5 h-5 px-1.5 rounded-full bg-gradient-to-r from-amber-500 via-amber-400 to-amber-600 text-slate-950 font-black text-[10px] flex items-center justify-center shadow-md shadow-amber-500/35 ring-2 ring-white dark:ring-slate-900 animate-in zoom-in-75">
-                              {conv.unreadCount! > 99 ? '99+' : conv.unreadCount}
-                            </span>
-                          </div>
-                        ) : null}
-                      </div>
-                    </div>
+              /* Regular Conversations + Search Results View */
+              <>
+                {/* 1. If actively searching, show matching Conversations first */}
+                {searchQuery.trim() && filteredConversations.length > 0 && (
+                  <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    Conversations ({filteredConversations.length})
                   </div>
-                );
-              })
+                )}
+
+                {/* List Conversations */}
+                {filteredConversations.map(conv => {
+                  const isActive = conv.id === activeRoomId;
+                  const hasUnread = Boolean(conv.unreadCount && conv.unreadCount > 0);
+
+                  return (
+                    <div
+                      key={conv.id}
+                      onTouchStart={() => startLongPress(conv)}
+                      onTouchEnd={cancelLongPress}
+                      onTouchMove={cancelLongPress}
+                      onMouseDown={() => startLongPress(conv)}
+                      onMouseUp={cancelLongPress}
+                      onMouseLeave={cancelLongPress}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        if (['super_admin', 'church_admin', 'pastor'].includes(currentUser.role) || conv.type === 'group') {
+                          setLongPressedConv(conv);
+                        }
+                      }}
+                      onClick={() => {
+                        if (isLongPressTriggeredRef.current) {
+                          isLongPressTriggeredRef.current = false;
+                          return;
+                        }
+                        markRoomAsRead(conv.id);
+                        setActiveRoomId(conv.id);
+                        setMobileActiveView('chat');
+                      }}
+                      className={`px-3 py-2.5 rounded-2xl cursor-pointer transition-all flex items-center gap-3.5 select-none relative ${
+                        isActive
+                          ? 'bg-slate-100 dark:bg-slate-800/90 shadow-2xs'
+                          : hasUnread
+                            ? 'bg-amber-500/[0.07] dark:bg-amber-400/[0.08] hover:bg-amber-500/[0.12] border-l-3 border-amber-500 shadow-2xs'
+                            : 'hover:bg-slate-50 dark:hover:bg-slate-800/40'
+                      }`}
+                    >
+                      {/* Large circular avatar with online indicator and unread ring */}
+                      <div className="relative shrink-0">
+                        <img
+                          src={conv.avatar}
+                          alt={conv.title}
+                          className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full object-cover transition-all ${
+                            hasUnread
+                              ? 'ring-2 ring-amber-500 ring-offset-2 ring-offset-white dark:ring-offset-slate-900 shadow-sm'
+                              : 'border border-slate-200/80 dark:border-slate-700/80 shadow-xs'
+                          }`}
+                        />
+                        {(() => {
+                          const directId = conv.type === 'direct'
+                            ? (conv.otherUserId || conv.id.replace('dm_', '').split('_').find(id => id !== currentUser.id))
+                            : null;
+                          const isOnline = conv.type === 'direct'
+                            ? PresenceService.isUserOnline(directId)
+                            : (PresenceService.getOnlineCount() > 0);
+                          return isOnline ? (
+                            <span className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 shadow-xs animate-pulse"></span>
+                          ) : null;
+                        })()}
+                      </div>
+
+                      {/* Conversation Title & Preview */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between text-xs mb-0.5">
+                          <div className={`flex items-center gap-1.5 text-sm truncate ${
+                            hasUnread ? 'font-black text-slate-950 dark:text-white' : 'font-bold text-slate-800 dark:text-slate-100'
+                          }`}>
+                            <span className="truncate">{conv.title}</span>
+                            {conv.id === 'fellowship' && (
+                              <Pin className="w-3.5 h-3.5 text-gold shrink-0 rotate-45" />
+                            )}
+                          </div>
+                          <span className={`text-[11px] shrink-0 ml-1 transition-colors ${
+                            hasUnread ? 'font-bold text-amber-600 dark:text-amber-400' : 'text-slate-400 font-medium'
+                          }`}>
+                            {conv.timestamp}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <p className={`text-xs truncate flex items-center gap-1 ${
+                            hasUnread 
+                              ? 'font-bold text-slate-900 dark:text-white' 
+                              : 'text-slate-500 dark:text-slate-400 font-normal'
+                          }`}>
+                            {conv.isDirectCheck && (
+                              <CheckCheck className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                            )}
+                            <span className="truncate">{conv.lastMessage}</span>
+                          </p>
+
+                          {/* Aesthetic Unread Number Badge */}
+                          {hasUnread ? (
+                            <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                              <span className="min-w-5 h-5 px-1.5 rounded-full bg-gradient-to-r from-amber-500 via-amber-400 to-amber-600 text-slate-950 font-black text-[10px] flex items-center justify-center shadow-md shadow-amber-500/35 ring-2 ring-white dark:ring-slate-900 animate-in zoom-in-75">
+                                {conv.unreadCount! > 99 ? '99+' : conv.unreadCount}
+                              </span>
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* 2. If actively searching, show matching Church Members directly below */}
+                {searchQuery.trim() && searchedMembers.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800/80 space-y-1">
+                    <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                      <span>Church Members ({searchedMembers.length})</span>
+                      <span className="text-emerald-600 dark:text-emerald-400 font-semibold lowercase">
+                        {PresenceService.getOnlineCount()} online
+                      </span>
+                    </div>
+
+                    {searchedMembers.map(member => {
+                      const isOnline = PresenceService.isUserOnline(member.id);
+                      const lastSeen = isOnline ? 'Active Now' : PresenceService.getLastSeenText(member.id);
+                      const note = getFaithNote(member);
+                      const isMe = member.id === currentUser.id;
+
+                      return (
+                        <div
+                          key={member.id}
+                          className="p-2.5 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition flex items-center justify-between gap-3 group"
+                        >
+                          <div 
+                            onClick={() => handleViewProfile(member.id, member.name, member.avatar, member.roleTitle)}
+                            className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer"
+                          >
+                            <div className="relative shrink-0">
+                              <img
+                                src={member.avatar || '/icons/church-logo.png'}
+                                alt={member.name}
+                                className="w-10 h-10 rounded-full object-cover border border-slate-200 dark:border-slate-700 shadow-xs"
+                              />
+                              <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-slate-900 shadow-xs ${
+                                isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'
+                              }`} />
+                            </div>
+
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900 dark:text-white truncate">
+                                <span className="truncate">{member.name}</span>
+                                {isMe && <span className="text-[10px] text-gold font-normal shrink-0">(You)</span>}
+                                {member.role === 'pastor' && (
+                                  <span className="px-1.5 py-0.2 rounded-full bg-gold/20 text-gold-dark text-[9px] font-bold shrink-0">PASTOR</span>
+                                )}
+                              </div>
+                              <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate flex items-center gap-1.5">
+                                <span>@{member.username || 'member'}</span>
+                                <span>•</span>
+                                <span className={isOnline ? 'text-emerald-600 dark:text-emerald-400 font-semibold' : ''}>
+                                  {lastSeen}
+                                </span>
+                              </div>
+                              {note && (
+                                <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gold/10 text-gold-dark dark:text-gold text-[10px] font-medium max-w-full truncate border border-gold/20">
+                                  <span>💭</span>
+                                  <span className="truncate">{note}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              onClick={() => handleViewProfile(member.id, member.name, member.avatar, member.roleTitle)}
+                              className="px-2 py-1 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold text-[10px] hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center gap-1"
+                              title="View Study Notes"
+                            >
+                              <BookOpen className="w-3 h-3 text-gold" />
+                              <span>Notes</span>
+                            </button>
+                            {!isMe && (
+                              <button
+                                onClick={() => handleStartDirectMessage(member)}
+                                className="px-2.5 py-1 rounded-xl bg-gold text-slate-950 font-bold text-[10px] hover:bg-gold-dark hover:text-white transition shadow-2xs flex items-center gap-1"
+                              >
+                                <MessageSquare className="w-3 h-3" />
+                                <span>Chat</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* 3. Empty State if nothing matches */}
+                {filteredConversations.length === 0 && (!searchQuery.trim() || searchedMembers.length === 0) && (
+                  <div className="p-8 text-center text-slate-400 space-y-3">
+                    <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto text-slate-400">
+                      <MessageSquare className="w-6 h-6" />
+                    </div>
+                    <p className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                      {searchQuery.trim()
+                        ? `No conversations or members found for "${searchQuery}"`
+                        : filterTab === 'direct'
+                        ? 'No direct messages yet.'
+                        : filterTab === 'groups'
+                        ? 'No group chats yet.'
+                        : 'No conversations yet.'}
+                    </p>
+                    <p className="text-xs text-slate-500 max-w-[220px] mx-auto">
+                      {searchQuery.trim()
+                        ? 'Try searching by member name, @username, or pastoral role.'
+                        : filterTab === 'direct'
+                        ? 'Start a private 1-on-1 conversation with a registered church member!'
+                        : filterTab === 'groups'
+                        ? 'Create a fellowship group or join one with church believers!'
+                        : 'No conversations yet. Start a conversation!'}
+                    </p>
+                    <button 
+                      onClick={() => {
+                        if (searchQuery.trim()) {
+                          setSearchQuery('');
+                          setFilterTab('members');
+                        } else {
+                          setComposeTab(filterTab === 'groups' ? 'group' : 'direct');
+                          setIsComposeModalOpen(true);
+                        }
+                      }}
+                      className="px-4 py-2 rounded-xl bg-gold text-slate-950 font-bold text-xs shadow-gold hover:bg-gold-dark hover:text-white transition"
+                    >
+                      {searchQuery.trim() ? 'Browse All Church Members' : '+ Start a Conversation'}
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
 
@@ -3434,9 +3711,21 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
             <div className="flex items-center gap-2 pt-2">
               <button
                 type="button"
-                onClick={() => {
+                onClick={async () => {
                   setUserFaithNote('');
                   localStorage.removeItem('bjc_my_faith_note');
+                  PresenceService.setUserFaithNote(currentUser.id, '');
+                  await PresenceService.updateFaithNote('');
+                  setUserFaithNotes(PresenceService.getAllFaithNotes());
+                  if (chatHubRef.current) {
+                    try {
+                      chatHubRef.current.send({
+                        type: 'broadcast',
+                        event: 'faith_note_sync',
+                        payload: { userId: currentUser.id, note: '' }
+                      });
+                    } catch {}
+                  }
                   setIsFaithNoteModalOpen(false);
                 }}
                 className="flex-1 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition"
@@ -3445,10 +3734,22 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
               </button>
               <button
                 type="button"
-                onClick={() => {
+                onClick={async () => {
                   const saved = noteInput.trim() || 'Grace is sufficient';
                   setUserFaithNote(saved);
                   localStorage.setItem('bjc_my_faith_note', saved);
+                  PresenceService.setUserFaithNote(currentUser.id, saved);
+                  await PresenceService.updateFaithNote(saved);
+                  setUserFaithNotes(PresenceService.getAllFaithNotes());
+                  if (chatHubRef.current) {
+                    try {
+                      chatHubRef.current.send({
+                        type: 'broadcast',
+                        event: 'faith_note_sync',
+                        payload: { userId: currentUser.id, note: saved }
+                      });
+                    } catch {}
+                  }
                   setIsFaithNoteModalOpen(false);
                 }}
                 className="flex-1 py-2 rounded-xl bg-gold hover:bg-[#b09058] text-slate-950 text-xs font-bold transition shadow-xs"
@@ -3601,39 +3902,82 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
                   {registeredUsers
                     .filter(u => u.id !== currentUser.id)
                     .filter(u => !directSearchQuery.trim() || u.name.toLowerCase().includes(directSearchQuery.toLowerCase()) || (u.username || '').toLowerCase().includes(directSearchQuery.toLowerCase()))
-                    .map(member => (
-                      <div
-                        key={member.id}
-                        onClick={() => handleStartDirectMessage(member)}
-                        className="p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer flex items-center justify-between transition"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="relative">
-                            <img
-                              src={member.avatar || '/icons/church-logo.png'}
-                              alt={member.name}
-                              className="w-9 h-9 rounded-full object-cover border border-slate-200 dark:border-slate-700 shadow-xs"
-                            />
-                            <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900"></span>
-                          </div>
-                          <div>
-                            <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                              <span>{member.name}</span>
-                              {member.role === 'pastor' && (
-                                <span className="px-1.5 py-0.2 rounded-full bg-gold/20 text-gold-dark text-[9px] font-bold">PASTOR</span>
+                    .sort((a, b) => {
+                      const aOnline = PresenceService.isUserOnline(a.id);
+                      const bOnline = PresenceService.isUserOnline(b.id);
+                      if (aOnline && !bOnline) return -1;
+                      if (!aOnline && bOnline) return 1;
+                      return a.name.localeCompare(b.name);
+                    })
+                    .map(member => {
+                      const isOnline = PresenceService.isUserOnline(member.id);
+                      const lastSeen = isOnline ? 'Active Now' : PresenceService.getLastSeenText(member.id);
+                      const note = getFaithNote(member);
+                      return (
+                        <div
+                          key={member.id}
+                          className="p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/60 transition flex items-center justify-between gap-2"
+                        >
+                          <div 
+                            onClick={() => handleStartDirectMessage(member)}
+                            className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer"
+                          >
+                            <div className="relative shrink-0">
+                              <img
+                                src={member.avatar || '/icons/church-logo.png'}
+                                alt={member.name}
+                                className="w-9 h-9 rounded-full object-cover border border-slate-200 dark:border-slate-700 shadow-xs"
+                              />
+                              <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-slate-900 ${
+                                isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'
+                              }`}></span>
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5 truncate">
+                                <span className="truncate">{member.name}</span>
+                                {member.role === 'pastor' && (
+                                  <span className="px-1.5 py-0.2 rounded-full bg-gold/20 text-gold-dark text-[9px] font-bold shrink-0">PASTOR</span>
+                                )}
+                              </div>
+                              <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate flex items-center gap-1">
+                                <span>@{member.username || 'member'}</span>
+                                <span>•</span>
+                                <span className={isOnline ? 'text-emerald-600 dark:text-emerald-400 font-semibold' : ''}>
+                                  {lastSeen}
+                                </span>
+                              </div>
+                              {note && (
+                                <div className="text-[10px] text-gold-dark dark:text-gold truncate mt-0.5">
+                                  💭 {note}
+                                </div>
                               )}
                             </div>
-                            <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                              @{member.username || 'member'} • {member.roleTitle || 'Church Member'}
-                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button 
+                              type="button"
+                              onClick={() => {
+                                setIsComposeModalOpen(false);
+                                handleViewProfile(member.id, member.name, member.avatar, member.roleTitle);
+                              }}
+                              className="px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-semibold text-[10px] hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center gap-1"
+                              title="View Study Notes & Profile"
+                            >
+                              <BookOpen className="w-3 h-3 text-gold" />
+                              <span>Notes</span>
+                            </button>
+                            <button 
+                              type="button"
+                              onClick={() => handleStartDirectMessage(member)}
+                              className="px-2.5 py-1 rounded-lg bg-gold/15 text-gold-dark dark:text-gold font-bold text-[11px] hover:bg-gold hover:text-slate-950 transition"
+                            >
+                              Chat
+                            </button>
                           </div>
                         </div>
-
-                        <button className="px-2.5 py-1 rounded-lg bg-gold/15 text-gold-dark dark:text-gold font-bold text-[11px] hover:bg-gold hover:text-slate-950 transition">
-                          Chat
-                        </button>
-                      </div>
-                    ))}
+                      );
+                    })}
                 </div>
               </div>
             ) : (
@@ -3776,7 +4120,14 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
                 alt={viewingProfileUser.name}
                 className="w-20 h-20 rounded-full object-cover border-4 border-gold/40 shadow-card mx-auto"
               />
-              <span className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900"></span>
+              {(() => {
+                const isViewingOnline = PresenceService.isUserOnline(viewingProfileUser.id);
+                return (
+                  <span className={`absolute bottom-1 right-1 w-4 h-4 rounded-full border-2 border-white dark:border-slate-900 shadow-xs ${
+                    isViewingOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'
+                  }`} />
+                );
+              })()}
             </div>
 
             {/* Name & Role */}
@@ -3791,7 +4142,89 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
               <p className="text-xs text-slate-400">
                 @{viewingProfileUser.username || 'member'}
               </p>
+              {(() => {
+                const isViewingOnline = PresenceService.isUserOnline(viewingProfileUser.id);
+                const statusText = isViewingOnline ? 'Active Now' : PresenceService.getLastSeenText(viewingProfileUser.id);
+                return (
+                  <div className="flex items-center justify-center gap-1.5 text-xs pt-0.5">
+                    <span className={`w-2 h-2 rounded-full ${isViewingOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`}></span>
+                    <span className={isViewingOnline ? 'text-emerald-600 dark:text-emerald-400 font-semibold' : 'text-slate-400'}>
+                      {statusText}
+                    </span>
+                  </div>
+                );
+              })()}
             </div>
+
+            {/* Faith Thought Note */}
+            {(() => {
+              const faithNote = viewingProfileUser.id === currentUser.id 
+                ? userFaithNote 
+                : (userFaithNotes[viewingProfileUser.id] || PresenceService.getUserFaithNote(viewingProfileUser.id));
+              if (!faithNote || !faithNote.trim()) return null;
+              return (
+                <div className="p-3 rounded-2xl bg-gold/10 border border-gold/25 text-center space-y-1">
+                  <div className="text-[10px] uppercase font-bold text-gold-dark dark:text-gold flex items-center justify-center gap-1">
+                    <span>💭 Fellowship Faith Note</span>
+                  </div>
+                  <p className="text-xs font-semibold text-slate-800 dark:text-slate-100 italic">
+                    “{faithNote}”
+                  </p>
+                </div>
+              );
+            })()}
+
+            {/* Bible Study Notes Section */}
+            {(() => {
+              const memberNotes = BibleService.getNotes(viewingProfileUser.id);
+              return (
+                <div className="space-y-2 text-left">
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-800 dark:text-slate-200">
+                    <span className="flex items-center gap-1.5">
+                      <BookOpen className="w-3.5 h-3.5 text-gold" />
+                      <span>Shared Bible Notes ({memberNotes.length})</span>
+                    </span>
+                  </div>
+                  {memberNotes.length === 0 ? (
+                    <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 text-center text-[11px] text-slate-400">
+                      No Bible study notes shared yet.
+                    </div>
+                  ) : (
+                    <div className="max-h-36 overflow-y-auto space-y-2 pr-1 no-scrollbar">
+                      {memberNotes.map(n => (
+                        <div key={n.id} className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 text-xs space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-gold-dark dark:text-gold text-[11px]">
+                              {n.book} {n.chapter}{n.verse ? `:${n.verse}` : ''}
+                            </span>
+                            <span className="text-[10px] text-slate-400">
+                              {new Date(n.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                            </span>
+                          </div>
+                          {n.title && <div className="font-semibold text-slate-900 dark:text-white text-xs">{n.title}</div>}
+                          <p className="text-[11px] text-slate-600 dark:text-slate-300 line-clamp-2 leading-relaxed">
+                            {n.content}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const shareText = `📖 [NOTE: ${n.book} ${n.chapter}${n.verse ? `:${n.verse}` : ''}] ${n.title ? `"${n.title}" - ` : ''}${n.content}`;
+                              setInputText(prev => prev ? `${prev}\n\n${shareText}` : shareText);
+                              setViewingProfileUser(null);
+                              if (mobileActiveView !== 'chat') setMobileActiveView('chat');
+                            }}
+                            className="mt-1 text-[10px] text-gold hover:underline font-bold flex items-center gap-1"
+                          >
+                            <Share2 className="w-3 h-3" />
+                            <span>Share Note into Chat</span>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Bio */}
             {viewingProfileUser.bio && (
@@ -4132,38 +4565,64 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
                     const isMe = m.id === currentUser.id;
                     return (
                       <div key={m.id} className="p-2 flex items-center justify-between rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/60">
-                        <div className="flex items-center gap-2.5">
-                          <div className="relative">
+                        <div 
+                          onClick={() => {
+                            setIsGroupDetailsOpen(false);
+                            handleViewProfile(m.id, m.name, m.avatar, m.roleTitle);
+                          }}
+                          className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer"
+                        >
+                          <div className="relative shrink-0">
                             <img
                               src={m.avatar || '/icons/church-logo.png'}
                               alt={m.name}
                               className="w-8 h-8 rounded-full object-cover border border-slate-200 dark:border-slate-700"
                             />
                             <span className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-white dark:border-slate-900 ${
-                              isOnline ? 'bg-emerald-500' : 'bg-slate-400'
+                              isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'
                             }`} />
                           </div>
-                          <div>
-                            <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1">
-                              <span>{m.name}</span>
-                              {isMe && <span className="text-[10px] text-gold font-normal">(You)</span>}
+                          <div className="min-w-0 flex-1">
+                            <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1 truncate">
+                              <span className="truncate">{m.name}</span>
+                              {isMe && <span className="text-[10px] text-gold font-normal shrink-0">(You)</span>}
                             </div>
-                            <div className="text-[10px] text-slate-400">
-                              {m.roleTitle || 'Church Member'}
+                            <div className="text-[10px] text-slate-400 truncate flex items-center gap-1">
+                              <span>{m.roleTitle || 'Church Member'}</span>
+                              <span>•</span>
+                              <span className={isOnline ? 'text-emerald-500 font-semibold' : ''}>
+                                {isOnline ? 'Active Now' : PresenceService.getLastSeenText(m.id)}
+                              </span>
                             </div>
                           </div>
                         </div>
-                        {!isMe && (
+
+                        <div className="flex items-center gap-1 shrink-0">
                           <button
+                            type="button"
                             onClick={() => {
                               setIsGroupDetailsOpen(false);
-                              handleStartDirectMessage(m);
+                              handleViewProfile(m.id, m.name, m.avatar, m.roleTitle);
                             }}
-                            className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-700 dark:text-slate-300 hover:bg-gold hover:text-slate-950 transition"
+                            className="px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-semibold text-[10px] hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center gap-1"
+                            title="View Study Notes"
                           >
-                            Message
+                            <BookOpen className="w-3 h-3 text-gold" />
+                            <span>Notes</span>
                           </button>
-                        )}
+                          {!isMe && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsGroupDetailsOpen(false);
+                                handleStartDirectMessage(m);
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-700 dark:text-slate-300 hover:bg-gold hover:text-slate-950 transition"
+                            >
+                              Message
+                            </button>
+                          )}
+                        </div>
                       </div>
                     );
                   });
