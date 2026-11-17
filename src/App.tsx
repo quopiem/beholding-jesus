@@ -234,8 +234,8 @@ export function App() {
         {renderContent()}
       </AppLayout>
 
-      {/* Floating BJC AI Assistant Button & Widget (Movable across entire screen; visible on all tabs, hidden when inside direct chat or GC) */}
-      {currentTab !== 'bjc-ai' && !isInsideChat && (
+      {/* Floating BJC AI Assistant Button & Widget (Movable across entire screen; visible on all tabs, hidden when inside direct chat or GC or Bible view) */}
+      {currentTab !== 'bjc-ai' && currentTab !== 'bible' && !isInsideChat && (
         <BjcAiFloatingButton 
           onOpenFullView={() => setCurrentTab('bjc-ai')} 
           currentTab={currentTab}

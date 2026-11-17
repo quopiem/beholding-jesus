@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   BookOpen, Search, Bookmark, Highlighter, MessageSquare, 
@@ -6,9 +6,10 @@ import {
   Columns, AlignLeft, Sparkles, BookMarked, PenSquare, Trash2, X,
   ExternalLink, Layers, Info, Headphones, Volume2, VolumeX, Play, Pause,
   Square, Maximize2, Minimize2, Type, CheckCircle2, Globe, Heart, Loader2,
-  Lightbulb, Send
+  Lightbulb, Send, MoreHorizontal
 } from 'lucide-react';
 import { BIBLE_BOOKS, BIBLE_TRANSLATIONS } from './bibleBooks';
+import { CHAPTER_PARAGRAPHS } from './bibleContent';
 import { BibleService } from './bibleService';
 import { BjcAiService, BjcAiMessage } from '../../services/bjcAiService';
 import { 
@@ -30,20 +31,22 @@ export const BibleView: React.FC<BibleViewProps> = ({
   // -------------------------------------------------------------
   // NAVIGATION & TRANSLATION STATE
   // -------------------------------------------------------------
-  // Default to initialBookId (e.g. LUK) or John 3
+  // Default to Joshua 10 in NLT (matching the exact reference layout) or initial props
   const [selectedBook, setSelectedBook] = useState<BibleBook>(() => {
     if (initialBookId) {
       const found = BIBLE_BOOKS.find(b => b.id.toUpperCase() === initialBookId.toUpperCase());
       if (found) return found;
     }
-    return BIBLE_BOOKS.find(b => b.id === 'JHN') || BIBLE_BOOKS.find(b => b.id === 'COL') || BIBLE_BOOKS[0];
+    return BIBLE_BOOKS.find(b => b.id === 'JOS') || BIBLE_BOOKS.find(b => b.id === 'JHN') || BIBLE_BOOKS[0];
   });
   const [currentChapter, setCurrentChapter] = useState<number>(() => {
-    return initialChapter || 3;
+    return initialChapter || 10;
   });
-  const [selectedTranslation, setSelectedTranslation] = useState<BibleTranslationCode>('NKJV');
+  const [selectedTranslation, setSelectedTranslation] = useState<BibleTranslationCode>('NLT');
   const [comparisonTranslation, setComparisonTranslation] = useState<BibleTranslationCode>('KJV');
   const [viewMode, setViewMode] = useState<'single' | 'parallel' | 'compare-verse'>('single');
+  const [isTranslationPickerOpen, setIsTranslationPickerOpen] = useState<boolean>(false);
+  const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
 
   // -------------------------------------------------------------
   // EXPAND & IMMERSION READER STATE (Matches "make the bible viewable expand")
@@ -330,6 +333,23 @@ export const BibleView: React.FC<BibleViewProps> = ({
       window.speechSynthesis.cancel();
       setIsAudioPlaying(false);
       setCurrentSpokenVerse(null);
+    }
+  };
+
+  const toggleAudio = () => {
+    if (!window.speechSynthesis) {
+      alert('Speech synthesis is not supported on this device.');
+      return;
+    }
+    if (isAudioPlaying) {
+      pauseAudio();
+    } else {
+      if (window.speechSynthesis.paused) {
+        window.speechSynthesis.resume();
+        setIsAudioPlaying(true);
+      } else {
+        startAudio();
+      }
     }
   };
 
@@ -652,152 +672,134 @@ Please answer pastorally and expositorily, grounded in Scripture.`;
 
   // Theme Styling Classes
   const themeStyles = {
-    dark: 'bg-[#121212] text-[#f1f5f9]',
+    dark: 'bg-[#121212] text-[#F3F4F6]',
     midnight: 'bg-[#0b1329] text-[#e2e8f0]',
     sepia: 'bg-[#fbf0d9] text-[#433422]',
     light: 'bg-[#ffffff] text-[#1e293b]'
   };
 
   const themeTopBar = {
-    dark: 'bg-[#181818]/90 border-neutral-800 text-white',
-    midnight: 'bg-[#111c38]/90 border-slate-800 text-white',
-    sepia: 'bg-[#f4e6cb]/90 border-[#e6d3af] text-[#433422]',
-    light: 'bg-white/90 border-slate-200 text-slate-800'
+    dark: 'bg-[#121212]/95 border-white/5 text-white',
+    midnight: 'bg-[#111c38]/95 border-slate-800 text-white',
+    sepia: 'bg-[#f4e6cb]/95 border-[#e6d3af] text-[#433422]',
+    light: 'bg-white/95 border-slate-200 text-slate-800'
   };
 
+  // Partition verses into authentic paragraphs based on CHAPTER_PARAGRAPHS or sectionTitles
+  const chapterKey = `${selectedBook.id.toUpperCase()}:${currentChapter}`;
+  const paragraphBreaks = CHAPTER_PARAGRAPHS[chapterKey] || [];
+
+  const paragraphGroups = useMemo(() => {
+    if (verses.length === 0) return [];
+    const groups: BibleVerse[][] = [];
+
+    if (paragraphBreaks.length > 0) {
+      let currentGroup: BibleVerse[] = [];
+      for (const v of verses) {
+        if (paragraphBreaks.includes(v.verse) && currentGroup.length > 0) {
+          groups.push(currentGroup);
+          currentGroup = [v];
+        } else {
+          currentGroup.push(v);
+        }
+      }
+      if (currentGroup.length > 0) {
+        groups.push(currentGroup);
+      }
+    } else {
+      let currentGroup: BibleVerse[] = [];
+      for (const v of verses) {
+        if (v.sectionTitle && currentGroup.length > 0) {
+          groups.push(currentGroup);
+          currentGroup = [v];
+        } else if (currentGroup.length >= 4 && !v.sectionTitle) {
+          groups.push(currentGroup);
+          currentGroup = [v];
+        } else {
+          currentGroup.push(v);
+        }
+      }
+      if (currentGroup.length > 0) {
+        groups.push(currentGroup);
+      }
+    }
+
+    return groups;
+  }, [verses, chapterKey, paragraphBreaks]);
+
   return (
-    <div className={`transition-colors duration-200 min-h-[calc(100dvh-64px)] ${
+    <div className={`w-full min-h-screen select-text transition-colors duration-200 ${
       isExpanded 
         ? 'fixed inset-0 z-50 overflow-y-auto ' + themeStyles[readingTheme]
-        : 'border-0 md:rounded-2xl md:border md:m-3 border-slate-200/80 dark:border-slate-800 shadow-xs ' + themeStyles[readingTheme]
+        : 'w-full ' + themeStyles[readingTheme]
     }`}>
 
       {/* ============================================================== */}
-      {/* 1. TOP HEADER BAR (Exact Design from Reference Screenshot 1 & 2) */}
+      {/* 1. TOP HEADER BAR (Exact Match to YouVersion Reference Image)  */}
       {/* ============================================================== */}
-      <div className={`sticky top-0 z-30 px-4 sm:px-6 py-3 border-b backdrop-blur-md flex items-center justify-between gap-3 ${themeTopBar[readingTheme]}`}>
+      <header className={`sticky top-0 z-30 w-full backdrop-blur-md border-b px-4 sm:px-6 py-2.5 flex items-center justify-between ${themeTopBar[readingTheme]}`}>
         
-        {/* Left Side: Search Pill + Quick Book Picker Icon */}
-        <div className="flex items-center gap-2 flex-1 max-w-sm sm:max-w-md">
-          <form onSubmit={handleReferenceSubmit} className="relative flex-1">
-            <div className="flex items-center w-full px-3 py-1.5 rounded-full bg-black/20 dark:bg-neutral-800/80 border border-white/10 dark:border-neutral-700/60 focus-within:border-gold/50 transition">
-              <Search className="w-4 h-4 text-neutral-400 shrink-0 mr-2" />
-              <input
-                type="text"
-                placeholder={`${selectedBook.name} ${currentChapter}`}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-transparent border-none outline-none text-xs sm:text-sm text-white placeholder:text-neutral-400 font-medium"
-              />
-            </div>
-          </form>
-
-          {/* Book / Chapter Picker Button (Book Icon) */}
-          <button
-            onClick={() => setIsBookPickerOpen(!isBookPickerOpen)}
-            className="p-2 rounded-full hover:bg-white/10 text-neutral-300 hover:text-white transition"
-            title="Browse Books & Chapters"
-            aria-label="Browse Books"
-          >
-            <BookOpen className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Right Side: Translation Pill, Headphones (Audio), View/Compare, AA, Expand */}
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          
-          {/* Quick Access to Bible Stories */}
-          {onNavigate && (
+        {/* Left: Combined Pill [ Joshua 10 | NLT ] */}
+        <div className="flex items-center">
+          <div className="inline-flex items-center rounded-full bg-[#242528] hover:bg-[#2c2d31] border border-neutral-700/60 p-0.5 text-xs sm:text-sm font-semibold shadow-xs transition-colors">
             <button
-              onClick={() => onNavigate('stories')}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/35 text-amber-300 hover:text-amber-200 text-xs font-bold transition active:scale-95 shadow-xs cursor-pointer"
-              title="Explore Bible Stories (Jesus' Birth, Parables, etc.)"
+              onClick={() => setIsBookPickerOpen(true)}
+              className="px-3 py-1.5 text-white hover:text-gold transition rounded-full flex items-center gap-1 active:scale-95 cursor-pointer"
+              title="Choose Scripture Book & Chapter"
             >
-              <BookMarked className="w-3.5 h-3.5 text-amber-400" />
-              <span className="hidden sm:inline">Stories</span>
+              <span>{selectedBook.name} {currentChapter}</span>
             </button>
-          )}
 
-          {/* Translation Selector Pill (e.g., 'NIV') */}
-          <div className="relative group">
+            <span className="w-px h-3.5 bg-neutral-600/70 shrink-0" />
+
             <button
-              onClick={() => {
-                const codes: BibleTranslationCode[] = ['NKJV', 'KJV', 'NIV', 'ESV', 'NLT', 'WEB', 'FSV'];
-                const nextIdx = (codes.indexOf(selectedTranslation) + 1) % codes.length;
-                setSelectedTranslation(codes[nextIdx]);
-              }}
-              className="px-2.5 py-1 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 text-xs font-bold tracking-wider text-white transition flex items-center gap-1"
-              title="Click to cycle translation or hover for menu"
+              onClick={() => setIsTranslationPickerOpen(true)}
+              className="px-2.5 py-1.5 text-white hover:text-gold transition rounded-full flex items-center gap-1 active:scale-95 cursor-pointer"
+              title="Choose Bible Translation"
             >
               <span>{selectedTranslation}</span>
             </button>
-
-            {/* Translation Dropdown Hover */}
-            <div className="hidden group-hover:block absolute right-0 top-full pt-1.5 z-40">
-              <div className="p-1.5 bg-neutral-900 border border-neutral-700 rounded-xl shadow-elevated w-36 text-xs text-slate-200">
-                {BIBLE_TRANSLATIONS.map(tr => (
-                  <button
-                    key={tr.code}
-                    onClick={() => setSelectedTranslation(tr.code)}
-                    className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center justify-between ${
-                      selectedTranslation === tr.code ? 'bg-gold text-slate-950 font-bold' : 'hover:bg-neutral-800'
-                    }`}
-                  >
-                    <span>{tr.code}</span>
-                    <span className="text-[10px] opacity-75 font-normal truncate ml-1">{tr.name}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
           </div>
+        </div>
 
-          {/* Audio / Headphones Icon (Text-to-Speech) */}
+        {/* Right: Audio Speaker, Search, More Options (...) */}
+        <div className="flex items-center gap-1.5 sm:gap-2.5 text-white">
+          {/* Audio Speaker */}
           <button
-            onClick={() => {
-              if (isAudioPlaying) pauseAudio();
-              else startAudio();
-            }}
-            className={`p-2 rounded-full transition relative ${
-              isAudioPlaying 
-                ? 'bg-gold text-slate-950 ring-2 ring-gold/40' 
-                : 'hover:bg-white/10 text-neutral-300 hover:text-white'
+            onClick={toggleAudio}
+            className={`p-2 rounded-full hover:bg-white/10 transition active:scale-95 cursor-pointer relative ${
+              isAudioPlaying ? 'text-gold' : 'text-neutral-200 hover:text-white'
             }`}
-            title={isAudioPlaying ? 'Pause Audio Reading' : 'Listen to Chapter Audio'}
+            title={isAudioPlaying ? 'Pause Audio Reading' : 'Listen to Scripture Audio'}
             aria-label="Audio Bible"
           >
-            <Headphones className="w-4 h-4" />
+            <Volume2 className="w-5 h-5" />
             {isAudioPlaying && (
-              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
             )}
           </button>
 
-          {/* Parallel / Comparison Toggle */}
+          {/* Search */}
           <button
-            onClick={() => setViewMode(viewMode === 'single' ? 'parallel' : 'single')}
-            className={`p-2 rounded-full transition ${
-              viewMode === 'parallel' 
-                ? 'bg-white/20 text-white' 
-                : 'hover:bg-white/10 text-neutral-300 hover:text-white'
-            }`}
-            title={viewMode === 'parallel' ? 'Single Translation View' : 'Side-by-Side Parallel View'}
-            aria-label="Parallel Mode"
+            onClick={() => setIsSearchOpen(true)}
+            className="p-2 rounded-full hover:bg-white/10 text-neutral-200 hover:text-white transition active:scale-95 cursor-pointer"
+            title="Search Bible"
+            aria-label="Search Bible"
           >
-            <Columns className="w-4 h-4" />
+            <Search className="w-5 h-5" />
           </button>
 
-          {/* Display Settings Button: "AA" */}
+          {/* More Options (...) with Display Menu Popover */}
           <div className="relative">
             <button
               onClick={() => setIsDisplayMenuOpen(!isDisplayMenuOpen)}
-              className={`px-2 py-1 rounded-full text-xs font-serif font-bold tracking-tight transition ${
-                isDisplayMenuOpen 
-                  ? 'bg-white/20 text-white' 
-                  : 'hover:bg-white/10 text-neutral-300 hover:text-white'
+              className={`w-8 h-8 rounded-full border border-neutral-700/70 flex items-center justify-center hover:bg-white/10 transition active:scale-95 cursor-pointer ${
+                isDisplayMenuOpen ? 'border-gold text-gold bg-white/10' : 'text-neutral-200 hover:text-white'
               }`}
-              title="Reading Display & Typography (AA)"
-              aria-label="Text Settings"
+              title="Reading Settings & Display (Font, Size, Theme)"
+              aria-label="Display Settings"
             >
-              AA
+              <MoreHorizontal className="w-4 h-4" />
             </button>
 
             {/* Display Menu Popover */}
@@ -807,7 +809,7 @@ Please answer pastorally and expositorily, grounded in Scripture.`;
                 {/* Header */}
                 <div className="flex items-center justify-between pb-2 border-b border-neutral-800 text-xs font-semibold text-neutral-400 uppercase tracking-wider">
                   <span>Reading Settings</span>
-                  <button onClick={() => setIsDisplayMenuOpen(false)} className="text-neutral-500 hover:text-white">
+                  <button onClick={() => setIsDisplayMenuOpen(false)} className="text-neutral-500 hover:text-white cursor-pointer">
                     <X className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -821,7 +823,7 @@ Please answer pastorally and expositorily, grounded in Scripture.`;
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => setFontSizePx(Math.max(14, fontSizePx - 2))}
-                      className="px-3 py-1 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-xs font-bold"
+                      className="px-3 py-1 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-xs font-bold cursor-pointer"
                     >
                       A-
                     </button>
@@ -835,7 +837,7 @@ Please answer pastorally and expositorily, grounded in Scripture.`;
                     />
                     <button
                       onClick={() => setFontSizePx(Math.min(28, fontSizePx + 2))}
-                      className="px-3 py-1 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-xs font-bold"
+                      className="px-3 py-1 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-xs font-bold cursor-pointer"
                     >
                       A+
                     </button>
@@ -848,7 +850,7 @@ Please answer pastorally and expositorily, grounded in Scripture.`;
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       onClick={() => setFontFamily('serif')}
-                      className={`p-2 rounded-xl text-xs font-serif font-bold border transition ${
+                      className={`p-2 rounded-xl text-xs font-serif font-bold border transition cursor-pointer ${
                         fontFamily === 'serif' 
                           ? 'border-gold bg-gold/15 text-gold-200' 
                           : 'border-neutral-800 bg-neutral-800/50 hover:bg-neutral-800 text-neutral-300'
@@ -858,7 +860,7 @@ Please answer pastorally and expositorily, grounded in Scripture.`;
                     </button>
                     <button
                       onClick={() => setFontFamily('sans')}
-                      className={`p-2 rounded-xl text-xs font-sans font-bold border transition ${
+                      className={`p-2 rounded-xl text-xs font-sans font-bold border transition cursor-pointer ${
                         fontFamily === 'sans' 
                           ? 'border-gold bg-gold/15 text-gold-200' 
                           : 'border-neutral-800 bg-neutral-800/50 hover:bg-neutral-800 text-neutral-300'
@@ -892,7 +894,7 @@ Please answer pastorally and expositorily, grounded in Scripture.`;
                   <div className="grid grid-cols-4 gap-2">
                     <button
                       onClick={() => setReadingTheme('dark')}
-                      className={`p-2 rounded-xl border flex flex-col items-center gap-1 transition ${
+                      className={`p-2 rounded-xl border flex flex-col items-center gap-1 transition cursor-pointer ${
                         readingTheme === 'dark' ? 'border-gold ring-1 ring-gold' : 'border-neutral-800'
                       }`}
                       style={{ backgroundColor: '#121212' }}
@@ -901,7 +903,7 @@ Please answer pastorally and expositorily, grounded in Scripture.`;
                     </button>
                     <button
                       onClick={() => setReadingTheme('midnight')}
-                      className={`p-2 rounded-xl border flex flex-col items-center gap-1 transition ${
+                      className={`p-2 rounded-xl border flex flex-col items-center gap-1 transition cursor-pointer ${
                         readingTheme === 'midnight' ? 'border-gold ring-1 ring-gold' : 'border-neutral-800'
                       }`}
                       style={{ backgroundColor: '#0b1329' }}
@@ -910,7 +912,7 @@ Please answer pastorally and expositorily, grounded in Scripture.`;
                     </button>
                     <button
                       onClick={() => setReadingTheme('sepia')}
-                      className={`p-2 rounded-xl border flex flex-col items-center gap-1 transition ${
+                      className={`p-2 rounded-xl border flex flex-col items-center gap-1 transition cursor-pointer ${
                         readingTheme === 'sepia' ? 'border-amber-600 ring-1 ring-amber-600' : 'border-neutral-800'
                       }`}
                       style={{ backgroundColor: '#fbf0d9' }}
@@ -919,7 +921,7 @@ Please answer pastorally and expositorily, grounded in Scripture.`;
                     </button>
                     <button
                       onClick={() => setReadingTheme('light')}
-                      className={`p-2 rounded-xl border flex flex-col items-center gap-1 transition ${
+                      className={`p-2 rounded-xl border flex flex-col items-center gap-1 transition cursor-pointer ${
                         readingTheme === 'light' ? 'border-gold ring-1 ring-gold' : 'border-neutral-800'
                       }`}
                       style={{ backgroundColor: '#ffffff' }}
@@ -929,244 +931,43 @@ Please answer pastorally and expositorily, grounded in Scripture.`;
                   </div>
                 </div>
 
-              </div>
-            )}
-          </div>
-
-          {/* Expand / Maximize Immersion Button */}
-          <button
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="p-2 rounded-full hover:bg-white/10 text-neutral-300 hover:text-white transition"
-            title={isExpanded ? 'Exit Expanded View (Esc)' : 'Expand to Fullscreen View'}
-            aria-label="Expand Reader"
-          >
-            {isExpanded ? <Minimize2 className="w-4 h-4 text-gold" /> : <Maximize2 className="w-4 h-4" />}
-          </button>
-        </div>
-      </div>
-
-      {/* ============================================================== */}
-      {/* AUDIO PLAYBACK STICKY BAR (When audio is active) */}
-      {/* ============================================================== */}
-      {isAudioPlaying && (
-        <div className="sticky top-14 z-20 px-6 py-2 bg-gold/15 dark:bg-gold/10 border-b border-gold/30 backdrop-blur-md flex items-center justify-between text-xs text-gold-300">
-          <div className="flex items-center gap-2 font-medium">
-            <Volume2 className="w-4 h-4 animate-pulse text-gold" />
-            <span>Reading {selectedBook.name} {currentChapter} in {selectedTranslation}</span>
-            {currentSpokenVerse && (
-              <span className="px-2 py-0.5 rounded bg-gold/20 font-bold text-gold-200">
-                Verse {currentSpokenVerse}
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => {
-                const nextSpeed = audioSpeed === 1.0 ? 1.25 : audioSpeed === 1.25 ? 0.8 : 1.0;
-                setAudioSpeed(nextSpeed);
-              }}
-              className="px-2 py-0.5 rounded bg-black/30 text-[11px] font-mono hover:bg-black/50"
-            >
-              {audioSpeed}x
-            </button>
-            <button onClick={pauseAudio} className="hover:text-white">
-              <Pause className="w-4 h-4" />
-            </button>
-            <button onClick={stopAudio} className="hover:text-white">
-              <Square className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ============================================================== */}
-      {/* TOAST CONFIRMATION NOTIFICATION */}
-      {/* ============================================================== */}
-      {copySuccessToast && (
-        <div className="fixed bottom-6 right-6 z-50 px-4 py-2.5 rounded-2xl bg-neutral-900 border border-gold/40 text-white shadow-elevated text-xs flex items-center gap-2 animate-bounce">
-          <CheckCircle2 className="w-4 h-4 text-gold" />
-          <span>{copySuccessToast}</span>
-        </div>
-      )}
-
-      {/* ============================================================== */}
-      {/* BOOK & CHAPTER QUICK SELECTOR MODAL */}
-      {/* ============================================================== */}
-      {isBookPickerOpen && typeof document !== 'undefined' && createPortal(
-        <div 
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setIsBookPickerOpen(false);
-          }}
-        >
-          <div className="w-full max-w-2xl bg-neutral-900 border border-neutral-800 rounded-3xl p-6 shadow-elevated text-white space-y-4 max-h-[85vh] flex flex-col">
-            
-            <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
-              <div className="flex items-center gap-2">
-                <BookOpen className="w-5 h-5 text-gold" />
-                <h3 className="font-serif font-bold text-lg">Select Scripture Book & Chapter</h3>
-              </div>
-              <button 
-                onClick={() => setIsBookPickerOpen(false)}
-                className="p-1.5 rounded-full hover:bg-neutral-800 text-neutral-400"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Testament Tabs */}
-            <div className="flex gap-2">
-              <button
-                onClick={() => setBookPickerTab('NT')}
-                className={`flex-1 py-2 rounded-xl text-xs font-bold transition ${
-                  bookPickerTab === 'NT' ? 'bg-gold text-slate-950 font-bold' : 'bg-neutral-800 text-neutral-400 hover:text-white'
-                }`}
-              >
-                New Testament (27 Books)
-              </button>
-              <button
-                onClick={() => setBookPickerTab('OT')}
-                className={`flex-1 py-2 rounded-xl text-xs font-bold transition ${
-                  bookPickerTab === 'OT' ? 'bg-gold text-slate-950 font-bold' : 'bg-neutral-800 text-neutral-400 hover:text-white'
-                }`}
-              >
-                Old Testament (39 Books)
-              </button>
-            </div>
-
-            {/* Books Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 overflow-y-auto flex-1 pr-1">
-              {BIBLE_BOOKS.filter(b => b.testament === bookPickerTab).map(book => (
-                <button
-                  key={book.id}
-                  onClick={() => {
-                    setSelectedBook(book);
-                    setCurrentChapter(1);
-                    setIsBookPickerOpen(false);
-                  }}
-                  className={`p-2.5 rounded-xl border text-left transition ${
-                    selectedBook.id === book.id 
-                      ? 'border-gold bg-gold/20 text-gold-200 font-bold' 
-                      : 'border-neutral-800 hover:border-neutral-700 bg-neutral-800/40 text-neutral-300'
-                  }`}
-                >
-                  <div className="text-xs font-bold truncate">{book.name}</div>
-                  <div className="text-[10px] text-neutral-500">{book.chaptersCount} ch</div>
-                </button>
-              ))}
-            </div>
-
-            {/* Current Book Chapters Bar */}
-            <div className="pt-3 border-t border-neutral-800 space-y-2">
-              <div className="text-xs text-neutral-400 font-medium">
-                Chapters in <span className="text-white font-bold">{selectedBook.name}</span>:
-              </div>
-              <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
-                {Array.from({ length: selectedBook.chaptersCount }, (_, i) => i + 1).map(num => (
+                {/* Parallel View Mode Toggle */}
+                <div className="pt-2 border-t border-neutral-800 flex items-center justify-between text-xs">
+                  <span className="text-neutral-400">Parallel View</span>
                   <button
-                    key={num}
-                    onClick={() => {
-                      setCurrentChapter(num);
-                      setIsBookPickerOpen(false);
-                    }}
-                    className={`w-8 h-8 rounded-lg text-xs font-bold transition flex items-center justify-center ${
-                      currentChapter === num
-                        ? 'bg-gold text-slate-950 font-bold shadow-gold'
-                        : 'bg-neutral-800 hover:bg-neutral-700 text-neutral-300'
+                    onClick={() => setViewMode(viewMode === 'single' ? 'parallel' : 'single')}
+                    className={`px-2.5 py-1 rounded-lg font-semibold transition cursor-pointer ${
+                      viewMode === 'parallel' ? 'bg-gold text-slate-950 font-bold' : 'bg-neutral-800 text-neutral-300'
                     }`}
                   >
-                    {num}
+                    {viewMode === 'parallel' ? 'Enabled' : 'Disabled'}
                   </button>
-                ))}
-              </div>
-            </div>
+                </div>
 
-          </div>
-        </div>,
-        document.body
-      )}
-
-      {/* ============================================================== */}
-      {/* 2. MAIN READING CANVAS (Exact Typography & Red Letters) */}
-      {/* ============================================================== */}
-      <div className="relative min-h-[75vh] px-4 sm:px-12 md:px-20 lg:px-28 py-10">
-        
-        {/* Floating Previous Chapter Chevron on Left (Desktop only to prevent mobile overlap) */}
-        <button
-          onClick={handlePrevChapter}
-          disabled={isAtFirstChapter}
-          className="hidden md:flex fixed left-3 sm:left-6 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-neutral-800/80 hover:bg-neutral-700 disabled:opacity-20 disabled:cursor-not-allowed text-white border border-white/10 items-center justify-center shadow-lg transition backdrop-blur-sm"
-          title="Previous Chapter"
-          aria-label="Previous Chapter"
-        >
-          <ChevronLeft className="w-5 h-5" />
-        </button>
-
-        {/* Floating Next Chapter Chevron on Right (Desktop only to prevent mobile overlap) */}
-        <button
-          onClick={handleNextChapter}
-          disabled={isAtLastChapter}
-          className="hidden md:flex fixed right-3 sm:right-6 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-neutral-800/80 hover:bg-neutral-700 disabled:opacity-20 disabled:cursor-not-allowed text-white border border-white/10 items-center justify-center shadow-lg transition backdrop-blur-sm"
-          title="Next Chapter"
-          aria-label="Next Chapter"
-        >
-          <ChevronRight className="w-5 h-5" />
-        </button>
-
-        {/* Reader Container */}
-        <div className={`mx-auto transition-all duration-200 ${
-          readerWidth === 'expanded' || isExpanded ? 'max-w-4xl' : 'max-w-2xl'
-        }`}>
-          
-          {/* Chapter Top Navigation Bar (Responsive on Mobile and Desktop) */}
-          <div className="flex items-center justify-between gap-2 sm:gap-4 mb-8">
-            <button
-              onClick={handlePrevChapter}
-              disabled={isAtFirstChapter}
-              className="px-3 py-1.5 rounded-full bg-neutral-800/80 hover:bg-neutral-700 disabled:opacity-20 disabled:cursor-not-allowed text-white text-xs font-semibold flex items-center gap-1.5 transition shadow-xs"
-              title="Previous Chapter"
-            >
-              <ChevronLeft className="w-4 h-4" />
-              <span className="hidden sm:inline">Prev</span>
-            </button>
-
-            <div className="text-center space-y-1">
-              <button 
-                onClick={() => setIsBookPickerOpen(true)}
-                className="group inline-flex items-center gap-2 hover:opacity-85 transition"
-                title="Change book or chapter"
-              >
-                <h1 className="font-serif font-bold text-2xl sm:text-4xl lg:text-5xl tracking-tight leading-none text-white group-hover:text-gold transition">
-                  {selectedBook.name} {currentChapter}
-                </h1>
-              </button>
-              <div className="flex items-center justify-center gap-2 text-xs uppercase tracking-widest text-neutral-400 font-sans font-semibold">
-                <span>{selectedTranslation}</span>
-                <span>•</span>
-                <span>Chapter {currentChapter} of {selectedBook.chaptersCount}</span>
-                {isLoadingVerses && (
-                  <span className="inline-flex items-center gap-1 text-[11px] text-gold lowercase font-normal tracking-normal">
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                    syncing...
-                  </span>
+                {/* Quick Access to Stories */}
+                {onNavigate && (
+                  <div className="pt-2 border-t border-neutral-800">
+                    <button
+                      onClick={() => { setIsDisplayMenuOpen(false); onNavigate('stories'); }}
+                      className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-bold hover:bg-amber-500/25 transition cursor-pointer"
+                    >
+                      <BookMarked className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Explore Bible Stories</span>
+                    </button>
+                  </div>
                 )}
+
               </div>
-            </div>
-
-            <button
-              onClick={handleNextChapter}
-              disabled={isAtLastChapter}
-              className="px-3 py-1.5 rounded-full bg-neutral-800/80 hover:bg-neutral-700 disabled:opacity-20 disabled:cursor-not-allowed text-white text-xs font-semibold flex items-center gap-1.5 transition shadow-xs"
-              title="Next Chapter"
-            >
-              <span className="hidden sm:inline">Next</span>
-              <ChevronRight className="w-4 h-4" />
-            </button>
+            )}
           </div>
+        </div>
+      </header>
 
-          {/* ============================================================== */}
-          {/* SINGLE TRANSLATION CONTINUOUS FLOW */}
-          {/* ============================================================== */}
+      {/* ============================================================== */}
+      {/* 2. MAIN READING CANVAS (Clean, Full Screen, Paragraph Flow)   */}
+      {/* ============================================================== */}
+      <div className="w-full px-4 sm:px-6 pt-4 sm:pt-6 pb-36 select-text">
+        <div className="max-w-[660px] mx-auto">
           {viewMode === 'single' ? (
             verses.length === 0 ? (
               <div className="py-24 flex flex-col items-center justify-center gap-4 text-center">
@@ -1179,69 +980,86 @@ Please answer pastorally and expositorily, grounded in Scripture.`;
                 </div>
               </div>
             ) : (
-            <div 
-              key={`${selectedBook.id}-${currentChapter}-${selectedTranslation}`}
-              className={`leading-relaxed space-y-4 animate-in fade-in duration-200 ${
-                fontFamily === 'serif' ? 'font-serif' : 'font-sans'
-              }`}
-              style={{ fontSize: `${fontSizePx}px` }}
-            >
-              {verses.map((v) => {
-                const hl = getVerseHighlight(v.verse);
-                const isSelected = selectedVerse?.verse === v.verse;
-                const isSpoken = currentSpokenVerse === v.verse;
-                const isRed = redLetterEnabled && (v.isJesusWords || false);
-
-                return (
-                  <React.Fragment key={`${selectedBook.id}-${currentChapter}-${v.verse}`}>
-                    
-                    {/* Section Title Heading (e.g. "Jesus Teaches Nicodemus") */}
-                    {v.sectionTitle && (
-                      <h2 className="font-serif font-bold text-lg sm:text-xl pt-6 pb-2 text-white/95 tracking-wide">
-                        {v.sectionTitle}
-                      </h2>
-                    )}
-
-                    {/* Verse Span in Paragraph Flow */}
-                    <span
-                      id={`verse-${v.verse}`}
-                      onClick={() => handleSelectVerse(v)}
-                      className={`inline cursor-pointer rounded transition-all relative ${
-                        isSelected 
-                          ? 'border-b-2 border-dotted border-white/80 bg-white/5 pb-0.5' 
-                          : 'hover:bg-white/5'
-                      } ${hl ? `${hl.color === 'yellow' ? 'bg-yellow-400/25 text-yellow-100' : hl.color === 'green' ? 'bg-emerald-400/25 text-emerald-100' : hl.color === 'cyan' ? 'bg-cyan-400/25 text-cyan-100' : hl.color === 'peach' ? 'bg-orange-400/25 text-orange-100' : 'bg-fuchsia-400/25 text-fuchsia-100'} px-1 py-0.5 rounded` : ''} ${
-                        isSpoken ? 'bg-gold/30 text-gold-200' : ''
-                      }`}
-                    >
-                      {/* Superscript Verse Number */}
-                      <sup className="text-[0.68em] font-sans font-bold text-neutral-500 mr-1 select-none">
-                        {v.verse}
-                      </sup>
-
-                      {/* Verse Text: Red Letter Rendering when Jesus speaks */}
-                      <span className={isRed ? 'text-red-500 dark:text-red-400 font-medium' : ''}>
-                        {v.text}{' '}
-                      </span>
-
-                      {/* Footnote Comment Bubble Icon (💬) */}
-                      {v.hasNote && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setActiveFootnote(activeFootnote?.verse === v.verse ? null : { verse: v.verse, note: v.footnote || '' });
-                          }}
-                          className="inline-flex items-center text-neutral-500 hover:text-gold mx-1 transition align-middle"
-                          title="Study Note / Footnote"
+              <div 
+                key={`${selectedBook.id}-${currentChapter}-${selectedTranslation}`}
+                className="animate-in fade-in duration-200"
+              >
+                {paragraphGroups.map((group, groupIdx) => {
+                  const firstVerseWithSection = group.find(v => !!v.sectionTitle);
+                  return (
+                    <div key={`para-${groupIdx}`} className="mb-5 sm:mb-6">
+                      {/* Section Title Heading (e.g. "Israel Defeats the Southern Armies") */}
+                      {firstVerseWithSection?.sectionTitle && (
+                        <h2 
+                          className="font-bold text-lg sm:text-[21px] text-white tracking-tight leading-snug mb-3 pt-2"
+                          style={{ fontFamily: "-apple-system-ui-serif, Charter, 'Sitka Text', Cambria, Georgia, serif" }}
                         >
-                          <MessageSquare className="w-3.5 h-3.5 inline" />
-                        </button>
+                          {firstVerseWithSection.sectionTitle}
+                        </h2>
                       )}
-                    </span>
-                  </React.Fragment>
-                );
-              })}
-            </div>
+
+                      {/* Paragraph Text with Inline Flow & Superscript Verse Numbers */}
+                      <p 
+                        className="leading-[1.82] text-[17px] sm:text-[18px] text-[#F3F4F6]"
+                        style={{ 
+                          fontSize: `${fontSizePx}px`,
+                          fontFamily: fontFamily === 'serif' ? "-apple-system-ui-serif, Charter, 'Sitka Text', Cambria, Georgia, serif" : 'inherit'
+                        }}
+                      >
+                        {group.map((v) => {
+                          const hl = getVerseHighlight(v.verse);
+                          const isSelected = selectedVerse?.verse === v.verse;
+                          const isSpoken = currentSpokenVerse === v.verse;
+                          const isRed = redLetterEnabled && (v.isJesusWords || false);
+
+                          return (
+                            <span
+                              key={`${selectedBook.id}-${currentChapter}-${v.verse}`}
+                              id={`verse-${v.verse}`}
+                              onClick={() => handleSelectVerse(v)}
+                              className={`inline cursor-pointer rounded transition-colors relative ${
+                                isSelected 
+                                  ? 'border-b-2 border-dotted border-white/80 bg-white/10 pb-0.5' 
+                                  : 'hover:bg-white/5'
+                              } ${hl ? `${hl.color === 'yellow' ? 'bg-yellow-400/25 text-yellow-100' : hl.color === 'green' ? 'bg-emerald-400/25 text-emerald-100' : hl.color === 'cyan' ? 'bg-cyan-400/25 text-cyan-100' : hl.color === 'peach' ? 'bg-orange-400/25 text-orange-100' : 'bg-fuchsia-400/25 text-fuchsia-100'} px-1 py-0.5 rounded` : ''} ${
+                                isSpoken ? 'bg-gold/30 text-gold-200' : ''
+                              }`}
+                            >
+                              {/* Space before next verse in paragraph */}
+                              {v.verse > 1 && ' '}
+
+                              {/* Superscript Verse Number */}
+                              <sup className="text-[0.62em] font-sans font-bold text-neutral-400 select-none mr-1 -top-1 inline-block">
+                                {v.verse}
+                              </sup>
+
+                              {/* Verse Text: Red Letter Rendering when Jesus speaks */}
+                              <span className={isRed ? 'text-red-400 font-medium' : ''}>
+                                {v.text}
+                              </span>
+
+                              {/* Footnote Comment Bubble Icon (💬) */}
+                              {v.hasNote && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveFootnote(activeFootnote?.verse === v.verse ? null : { verse: v.verse, note: v.footnote || '' });
+                                  }}
+                                  className="inline-flex items-center text-neutral-400 hover:text-gold mx-1.5 align-baseline transition cursor-pointer"
+                                  title="Footnote / Study Note"
+                                  aria-label="View Footnote"
+                                >
+                                  <MessageSquare className="w-3.5 h-3.5 inline text-neutral-400 hover:text-gold" />
+                                </button>
+                              )}
+                            </span>
+                          );
+                        })}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
             )
           ) : (
             /* Parallel 2-Column Comparison View */
@@ -1284,34 +1102,199 @@ Please answer pastorally and expositorily, grounded in Scripture.`;
               </div>
             </div>
           )}
-
-          {/* Bottom Chapter Navigation (Seamless across mobile and desktop) */}
-          <div className="flex items-center justify-between mt-12 pt-6 border-t border-white/10 text-xs sm:text-sm">
-            <button
-              onClick={handlePrevChapter}
-              disabled={isAtFirstChapter}
-              className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-xl bg-neutral-800/80 hover:bg-neutral-700 disabled:opacity-20 disabled:cursor-not-allowed text-white font-medium transition shadow-sm"
-            >
-              <ChevronLeft className="w-4 h-4" />
-              <span>Prev Chapter</span>
-            </button>
-
-            <span className="text-[11px] sm:text-xs text-neutral-400 font-sans tracking-wide">
-              {selectedBook.name} {currentChapter} of {selectedBook.chaptersCount}
-            </span>
-
-            <button
-              onClick={handleNextChapter}
-              disabled={isAtLastChapter}
-              className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-xl bg-neutral-800/80 hover:bg-neutral-700 disabled:opacity-20 disabled:cursor-not-allowed text-white font-medium transition shadow-sm"
-            >
-              <span>Next Chapter</span>
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-
         </div>
       </div>
+
+      {/* ============================================================== */}
+      {/* 3. FLOATING BOTTOM CONTROLS (Exact YouVersion Control Cluster) */}
+      {/* ============================================================== */}
+      {typeof document !== 'undefined' && createPortal(
+        <div className="fixed bottom-[84px] sm:bottom-[92px] md:bottom-8 left-0 right-0 z-40 pointer-events-none flex items-center justify-center gap-4 px-4 select-none">
+          {/* Prev Chapter */}
+          <button
+            onClick={handlePrevChapter}
+            disabled={isAtFirstChapter}
+            className="pointer-events-auto w-11 h-11 rounded-full bg-[#2A2B2E]/90 hover:bg-[#38393D] active:scale-95 disabled:opacity-20 disabled:cursor-not-allowed text-white shadow-xl backdrop-blur-md border border-white/10 flex items-center justify-center transition cursor-pointer"
+            title="Previous Chapter"
+            aria-label="Previous Chapter"
+          >
+            <ChevronLeft className="w-5 h-5 stroke-[2.5]" />
+          </button>
+
+          {/* Play / Pause Audio */}
+          <button
+            onClick={toggleAudio}
+            className="pointer-events-auto w-14 h-14 rounded-full bg-[#2A2B2E]/95 hover:bg-[#38393D] active:scale-95 text-white shadow-2xl backdrop-blur-md border border-white/15 flex items-center justify-center transition cursor-pointer"
+            title={isAudioPlaying ? 'Pause Audio' : 'Play Audio'}
+            aria-label={isAudioPlaying ? 'Pause Audio' : 'Play Audio'}
+          >
+            {isAudioPlaying ? (
+              <Pause className="w-6 h-6 fill-current text-gold" />
+            ) : (
+              <Play className="w-6 h-6 fill-current ml-0.5 text-white" />
+            )}
+          </button>
+
+          {/* Next Chapter */}
+          <button
+            onClick={handleNextChapter}
+            disabled={isAtLastChapter}
+            className="pointer-events-auto w-11 h-11 rounded-full bg-[#2A2B2E]/90 hover:bg-[#38393D] active:scale-95 disabled:opacity-20 disabled:cursor-not-allowed text-white shadow-xl backdrop-blur-md border border-white/10 flex items-center justify-center transition cursor-pointer"
+            title="Next Chapter"
+            aria-label="Next Chapter"
+          >
+            <ChevronRight className="w-5 h-5 stroke-[2.5]" />
+          </button>
+        </div>,
+        document.body
+      )}
+
+      {/* ============================================================== */}
+      {/* TRANSLATION PICKER MODAL                                      */}
+      {/* ============================================================== */}
+      {isTranslationPickerOpen && typeof document !== 'undefined' && createPortal(
+        <div 
+          className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsTranslationPickerOpen(false);
+          }}
+        >
+          <div className="w-full max-w-md bg-neutral-900 border border-neutral-800 rounded-3xl p-5 shadow-2xl text-white space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-neutral-800">
+              <h3 className="font-serif font-bold text-base text-white">Select Bible Translation</h3>
+              <button 
+                onClick={() => setIsTranslationPickerOpen(false)}
+                className="p-1 rounded-full hover:bg-neutral-800 text-neutral-400 hover:text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-1.5 max-h-[60vh] overflow-y-auto pr-1">
+              {BIBLE_TRANSLATIONS.map(tr => {
+                const isSelected = selectedTranslation === tr.code;
+                return (
+                  <button
+                    key={tr.code}
+                    onClick={() => {
+                      setSelectedTranslation(tr.code);
+                      setIsTranslationPickerOpen(false);
+                    }}
+                    className={`w-full text-left p-3 rounded-2xl border transition flex items-center justify-between cursor-pointer ${
+                      isSelected 
+                        ? 'border-gold bg-gold/15 text-white font-bold' 
+                        : 'border-neutral-800 hover:border-neutral-700 bg-neutral-800/40 text-neutral-300'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-sm">{tr.code}</span>
+                        {isSelected && <Check className="w-4 h-4 text-gold" />}
+                      </div>
+                      <div className="text-xs text-neutral-400 font-normal mt-0.5">{tr.name}</div>
+                    </div>
+                    <span className="text-[10px] uppercase font-bold text-neutral-500 bg-neutral-800 px-2 py-0.5 rounded-full">
+                      Offline
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ============================================================== */}
+      {/* SCRIPTURE SEARCH / REFERENCE MODAL                             */}
+      {/* ============================================================== */}
+      {isSearchOpen && typeof document !== 'undefined' && createPortal(
+        <div 
+          className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-start justify-center pt-20 px-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsSearchOpen(false);
+          }}
+        >
+          <div className="w-full max-w-lg bg-neutral-900 border border-neutral-800 rounded-3xl p-5 shadow-2xl text-white space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-neutral-800">
+              <h3 className="font-serif font-bold text-base text-white">Search Scripture or Jump to Verse</h3>
+              <button 
+                onClick={() => setIsSearchOpen(false)}
+                className="p-1 rounded-full hover:bg-neutral-800 text-neutral-400 hover:text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={(e) => { handleReferenceSubmit(e); setIsSearchOpen(false); }} className="relative">
+              <div className="flex items-center w-full px-3.5 py-2.5 rounded-2xl bg-neutral-800 border border-neutral-700 focus-within:border-gold transition">
+                <Search className="w-4 h-4 text-neutral-400 shrink-0 mr-2.5" />
+                <input
+                  type="text"
+                  placeholder="e.g. Joshua 10, John 3:16, grace, salvation..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  autoFocus
+                  className="w-full bg-transparent border-none outline-none text-sm text-white placeholder:text-neutral-500 font-medium"
+                />
+              </div>
+            </form>
+
+            {/* Quick reference examples */}
+            {searchResults.length > 0 ? (
+              <div className="max-h-64 overflow-y-auto space-y-1.5 divide-y divide-neutral-800 pr-1">
+                {searchResults.slice(0, 15).map((sr) => (
+                  <div
+                    key={`${sr.book}-${sr.chapter}-${sr.verse}`}
+                    onClick={() => {
+                      const b = BIBLE_BOOKS.find(item => item.name.toLowerCase() === sr.book.toLowerCase());
+                      if (b) setSelectedBook(b);
+                      setCurrentChapter(sr.chapter);
+                      setIsSearchOpen(false);
+                    }}
+                    className="p-2.5 rounded-xl hover:bg-neutral-800 cursor-pointer transition text-xs"
+                  >
+                    <div className="font-bold text-gold mb-0.5">{sr.book} {sr.chapter}:{sr.verse}</div>
+                    <div className="text-neutral-300 line-clamp-2">{sr.text}</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-xs text-neutral-400 space-y-2">
+                <div className="font-semibold text-neutral-500 uppercase tracking-wider text-[10px]">Quick Jump Examples:</div>
+                <div className="flex flex-wrap gap-2">
+                  {['Joshua 10', 'John 3', 'Psalm 23', 'Romans 8', 'Colossians 1'].map((ref) => (
+                    <button
+                      key={ref}
+                      onClick={() => {
+                        setSearchQuery(ref);
+                        const match = ref.trim().match(/^([1-3]?\s*[A-Za-z]+)\s*(\d+)?(?::(\d+))?$/);
+                        if (match) {
+                          const bookQuery = match[1].toLowerCase().replace(/\s+/g, '');
+                          const chap = match[2] ? parseInt(match[2], 10) : 1;
+                          const foundBook = BIBLE_BOOKS.find(b => 
+                            b.name.toLowerCase().replace(/\s+/g, '').startsWith(bookQuery) ||
+                            b.id.toLowerCase() === bookQuery
+                          );
+                          if (foundBook) {
+                            setSelectedBook(foundBook);
+                            setCurrentChapter(Math.min(chap, foundBook.chaptersCount));
+                          }
+                        }
+                        setIsSearchOpen(false);
+                      }}
+                      className="px-2.5 py-1 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white text-xs transition cursor-pointer"
+                    >
+                      {ref}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* ============================================================== */}
       {/* 3. INTERACTIVE FLOATING ACTION POPOVER (Exact Match to Image 2) */}

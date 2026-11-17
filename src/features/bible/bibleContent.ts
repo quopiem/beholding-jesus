@@ -7,6 +7,11 @@ export interface ChapterSection {
 
 // Section Headings for biblical chapters
 export const CHAPTER_SECTIONS: Record<string, ChapterSection[]> = {
+  'JOS:10': [
+    { verse: 1, title: 'Israel Defeats the Southern Armies' },
+    { verse: 16, title: 'The Five Kings Killed' },
+    { verse: 29, title: 'Joshua Conquers the South' }
+  ],
   'JHN:3': [
     { verse: 1, title: 'Jesus Teaches Nicodemus' },
     { verse: 22, title: 'John the Baptist Testifies Again About Jesus' }
@@ -43,8 +48,22 @@ export const CHAPTER_SECTIONS: Record<string, ChapterSection[]> = {
   ]
 };
 
+// Paragraph start verse numbers for authentic Bible flow (like YouVersion & modern translations)
+export const CHAPTER_PARAGRAPHS: Record<string, number[]> = {
+  'JOS:10': [1, 3, 6, 9, 12, 16, 22, 29, 31, 34, 36, 38, 40],
+  'JHN:3': [1, 4, 9, 16, 22, 27, 31],
+  'COL:1': [1, 3, 9, 15, 21, 24],
+  'COL:3': [1, 5, 12, 18],
+  'PSA:23': [1, 4, 5],
+  'ROM:8': [1, 5, 9, 12, 18, 26, 28, 31, 35, 37],
+  'MAT:5': [1, 3, 11, 13, 17, 21, 27, 33, 38, 43],
+  'PHP:4': [1, 4, 8, 10, 14, 21],
+  '1CO:13': [1, 4, 8, 13]
+};
+
 // Verse Footnotes / Study Notes (represented by the 💬 bubble in the YouVersion-style UI)
 export const VERSE_FOOTNOTES: Record<string, string> = {
+  'JOS:10:1': 'Adoni-zedek means “Lord of righteousness” or “lord of justice.” He was the Amorite king of Jerusalem.',
   'JHN:3:3': 'The Greek word ‘anōthen’ means both ‘again’ and ‘from above’.',
   'JHN:3:5': '‘Water and the Spirit’ refers to cleansing repentance and spiritual regeneration (cf. Ezekiel 36:25-27).',
   'JHN:3:6': 'The Greek word ‘pneuma’ serves for both breath/wind and the Holy Spirit.',
