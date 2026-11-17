@@ -235,7 +235,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                 { href: '#hero',        label: 'Moments'  },
                 { href: '#gatherings',  label: 'Gatherings' },
                 { href: '#pastor',      label: 'Pastor'  },
-                { href: '#ministries',  label: 'Ministries' },
+                { href: '#ministries',  label: 'Our Vocation' },
                 { href: '#sanctuary',   label: 'Sanctuary'  },
               ].map(({ href, label }) => (
                 <a
@@ -650,7 +650,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
       </section>
 
       {/* ============================================================== */}
-      {/* 5. MINISTRIES SHOWCASE                                         */}
+      {/* 5. OUR VOCATION & MINISTRIES                                   */}
       {/* ============================================================== */}
       <section id="ministries" className="py-16 sm:py-24 bg-stone-100/50 dark:bg-slate-900/30 border-y border-stone-200/70 dark:border-slate-800/80">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 space-y-10 sm:space-y-14">
@@ -660,39 +660,39 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
               Active Church Life
             </span>
             <h2 className="font-serif font-black text-2xl sm:text-4xl text-slate-900 dark:text-white uppercase tracking-tight">
-              Our Ministries
+              Our Vocation
             </h2>
             <span className="gold-divider" />
-            <p className="text-xs sm:text-sm text-stone-500 dark:text-stone-400 max-w-lg mx-auto pt-2">
-              Find your spiritual family and utilize your God-given gifts to serve and glorify Christ.
+            <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-300 max-w-xl mx-auto pt-2 font-medium">
+              Serving God and people through different gifts according to the grace He has given us.
             </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6 items-stretch">
             
-            {/* Ministry 1: Worship */}
-            <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 shadow-sm space-y-3 card-hover group hover:border-purple-400/40 dark:hover:border-purple-500/40 flex flex-col justify-between">
+            {/* Ministry 1: Life Groups and Fellowship */}
+            <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 shadow-sm space-y-3 card-hover group hover:border-amber-400/40 dark:hover:border-amber-500/40 flex flex-col justify-between">
               <div className="space-y-3">
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-500/15 to-purple-500/5 text-purple-600 dark:text-purple-400 flex items-center justify-center group-hover:shadow-[0_0_18px_4px_rgba(168,85,247,0.18)] transition-shadow duration-300">
-                  <Music className="w-5 h-5" />
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500/15 to-amber-500/5 text-amber-600 dark:text-amber-400 flex items-center justify-center group-hover:shadow-[0_0_18px_4px_rgba(245,158,11,0.18)] transition-shadow duration-300">
+                  <Users className="w-5 h-5" />
                 </div>
                 <h3 className="font-serif font-bold text-base text-stone-900 dark:text-white">
-                  Worship & Creative Arts
+                  Life Groups and Fellowship
                 </h3>
                 <p className="text-xs text-stone-500 dark:text-stone-400 leading-relaxed font-sans">
-                  Ushering the congregation into God's presence through Spirit-led music, vocal keys, choir, and audio-visual media.
+                  Small group gatherings across Cavite for Bible study, intimate prayer, mutual accountability, and Christ-like growth.
                 </p>
               </div>
               <div className="pt-3 border-t border-stone-100 dark:border-slate-800">
-                <span className="text-[10px] font-bold text-purple-500 uppercase tracking-wider">Creative Arts</span>
+                <span className="text-[10px] font-bold text-amber-500 uppercase tracking-wider">Fellowship & Discipleship</span>
               </div>
             </div>
 
-            {/* Ministry 2: NextGen Youth */}
+            {/* Ministry 2: NextGen Youth Ministry */}
             <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 shadow-sm space-y-3 card-hover group hover:border-blue-400/40 dark:hover:border-blue-500/40 flex flex-col justify-between">
               <div className="space-y-3">
                 <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500/15 to-blue-500/5 text-blue-600 dark:text-blue-400 flex items-center justify-center group-hover:shadow-[0_0_18px_4px_rgba(59,130,246,0.18)] transition-shadow duration-300">
-                  <Users className="w-5 h-5" />
+                  <Sparkles className="w-5 h-5" />
                 </div>
                 <h3 className="font-serif font-bold text-base text-stone-900 dark:text-white">
                   NextGen Youth Ministry
@@ -706,14 +706,14 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
               </div>
             </div>
 
-            {/* Ministry 3: Prayer */}
+            {/* Ministry 3: Prayer and Intercession */}
             <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 shadow-sm space-y-3 card-hover group hover:border-rose-400/40 dark:hover:border-rose-500/40 flex flex-col justify-between">
               <div className="space-y-3">
                 <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-rose-500/15 to-rose-500/5 text-rose-600 dark:text-rose-400 flex items-center justify-center group-hover:shadow-[0_0_18px_4px_rgba(244,63,94,0.18)] transition-shadow duration-300">
                   <Heart className="w-5 h-5" />
                 </div>
                 <h3 className="font-serif font-bold text-base text-stone-900 dark:text-white">
-                  Prayer & Intercession
+                  Prayer and Intercession
                 </h3>
                 <p className="text-xs text-stone-500 dark:text-stone-400 leading-relaxed font-sans">
                   A committed army of prayer warriors standing in the gap for families, the sick, church leadership, and our nation.
@@ -724,24 +724,47 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
               </div>
             </div>
 
-            {/* Ministry 4: Discipleship */}
-            <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 shadow-sm space-y-3 card-hover group hover:border-amber-400/40 dark:hover:border-amber-500/40 flex flex-col justify-between">
+            {/* Ministry 4: Ministries / Core Ministries */}
+            <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 shadow-sm space-y-3 card-hover group hover:border-purple-400/40 dark:hover:border-purple-500/40 flex flex-col justify-between">
               <div className="space-y-3">
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500/15 to-amber-500/5 text-amber-600 dark:text-amber-400 flex items-center justify-center group-hover:shadow-[0_0_18px_4px_rgba(245,158,11,0.18)] transition-shadow duration-300">
-                  <BookOpen className="w-5 h-5" />
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-500/15 to-purple-500/5 text-purple-600 dark:text-purple-400 flex items-center justify-center group-hover:shadow-[0_0_18px_4px_rgba(168,85,247,0.18)] transition-shadow duration-300">
+                  <Music className="w-5 h-5" />
                 </div>
                 <h3 className="font-serif font-bold text-base text-stone-900 dark:text-white">
-                  Life Groups & Discipleship
+                  Ministries / Core Ministries
                 </h3>
                 <p className="text-xs text-stone-500 dark:text-stone-400 leading-relaxed font-sans">
-                  Small group gatherings across Cavite for Bible study, intimate prayer, mutual accountability, and Christ-like growth.
+                  Worship music, audio-visual multimedia, ushering, hospitality, and sanctuary operational services.
                 </p>
               </div>
               <div className="pt-3 border-t border-stone-100 dark:border-slate-800">
-                <span className="text-[10px] font-bold text-amber-500 uppercase tracking-wider">Life Groups</span>
+                <span className="text-[10px] font-bold text-purple-500 uppercase tracking-wider">Core Ministries</span>
               </div>
             </div>
 
+          </div>
+
+          {/* Call-to-action banner: Have the heart to serve */}
+          <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-r from-stone-900 via-stone-800 to-slate-900 dark:from-slate-900 dark:via-slate-850 dark:to-stone-900 border border-gold/30 text-white shadow-xl flex flex-col sm:flex-row items-center justify-between gap-6 text-center sm:text-left">
+            <div className="space-y-1.5 max-w-xl">
+              <span className="text-[11px] font-bold uppercase tracking-widest text-gold flex items-center justify-center sm:justify-start gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-gold" />
+                <span>God-Given Calling</span>
+              </span>
+              <h3 className="font-serif font-bold text-lg sm:text-2xl text-white">
+                Have the heart to serve and join ministry?
+              </h3>
+              <p className="text-xs sm:text-sm text-stone-300 font-sans leading-relaxed">
+                Serving God and people through different gifts according to the grace He has given us.
+              </p>
+            </div>
+            <button
+              onClick={() => onNavigate('ministries')}
+              className="px-6 py-3.5 rounded-2xl bg-gold hover:bg-amber-400 text-slate-950 font-bold text-xs sm:text-sm transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer hover:scale-[1.03] active:scale-95 shrink-0"
+            >
+              <span>Check Church Ministry Teams</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </section>
@@ -754,16 +777,16 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
           <div className="rounded-3xl bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 p-6 sm:p-10 shadow-lg space-y-6 sm:space-y-8">
             
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-6 border-b border-stone-100 dark:border-slate-800">
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 max-w-xl">
                 <div className="inline-flex items-center gap-1.5 text-xs font-bold text-gold uppercase tracking-wider">
                   <MapPin className="w-4 h-4 text-gold shrink-0" />
                   <span>Sanctuary Location</span>
                 </div>
                 <h2 className="font-serif font-bold text-xl sm:text-3xl text-slate-900 dark:text-white">
-                  Visit Us in Cavite
+                  Visit Us
                 </h2>
-                <p className="text-xs sm:text-sm text-stone-500 dark:text-stone-400">
-                  Come join us this Sunday! Everyone will happily greet you and help you find a seat for an uplifting worship experience.
+                <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-300 leading-relaxed font-medium">
+                  Come join us this Sunday. Everyone will happily greet you and find a seat. Wear whatever you&apos;re comfortable in. We are just glad you&apos;re here!
                 </p>
               </div>
 
@@ -773,7 +796,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                   className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl border border-stone-200 dark:border-slate-700 hover:border-gold text-stone-700 dark:text-stone-200 font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs hover:scale-[1.02] active:scale-95"
                 >
                   {copiedAddress ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4 text-stone-400" />}
-                  <span>{copiedAddress ? 'Address Copied!' : 'Copy Address'}</span>
+                  <span>{copiedAddress ? 'Address Copied!' : 'Copy'}</span>
                 </button>
 
                 <a
@@ -782,7 +805,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                   rel="noopener noreferrer"
                   className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-stone-900 hover:bg-stone-800 dark:bg-gold dark:hover:bg-amber-400 text-white dark:text-slate-950 font-bold text-xs transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer hover:scale-[1.02] active:scale-95"
                 >
-                  <span>Google Maps</span>
+                  <span>Maps</span>
                   <ExternalLink className="w-3.5 h-3.5" />
                 </a>
               </div>
@@ -815,7 +838,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                 </div>
               </div>
 
-              {/* CTA Box */}
+              {/* CTA Box: First Time Visiting? */}
               <div className="p-6 rounded-2xl bg-gradient-to-br from-amber-500/10 via-gold/12 to-transparent border border-gold/30 text-center space-y-3 flex flex-col justify-center items-center">
                 <div className="w-12 h-12 rounded-full bg-gold/15 flex items-center justify-center mb-1">
                   <Heart className="w-5 h-5 text-gold" />
@@ -824,7 +847,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                   First Time Visiting?
                 </h4>
                 <p className="text-xs text-stone-600 dark:text-stone-300 leading-relaxed max-w-sm">
-                  Come join us this Sunday! Everyone will happily greet you at the door, help you find a comfortable seat, and make you feel right at home. There is no dress code—come as you are!
+                  Come join us this Sunday. Everyone will happily greet you and find a seat. Wear whatever you&apos;re comfortable in. We are just glad you&apos;re here!
                 </p>
                 <button
                   onClick={handleEnterFeed}
