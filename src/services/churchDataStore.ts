@@ -1691,22 +1691,38 @@ export class ChurchDataStore {
     return true;
   }
 
+  static async updateChatRoomInCloud(roomId: string, updates: {
+    title?: string;
+    symbol?: string;
+    avatar?: string;
+  }): Promise<boolean> {
+    if (!supabase) return true;
+    try {
+      const { error } = await supabase
+        .from('church_chat_rooms')
+        .update(updates)
+        .eq('id', roomId);
+      return !error;
+    } catch (e) {
+      console.warn('updateChatRoomInCloud error:', e);
+      return false;
+    }
+  }
+
   static async fetchChatMessagesFromCloud(roomId: string): Promise<any[]> {
     if (!supabase) return this.getMessages(roomId);
     try {
-      const queryPromise = supabase
+      const { data, error } = await supabase
         .from('church_chat_messages')
         .select('*')
         .eq('room_id', roomId)
         .order('created_at', { ascending: true });
 
-      const timeoutPromise = new Promise<{ data: null; error: any }>((resolve) =>
-        setTimeout(() => resolve({ data: null, error: new Error('timeout') }), 3000)
-      );
-
-      const { data, error } = await Promise.race([queryPromise, timeoutPromise]);
-
-      if (data && !error && data.length > 0) {
+      if (!error && Array.isArray(data)) {
+        // Cache to local store
+        const all = this.load<Record<string, any>>(KEY_CHAT_MESSAGES, {});
+        all[roomId] = data;
+        this.save(KEY_CHAT_MESSAGES, all);
         return data;
       }
     } catch (e) {
@@ -1718,19 +1734,13 @@ export class ChurchDataStore {
   static async fetchRecentChatActivity(limit: number = 300): Promise<any[]> {
     if (!supabase) return [];
     try {
-      const queryPromise = supabase
+      const { data, error } = await supabase
         .from('church_chat_messages')
         .select('id, room_id, sender_id, sender_name, sender_avatar, sender_role, content, reactions, created_at')
         .order('created_at', { ascending: false })
         .limit(limit);
 
-      const timeoutPromise = new Promise<{ data: null; error: any }>((resolve) =>
-        setTimeout(() => resolve({ data: null, error: new Error('timeout') }), 3000)
-      );
-
-      const { data, error } = await Promise.race([queryPromise, timeoutPromise]);
-
-      if (data && !error) {
+      if (!error && Array.isArray(data)) {
         return data;
       }
     } catch (e) {
@@ -1748,7 +1758,7 @@ export class ChurchDataStore {
     senderRole?: string;
     content: string;
     reactions?: any[];
-  }): Promise<void> {
+  }): Promise<boolean> {
     // 1. Always save to local persistent message store so it NEVER disappears
     try {
       const all = this.load<Record<string, any>>(KEY_CHAT_MESSAGES, {});
@@ -1792,9 +1802,10 @@ export class ChurchDataStore {
       this.save(KEY_CHAT_ROOMS, updatedRooms);
     } catch (_) {}
 
-    if (!supabase) return;
+    if (!supabase) return true;
     try {
-      const insertPromise = supabase.from('church_chat_messages').insert({
+      // 3. Save message to Supabase
+      const { error: insError } = await supabase.from('church_chat_messages').insert({
         id: params.id,
         room_id: params.roomId,
         sender_id: params.senderId,
@@ -1806,23 +1817,39 @@ export class ChurchDataStore {
         is_delivered: true
       });
 
-      const timeoutPromise = new Promise(resolve => setTimeout(resolve, 3500));
-      await Promise.race([insertPromise, timeoutPromise]);
+      if (insError) {
+        console.error('sendChatMessageToCloud insert error:', insError);
+        return false;
+      }
 
-      // Update or insert room last activity in Supabase so conversation NEVER disappears
-      try {
-        await supabase.from('church_chat_rooms').upsert({
-          id: params.roomId,
-          title: params.roomId.startsWith('dm_') ? 'Direct Message' : 'Chat Room',
-          type: params.roomId.startsWith('dm_') ? 'direct' : 'group',
-          symbol: '💬',
-          avatar: params.senderAvatar || '/icons/church-logo.png',
+      // 4. Update room activity WITHOUT OVERWRITING the custom title or symbol!
+      const { data: updated } = await supabase
+        .from('church_chat_rooms')
+        .update({
           last_message: params.content.substring(0, 150),
           last_message_time: new Date().toISOString()
+        })
+        .eq('id', params.roomId)
+        .select('id');
+
+      if (!updated || updated.length === 0) {
+        const isDm = params.roomId.startsWith('dm_');
+        await supabase.from('church_chat_rooms').insert({
+          id: params.roomId,
+          title: isDm ? 'Direct Message' : 'Chat Room',
+          type: isDm ? 'direct' : 'group',
+          symbol: isDm ? JSON.stringify({ members: params.roomId.replace('dm_', '').split('_') }) : '💬',
+          avatar: params.senderAvatar || '/icons/church-logo.png',
+          last_message: params.content.substring(0, 150),
+          last_message_time: new Date().toISOString(),
+          created_by: params.senderId
         });
-      } catch (_) {}
+      }
+
+      return true;
     } catch (e) {
-      console.warn('sendChatMessageToCloud error:', e);
+      console.error('sendChatMessageToCloud error:', e);
+      return false;
     }
   }
 

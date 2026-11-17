@@ -10,7 +10,10 @@ export class StorageManager {
     'bjc_saved_username',
     'bjc_remember_me',
     'bjc_current_user_id_v4',
-    'bjc_theme'
+    'bjc_theme',
+    'bjc_chat_rooms_v4',
+    'bjc_chat_messages_v4',
+    'bjc_cached_room_messages_v3'
   ]);
 
   /**
@@ -118,10 +121,9 @@ export class StorageManager {
       }
       keysToRemove.forEach(k => localStorage.removeItem(k));
 
-      // Prune heavy large strings (anything over 40KB)
+      // Prune heavy large strings (anything over 40KB) — chat messages are excluded to prevent conversation loss
       const pruneTargets = [
         'bjc_admin_audit_logs_v2',
-        'bjc_cached_room_messages_v3',
         'bjc_feed_posts_v11',
         'bjc_admin_announcements_cache_v2',
         'bjc_ai_chat_history_v1',
@@ -155,7 +157,13 @@ export class StorageManager {
       const keysToRemove: string[] = [];
       for (let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i);
-        if (k && !keysToKeep.has(k)) {
+        if (
+          k && 
+          !keysToKeep.has(k) && 
+          !k.startsWith('bjc_cached_conversations_') && 
+          !k.startsWith('bjc_hidden_conversations_') && 
+          !k.startsWith('bjc_chat_read_state_')
+        ) {
           keysToRemove.push(k);
         }
       }

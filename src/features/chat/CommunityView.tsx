@@ -1,11 +1,11 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   Users, Search, Video, MoreHorizontal, Paperclip, 
   Smile, Send, CheckCheck, Pin, SquarePen, Heart, 
   Sparkles, CheckCircle2, X, Plus, PhoneCall, ChevronLeft, ChevronDown,
   Trash2, Image as ImageIcon, Camera, MessageSquare, User, Mail, Phone, ExternalLink, Shield, Maximize2,
   CornerUpLeft, Reply, Film, Download, ZoomIn, ZoomOut, Bell, BellRing, Play, Pause, Circle,
-  ThumbsUp, Mic, Forward
+  ThumbsUp, Mic, Forward, UserPlus, LogOut, EyeOff
 } from 'lucide-react';
 import { ChurchDataStore } from '../../services/churchDataStore';
 import { UserProfile } from '../../types';
@@ -312,6 +312,19 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
   const [composeTab, setComposeTab] = useState<'direct' | 'group'>('direct');
   const [directSearchQuery, setDirectSearchQuery] = useState('');
 
+  // Participant Selection for Group Creation
+  const [selectedGroupMemberIds, setSelectedGroupMemberIds] = useState<string[]>([]);
+  const [groupMemberSearch, setGroupMemberSearch] = useState('');
+
+  // Group Details & Participant Management
+  const [isGroupDetailsOpen, setIsGroupDetailsOpen] = useState(false);
+  const [isAddMemberToGroupOpen, setIsAddMemberToGroupOpen] = useState(false);
+  const [newMemberIdsToAdd, setNewMemberIdsToAdd] = useState<string[]>([]);
+
+  // Message Deletion Dialog state ("Delete for me" vs "Delete for everyone")
+  const [messageToDelete, setMessageToDelete] = useState<ChatMessageItem | null>(null);
+  const [deletedForMeTimestamp, setDeletedForMeTimestamp] = useState<number>(Date.now());
+
   // Long press conversation management (Delete group chats / conversations)
   const [longPressedConv, setLongPressedConv] = useState<ConversationItem | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -337,9 +350,79 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
     }
   };
 
-  const handleDeleteConversation = async (conv: ConversationItem) => {
+  // Hide a conversation from current user's list ("Delete for me") WITHOUT deleting data for other users
+  const hideConversationForMe = (convId: string) => {
+    if (convId === 'fellowship') {
+      alert("The church-wide fellowship room cannot be deleted or hidden.");
+      return;
+    }
+    const hiddenKey = `bjc_hidden_conversations_${currentUser.id}`;
+    let currentHidden: Record<string, number> = {};
+    try {
+      currentHidden = JSON.parse(localStorage.getItem(hiddenKey) || '{}');
+    } catch {}
+    currentHidden[convId] = Date.now();
+    localStorage.setItem(hiddenKey, JSON.stringify(currentHidden));
+
+    setConversations(prev => prev.filter(c => c.id !== convId));
+    if (activeRoomId === convId) {
+      setActiveRoomId('fellowship');
+      setMobileActiveView('list');
+    }
+    setLongPressedConv(null);
+  };
+
+  // Leave a group chat (Removes currentUser from participants in cloud)
+  const handleLeaveGroup = async (roomId: string) => {
+    if (roomId === 'fellowship') {
+      alert("The church-wide fellowship room cannot be left.");
+      return;
+    }
+    if (!confirm("Are you sure you want to leave this group chat?")) return;
+
+    const conv = conversations.find(c => c.id === roomId);
+    if (conv) {
+      let currentMembers: string[] = [];
+      let icon = '👥';
+      try {
+        if (conv.symbol && conv.symbol.startsWith('{')) {
+          const parsed = JSON.parse(conv.symbol);
+          if (Array.isArray(parsed.members)) currentMembers = parsed.members;
+          if (parsed.icon) icon = parsed.icon;
+        }
+      } catch {}
+
+      const updatedMembers = currentMembers.filter(id => id !== currentUser.id);
+      const updatedSymbol = JSON.stringify({ icon, members: updatedMembers });
+
+      await ChurchDataStore.updateChatRoomInCloud(roomId, {
+        symbol: updatedSymbol
+      });
+
+      const leaveMsgId = `msg-${Date.now()}`;
+      await ChurchDataStore.sendChatMessageToCloud({
+        id: leaveMsgId,
+        roomId: roomId,
+        senderId: currentUser.id,
+        senderName: currentUser.name,
+        senderAvatar: currentUser.avatar || '/icons/church-logo.png',
+        senderRole: currentUser.roleTitle || 'Church Member',
+        content: `👋 ${currentUser.name} left the group.`,
+        reactions: []
+      });
+    }
+
+    hideConversationForMe(roomId);
+    setIsGroupDetailsOpen(false);
+  };
+
+  // Permanently delete conversation for everyone (Creator or Super Admin only)
+  const handleDeleteConversationForEveryone = async (conv: ConversationItem) => {
     if (conv.id === 'fellowship') {
       alert("The main Fellowship room is a permanent church room and cannot be deleted.");
+      return;
+    }
+    if (!confirm(`Are you sure you want to delete "${conv.title}" for everyone? All messages will be permanently removed.`)) {
       return;
     }
 
@@ -357,6 +440,134 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
     }
 
     setLongPressedConv(null);
+    setIsGroupDetailsOpen(false);
+  };
+
+  // Message Deletion: Delete for me (hides only for current user)
+  const handleExecuteDeleteForMe = async (msgId: string) => {
+    const delKey = `bjc_deleted_for_me_${currentUser.id}`;
+    let currentList: string[] = [];
+    try {
+      currentList = JSON.parse(localStorage.getItem(delKey) || '[]');
+    } catch {}
+    if (!currentList.includes(msgId)) {
+      currentList.push(msgId);
+      localStorage.setItem(delKey, JSON.stringify(currentList));
+    }
+    setDeletedForMeTimestamp(Date.now());
+
+    setRoomMessages(prev => {
+      const list = (prev[activeRoomId] || []).filter(m => m.id !== msgId);
+      return { ...prev, [activeRoomId]: list };
+    });
+
+    if (supabase) {
+      try {
+        const { data: currentMsg } = await supabase
+          .from('church_chat_messages')
+          .select('reactions')
+          .eq('id', msgId)
+          .single();
+
+        if (currentMsg) {
+          let rx: any[] = Array.isArray(currentMsg.reactions) ? currentMsg.reactions : [];
+          let deletedForObj = rx.find(r => r && r.type === 'deleted_for');
+          if (!deletedForObj) {
+            deletedForObj = { type: 'deleted_for', userIds: [] };
+            rx.push(deletedForObj);
+          }
+          if (!deletedForObj.userIds.includes(currentUser.id)) {
+            deletedForObj.userIds.push(currentUser.id);
+          }
+          await supabase
+            .from('church_chat_messages')
+            .update({ reactions: rx })
+            .eq('id', msgId);
+        }
+      } catch (e) {
+        console.warn('delete for me sync error:', e);
+      }
+    }
+
+    setMessageToDelete(null);
+  };
+
+  // Message Deletion: Delete for everyone (removes message in Supabase & broadcasts)
+  const handleExecuteDeleteForEveryone = async (msgId: string) => {
+    setRoomMessages(prev => {
+      const list = (prev[activeRoomId] || []).filter(m => m.id !== msgId);
+      return {
+        ...prev,
+        [activeRoomId]: list
+      };
+    });
+
+    if (chatHubRef.current) {
+      chatHubRef.current.send({
+        type: 'broadcast',
+        event: 'chat_delete',
+        payload: {
+          roomId: activeRoomId,
+          messageId: msgId
+        }
+      });
+    }
+
+    await ChurchDataStore.deleteChatMessageFromCloud(msgId);
+    ChurchDataStore.deleteMessage(activeRoomId, msgId);
+    setMessageToDelete(null);
+  };
+
+  // Add members to existing group chat
+  const handleAddMembersToGroup = async () => {
+    if (newMemberIdsToAdd.length === 0) return;
+    const conv = conversations.find(c => c.id === activeRoomId);
+    if (!conv) return;
+
+    let currentMembers: string[] = [];
+    let icon = '👥';
+    try {
+      if (conv.symbol && conv.symbol.startsWith('{')) {
+        const parsed = JSON.parse(conv.symbol);
+        if (Array.isArray(parsed.members)) currentMembers = parsed.members;
+        if (parsed.icon) icon = parsed.icon;
+      }
+    } catch {}
+
+    const updatedMembers = Array.from(new Set([...currentMembers, ...newMemberIdsToAdd]));
+    const updatedSymbol = JSON.stringify({ icon, members: updatedMembers });
+
+    await ChurchDataStore.updateChatRoomInCloud(activeRoomId, {
+      symbol: updatedSymbol
+    });
+
+    setConversations(prev => prev.map(c => {
+      if (c.id === activeRoomId) {
+        return {
+          ...c,
+          symbol: updatedSymbol,
+          memberCountText: `${updatedMembers.length} members`
+        };
+      }
+      return c;
+    }));
+
+    const addedUsers = registeredUsers.filter(u => newMemberIdsToAdd.includes(u.id));
+    const names = addedUsers.map(u => u.name).join(', ');
+    const announcementMsgId = `msg-${Date.now()}`;
+    await ChurchDataStore.sendChatMessageToCloud({
+      id: announcementMsgId,
+      roomId: activeRoomId,
+      senderId: currentUser.id,
+      senderName: currentUser.name,
+      senderAvatar: currentUser.avatar || '/icons/church-logo.png',
+      senderRole: currentUser.roleTitle || 'Church Member',
+      content: `📢 ${currentUser.name} added ${names} to the group. Welcome! 🙏`,
+      reactions: []
+    });
+
+    setNewMemberIdsToAdd([]);
+    setIsAddMemberToGroupOpen(false);
   };
 
   // Refs
@@ -565,7 +776,27 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
   }, [totalUnreadCount]);
 
   const activeConversation = conversations.find(c => c.id === activeRoomId) || conversations[0];
-  const currentMessages = activeRoomId ? (roomMessages[activeRoomId] || []) : [];
+  const currentMessages = useMemo(() => {
+    if (!activeRoomId) return [];
+    const list = roomMessages[activeRoomId] || [];
+    let localDeleted: string[] = [];
+    try {
+      const raw = localStorage.getItem(`bjc_deleted_for_me_${currentUser.id}`);
+      if (raw) localDeleted = JSON.parse(raw);
+    } catch {}
+    const deletedSet = new Set(localDeleted);
+
+    return list.filter(m => {
+      if (deletedSet.has(m.id)) return false;
+      if (Array.isArray(m.reactions)) {
+        const delObj = m.reactions.find((r: any) => r && r.type === 'deleted_for');
+        if (delObj && Array.isArray(delObj.userIds) && delObj.userIds.includes(currentUser.id)) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [activeRoomId, roomMessages, currentUser.id, deletedForMeTimestamp]);
 
   // Active Conversation Tracker (Hides bottom nav and BJC AI button when inside any conversation: DM or GC)
   useEffect(() => {
@@ -818,6 +1049,13 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
           }
         }
 
+        const hiddenKey = `bjc_hidden_conversations_${currentUser.id}`;
+        let hiddenRoomsMap: Record<string, number> = {};
+        try {
+          const rawH = localStorage.getItem(hiddenKey);
+          if (rawH) hiddenRoomsMap = JSON.parse(rawH);
+        } catch {}
+
         const mapped: ConversationItem[] = [];
 
         // Fellowship default activity
@@ -866,6 +1104,12 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
                 continue;
               }
 
+              // Check if room was hidden by current user
+              const hideTime = hiddenRoomsMap[r.id] || 0;
+              if (hideTime > 0 && lastTimestampMs <= hideTime) {
+                continue;
+              }
+
               const otherUserId = (currentUser.id === id1) ? id2 : id1;
               const otherUser = allUsers.find(u => u.id === otherUserId);
               const isOtherOnline = otherUserId ? PresenceService.isUserOnline(otherUserId) : false;
@@ -891,10 +1135,38 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
                 continue;
               }
 
+              // Parse members & icon from r.symbol
+              let members: string[] = [];
+              let displaySymbol = '👥';
+              try {
+                if (r.symbol && r.symbol.startsWith('{')) {
+                  const parsed = JSON.parse(r.symbol);
+                  if (Array.isArray(parsed.members)) members = parsed.members;
+                  if (parsed.icon) displaySymbol = parsed.icon;
+                } else if (r.symbol) {
+                  displaySymbol = r.symbol;
+                }
+              } catch {
+                displaySymbol = r.symbol || '👥';
+              }
+
+              // Group chat privacy: Only show if user is creator, member, or admin
+              const isCreator = r.created_by === currentUser.id;
+              const isMember = members.length === 0 || members.includes(currentUser.id) || isCreator || ['super_admin', 'pastor'].includes(currentUser.role);
+              if (!isMember) {
+                continue;
+              }
+
+              // Check if room was hidden by current user
+              const hideTime = hiddenRoomsMap[r.id] || 0;
+              if (hideTime > 0 && lastTimestampMs <= hideTime) {
+                continue;
+              }
+
               mapped.push({
                 id: r.id,
                 title: r.title,
-                symbol: r.symbol || '💬',
+                symbol: displaySymbol,
                 avatar: r.avatar || '/icons/church-logo.png',
                 type: 'group',
                 lastMessage: lastMsgText,
@@ -902,23 +1174,16 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
                 lastMessageTimestamp: lastTimestampMs,
                 unreadCount,
                 isDirectCheck,
-                memberCountText: 'Church Group Chat'
+                memberCountText: members.length > 0 ? `${members.length} members` : 'Church Group Chat'
               });
             }
           }
 
-          if (!mapped.some(c => c.id === 'fellowship' || c.id === 'gc-1793742695287')) {
+          if (!mapped.some(c => c.id === 'fellowship')) {
             mapped.unshift(defaultFellowship);
           }
 
-          // Merge with any cached conversations to guarantee zero loss
-          setConversations(prev => {
-            const map = new Map<string, ConversationItem>();
-            prev.forEach(c => map.set(c.id, c));
-            mapped.forEach(m => map.set(m.id, m));
-            const merged = Array.from(map.values()).sort((a, b) => (b.lastMessageTimestamp || 0) - (a.lastMessageTimestamp || 0));
-            return merged;
-          });
+          setConversations(mapped.sort((a, b) => (b.lastMessageTimestamp || 0) - (a.lastMessageTimestamp || 0)));
 
           setActiveRoomId(prev => (prev && mapped.some(m => m.id === prev)) ? prev : (mapped[0]?.id || 'fellowship'));
         }
@@ -1467,6 +1732,16 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
     setAttachedVideoName(null);
     setReplyingTo(null);
     setIsEmojiPickerOpen(false);
+
+    // Unhide room if previously hidden
+    const hiddenKey = `bjc_hidden_conversations_${currentUser.id}`;
+    try {
+      const currentHidden = JSON.parse(localStorage.getItem(hiddenKey) || '{}');
+      if (currentHidden[activeRoomId]) {
+        delete currentHidden[activeRoomId];
+        localStorage.setItem(hiddenKey, JSON.stringify(currentHidden));
+      }
+    } catch {}
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
@@ -1643,32 +1918,9 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
     ChurchDataStore.updateChatReactionsInCloud(msgId, filteredReactions).catch(() => {});
   };
 
-  // Delete message handler
-  const handleDeleteMessage = async (msgId: string) => {
-    if (!confirm('Are you sure you want to delete this message?')) return;
-
-    setRoomMessages(prev => {
-      const list = (prev[activeRoomId] || []).filter(m => m.id !== msgId);
-      return {
-        ...prev,
-        [activeRoomId]: list
-      };
-    });
-
-    // Broadcast deletion in real time to all clients
-    if (chatHubRef.current) {
-      chatHubRef.current.send({
-        type: 'broadcast',
-        event: 'chat_delete',
-        payload: {
-          roomId: activeRoomId,
-          messageId: msgId
-        }
-      });
-    }
-
-    await ChurchDataStore.deleteChatMessageFromCloud(msgId);
-    ChurchDataStore.deleteMessage(activeRoomId, msgId);
+  // Delete message handler (Opens option dialog: Delete for me vs Delete for everyone)
+  const handleDeleteMessage = (msg: ChatMessageItem) => {
+    setMessageToDelete(msg);
   };
 
   // Start 1-on-1 Direct Message with another member
@@ -1753,35 +2005,43 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
     textareaRef.current?.focus();
   };
 
-  // Create new group chat
+  // Create new group chat with selected participants
   const handleCreateNewChat = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newChatTitle.trim()) return;
 
     const newId = `gc-${Date.now()}`;
     const title = newChatTitle.trim();
+    const allParticipantIds = Array.from(new Set([currentUser.id, ...selectedGroupMemberIds]));
+    const symbolMetadata = JSON.stringify({
+      icon: '👥',
+      members: allParticipantIds
+    });
+
     const newConv: ConversationItem = {
       id: newId,
       title,
-      symbol: '💬',
+      symbol: '👥',
       avatar: '/icons/church-logo.png',
       type: 'group',
       lastMessage: `Group chat created by ${currentUser.name}.`,
       timestamp: 'Just now',
       lastMessageTimestamp: Date.now(),
       unreadCount: 0,
-      memberCountText: 'Church Group Chat'
+      memberCountText: `${allParticipantIds.length} members`
     };
 
     setConversations(prev => [newConv, ...prev]);
     setActiveRoomId(newId);
     setNewChatTitle('');
+    setSelectedGroupMemberIds([]);
     setIsComposeModalOpen(false);
 
     await ChurchDataStore.createChatRoomInCloud({
       id: newId,
       title,
       type: 'group',
+      symbol: symbolMetadata,
       avatar: '/icons/church-logo.png',
       createdBy: currentUser.id
     });
@@ -2059,18 +2319,30 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
             {filteredConversations.length === 0 ? (
               <div className="p-8 text-center text-slate-400 space-y-3">
                 <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto text-slate-400">
-                  <Users className="w-6 h-6" />
+                  <MessageSquare className="w-6 h-6" />
                 </div>
-                <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">No Conversations Found</p>
-                <p className="text-xs text-slate-500 max-w-[200px] mx-auto">Start a fellowship chat or send a private note to a believer.</p>
+                <p className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                  {filterTab === 'direct'
+                    ? 'No direct messages yet.'
+                    : filterTab === 'groups'
+                    ? 'No group chats yet.'
+                    : 'No conversations yet.'}
+                </p>
+                <p className="text-xs text-slate-500 max-w-[220px] mx-auto">
+                  {filterTab === 'direct'
+                    ? 'Start a private 1-on-1 conversation with a registered church member!'
+                    : filterTab === 'groups'
+                    ? 'Create a fellowship group or join one with church believers!'
+                    : 'No conversations yet. Start a conversation!'}
+                </p>
                 <button 
                   onClick={() => {
-                    setComposeTab('direct');
+                    setComposeTab(filterTab === 'groups' ? 'group' : 'direct');
                     setIsComposeModalOpen(true);
                   }}
                   className="px-4 py-2 rounded-xl bg-gold text-slate-950 font-bold text-xs shadow-gold hover:bg-gold-dark hover:text-white transition"
                 >
-                  + Start a Chat
+                  + Start a Conversation
                 </button>
               </div>
             ) : (
@@ -2240,6 +2512,8 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
                         const u = registeredUsers.find(ru => ru.id === memberId);
                         if (u) setViewingProfileUser(u);
                       }
+                    } else if (activeConversation.type === 'group') {
+                      setIsGroupDetailsOpen(true);
                     }
                   }}
                   className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover border border-slate-200 dark:border-slate-700 shadow-xs cursor-pointer hover:ring-2 hover:ring-gold/40 transition"
@@ -2269,6 +2543,8 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
                           const u = registeredUsers.find(ru => ru.id === memberId);
                           if (u) setViewingProfileUser(u);
                         }
+                      } else if (activeConversation.type === 'group') {
+                        setIsGroupDetailsOpen(true);
                       }
                     }}
                     className="font-bold text-xs sm:text-base text-slate-900 dark:text-white truncate cursor-pointer hover:text-gold transition"
@@ -2337,6 +2613,16 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
                   title="View Member Profile"
                 >
                   <User className="w-4 h-4 text-gold" />
+                </button>
+              )}
+
+              {activeConversation.type === 'group' && (
+                <button
+                  onClick={() => setIsGroupDetailsOpen(true)}
+                  className="p-2 rounded-full text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                  title="Group Details & Participants"
+                >
+                  <Users className="w-4 h-4 text-gold" />
                 </button>
               )}
 
@@ -2461,15 +2747,13 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
                         >
                           <CornerUpLeft className="w-3.5 h-3.5" />
                         </button>
-                        {canDelete && (
-                          <button
-                            onClick={() => handleDeleteMessage(msg.id)}
-                            className="p-1 rounded-full text-slate-400 hover:text-rose-500 transition hover:scale-115"
-                            title="Delete Message"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
+                        <button
+                          onClick={() => handleDeleteMessage(msg)}
+                          className="p-1 rounded-full text-slate-400 hover:text-rose-500 transition hover:scale-115"
+                          title="Delete Message"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
 
                       {/* Floating Reaction Bar popover */}
@@ -2787,15 +3071,13 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
                         >
                           <CornerUpLeft className="w-3.5 h-3.5" />
                         </button>
-                        {canDelete && (
-                          <button
-                            onClick={() => handleDeleteMessage(msg.id)}
-                            className="p-1 rounded-full text-slate-400 hover:text-rose-500 transition hover:scale-115"
-                            title="Delete Message"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
+                        <button
+                          onClick={() => handleDeleteMessage(msg)}
+                          className="p-1 rounded-full text-slate-400 hover:text-rose-500 transition hover:scale-115"
+                          title="Delete Message"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
 
                       {/* Floating Reaction Bar popover */}
@@ -3355,8 +3637,8 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
                 </div>
               </div>
             ) : (
-              /* Group Chat Creation Form */
-              <form onSubmit={handleCreateNewChat} className="space-y-3">
+              /* Group Chat Creation Form with Member Selection */
+              <form onSubmit={handleCreateNewChat} className="space-y-3 flex-1 min-h-0 flex flex-col">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                     Group or Discussion Name *
@@ -3364,26 +3646,104 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Wednesday Prayer Cell, Youth Rehearsal"
+                    placeholder="e.g. Wednesday Prayer Cell, Youth Ministry"
                     value={newChatTitle}
                     onChange={(e) => setNewChatTitle(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-gold/40"
+                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-gold/40"
                   />
                 </div>
 
-                <div className="pt-2 flex items-center justify-end gap-2">
+                <div className="space-y-1.5 flex-1 min-h-0 flex flex-col">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                      <Users className="w-3.5 h-3.5 text-gold" />
+                      <span>Select Participants ({selectedGroupMemberIds.length} selected)</span>
+                    </span>
+                    {selectedGroupMemberIds.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedGroupMemberIds([])}
+                        className="text-[10px] text-rose-500 hover:underline"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      placeholder="Filter registered members..."
+                      value={groupMemberSearch}
+                      onChange={(e) => setGroupMemberSearch(e.target.value)}
+                      className="w-full pl-8 pr-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-gold/30"
+                    />
+                  </div>
+
+                  <div className="flex-1 min-h-[120px] max-h-[200px] overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 border border-slate-200 dark:border-slate-800 rounded-2xl p-1">
+                    {registeredUsers
+                      .filter(u => u.id !== currentUser.id)
+                      .filter(u => !groupMemberSearch.trim() || u.name.toLowerCase().includes(groupMemberSearch.toLowerCase()) || (u.username || '').toLowerCase().includes(groupMemberSearch.toLowerCase()))
+                      .map(member => {
+                        const isSelected = selectedGroupMemberIds.includes(member.id);
+                        return (
+                          <label
+                            key={member.id}
+                            className={`p-1.5 rounded-xl flex items-center justify-between cursor-pointer transition select-none ${
+                              isSelected ? 'bg-gold/15 dark:bg-gold/20' : 'hover:bg-slate-50 dark:hover:bg-slate-800/60'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedGroupMemberIds(prev => [...prev, member.id]);
+                                  } else {
+                                    setSelectedGroupMemberIds(prev => prev.filter(id => id !== member.id));
+                                  }
+                                }}
+                                className="rounded border-slate-300 text-gold focus:ring-gold/30 w-3.5 h-3.5"
+                              />
+                              <img
+                                src={member.avatar || '/icons/church-logo.png'}
+                                alt={member.name}
+                                className="w-7 h-7 rounded-full object-cover border border-slate-200 dark:border-slate-700 shrink-0"
+                              />
+                              <div className="min-w-0 truncate">
+                                <div className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                                  {member.name}
+                                </div>
+                                <div className="text-[10px] text-slate-400 truncate">
+                                  {member.roleTitle || 'Church Member'}
+                                </div>
+                              </div>
+                            </div>
+                          </label>
+                        );
+                      })}
+                  </div>
+                </div>
+
+                <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100 dark:border-slate-800">
                   <button
                     type="button"
-                    onClick={() => setIsComposeModalOpen(false)}
+                    onClick={() => {
+                      setIsComposeModalOpen(false);
+                      setSelectedGroupMemberIds([]);
+                    }}
                     className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 rounded-xl text-xs font-bold bg-[#1e293b] text-white hover:bg-slate-800 shadow-soft"
+                    disabled={!newChatTitle.trim()}
+                    className="px-4 py-2 rounded-xl text-xs font-bold bg-[#1e293b] text-white hover:bg-slate-800 shadow-soft disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Create Group Chat
+                    Create Group ({selectedGroupMemberIds.length + 1} members)
                   </button>
                 </div>
               </form>
@@ -3528,36 +3888,399 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
               </div>
             </div>
 
-            <div className="p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200/80 dark:border-rose-900/40 text-xs text-rose-800 dark:text-rose-300 space-y-1">
-              <div className="font-bold flex items-center gap-1.5 text-rose-700 dark:text-rose-400">
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Delete Conversation</span>
+            {/* Conversation Action Menu */}
+            {longPressedConv.id === 'fellowship' ? (
+              <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-900/40 text-xs text-amber-800 dark:text-amber-300 space-y-1">
+                <div className="font-bold flex items-center gap-1.5 text-amber-700 dark:text-amber-400">
+                  <Pin className="w-3.5 h-3.5 text-gold rotate-45" />
+                  <span>Permanent Fellowship Sanctuary</span>
+                </div>
+                <p className="text-[11px] text-amber-700/80 dark:text-amber-300/80 leading-relaxed">
+                  The church-wide fellowship room is the primary communication sanctuary for all believers and cannot be deleted or left.
+                </p>
               </div>
-              <p className="text-[11px] text-rose-600/90 dark:text-rose-300/80 leading-relaxed">
-                {longPressedConv.id === 'fellowship'
-                  ? 'The default church fellowship room cannot be deleted.'
-                  : `Are you sure you want to delete "${longPressedConv.title}"? All chat history and messages will be permanently removed.`}
-              </p>
-            </div>
+            ) : longPressedConv.type === 'direct' ? (
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => hideConversationForMe(longPressedConv.id)}
+                  className="w-full p-3 rounded-2xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-left transition flex items-center justify-between group"
+                >
+                  <div>
+                    <div className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-gold transition flex items-center gap-1.5">
+                      <EyeOff className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Delete conversation for me</span>
+                    </div>
+                    <div className="text-[11px] text-slate-400 mt-0.5">
+                      Hides this chat from your list. Does not delete messages for the other user.
+                    </div>
+                  </div>
+                </button>
 
-            <div className="flex items-center gap-2 pt-1">
+                {['super_admin', 'church_admin', 'pastor'].includes(currentUser.role) && (
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteConversationForEveryone(longPressedConv)}
+                    className="w-full p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-left transition"
+                  >
+                    <div className="text-xs font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Delete for everyone (Admin)</span>
+                    </div>
+                    <div className="text-[11px] text-rose-500/80 dark:text-rose-300/80 mt-0.5">
+                      Permanently deletes this conversation and all its messages.
+                    </div>
+                  </button>
+                )}
+              </div>
+            ) : (
+              /* Group Chat Actions */
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => hideConversationForMe(longPressedConv.id)}
+                  className="w-full p-3 rounded-2xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-left transition flex items-center justify-between group"
+                >
+                  <div>
+                    <div className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-gold transition flex items-center gap-1.5">
+                      <EyeOff className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Hide group for me</span>
+                    </div>
+                    <div className="text-[11px] text-slate-400 mt-0.5">
+                      Hides this group from your view without leaving.
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleLeaveGroup(longPressedConv.id)}
+                  className="w-full p-3 rounded-2xl border border-amber-200 dark:border-amber-900/50 hover:bg-amber-50 dark:hover:bg-amber-950/30 text-left transition"
+                >
+                  <div className="text-xs font-bold text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>Leave Group</span>
+                  </div>
+                  <div className="text-[11px] text-amber-600/80 dark:text-amber-300/80 mt-0.5">
+                    Removes you from this group. Other participants can continue chatting.
+                  </div>
+                </button>
+
+                {['super_admin', 'church_admin', 'pastor'].includes(currentUser.role) && (
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteConversationForEveryone(longPressedConv)}
+                    className="w-full p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-left transition"
+                  >
+                    <div className="text-xs font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Delete Group for Everyone</span>
+                    </div>
+                    <div className="text-[11px] text-rose-500/80 dark:text-rose-300/80 mt-0.5">
+                      Permanently removes this group and all messages for all members.
+                    </div>
+                  </button>
+                )}
+              </div>
+            )}
+
+            <div className="pt-1">
               <button
                 type="button"
                 onClick={() => setLongPressedConv(null)}
-                className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                className="w-full py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition"
               >
                 Cancel
               </button>
-              {longPressedConv.id !== 'fellowship' && (
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* 6.6 MESSAGE DELETION MODAL ("Delete for me" vs "Everyone")     */}
+      {/* ============================================================== */}
+      {messageToDelete && (
+        <div 
+          onClick={() => setMessageToDelete(null)}
+          className="fixed inset-0 z-[999999] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4"
+          >
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-sm">
+                <Trash2 className="w-4 h-4 text-rose-500" />
+                <span>Delete Message?</span>
+              </div>
+              <button onClick={() => setMessageToDelete(null)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Choose how you would like to delete this message:
+            </p>
+
+            <div className="space-y-2 pt-1">
+              <button
+                onClick={() => handleExecuteDeleteForMe(messageToDelete.id)}
+                className="w-full p-3 rounded-2xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-left transition flex items-center justify-between group"
+              >
+                <div>
+                  <div className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-gold transition">
+                    Delete for me
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">
+                    This message will be removed for you, but will remain visible to other participants.
+                  </div>
+                </div>
+              </button>
+
+              {(messageToDelete.isMe || ['super_admin', 'church_admin', 'pastor'].includes(currentUser.role)) && (
                 <button
-                  type="button"
-                  onClick={() => handleDeleteConversation(longPressedConv)}
-                  className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition shadow-xs flex items-center justify-center gap-1.5"
+                  onClick={() => handleExecuteDeleteForEveryone(messageToDelete.id)}
+                  className="w-full p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-left transition group"
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>Delete Chat</span>
+                  <div className="text-xs font-bold text-rose-600 dark:text-rose-400">
+                    Delete for everyone
+                  </div>
+                  <div className="text-[11px] text-rose-500/80 dark:text-rose-300/80 mt-0.5">
+                    Permanently removes this message for all participants in this chat.
+                  </div>
                 </button>
               )}
+            </div>
+
+            <button
+              onClick={() => setMessageToDelete(null)}
+              className="w-full py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* 6.7 GROUP DETAILS & PARTICIPANTS MODAL                         */}
+      {/* ============================================================== */}
+      {isGroupDetailsOpen && activeConversation && activeConversation.type === 'group' && (
+        <div 
+          onClick={() => setIsGroupDetailsOpen(false)}
+          className="fixed inset-0 z-[999999] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4 max-h-[85vh] flex flex-col"
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-gold/15 flex items-center justify-center text-gold text-lg">
+                  {activeConversation.symbol || '👥'}
+                </div>
+                <div>
+                  <h3 className="font-serif font-bold text-base text-slate-900 dark:text-white">
+                    {activeConversation.title}
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    {activeConversation.id === 'fellowship' ? 'Church-Wide Sanctuary Fellowship' : 'Private Church Group Chat'}
+                  </p>
+                </div>
+              </div>
+              <button onClick={() => setIsGroupDetailsOpen(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Members Section */}
+            <div className="space-y-2 flex-1 min-h-0 flex flex-col">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
+                <span>Group Members</span>
+                {activeConversation.id !== 'fellowship' && (
+                  <button
+                    onClick={() => setIsAddMemberToGroupOpen(true)}
+                    className="text-gold hover:text-amber-500 font-bold flex items-center gap-1 cursor-pointer"
+                  >
+                    <UserPlus className="w-3.5 h-3.5" />
+                    <span>Add Members</span>
+                  </button>
+                )}
+              </div>
+
+              <div className="flex-1 min-h-[140px] overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 border border-slate-200 dark:border-slate-800 rounded-2xl p-2 space-y-1">
+                {(() => {
+                  let memberIds: string[] = [];
+                  if (activeConversation.id === 'fellowship') {
+                    memberIds = registeredUsers.map(u => u.id);
+                  } else {
+                    try {
+                      if (activeConversation.symbol && activeConversation.symbol.startsWith('{')) {
+                        const parsed = JSON.parse(activeConversation.symbol);
+                        if (Array.isArray(parsed.members)) memberIds = parsed.members;
+                      }
+                    } catch {}
+                    if (memberIds.length === 0) {
+                      memberIds = [currentUser.id];
+                    }
+                  }
+
+                  const membersList = registeredUsers.filter(u => memberIds.includes(u.id));
+                  return membersList.map(m => {
+                    const isOnline = PresenceService.isUserOnline(m.id);
+                    const isMe = m.id === currentUser.id;
+                    return (
+                      <div key={m.id} className="p-2 flex items-center justify-between rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/60">
+                        <div className="flex items-center gap-2.5">
+                          <div className="relative">
+                            <img
+                              src={m.avatar || '/icons/church-logo.png'}
+                              alt={m.name}
+                              className="w-8 h-8 rounded-full object-cover border border-slate-200 dark:border-slate-700"
+                            />
+                            <span className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-white dark:border-slate-900 ${
+                              isOnline ? 'bg-emerald-500' : 'bg-slate-400'
+                            }`} />
+                          </div>
+                          <div>
+                            <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1">
+                              <span>{m.name}</span>
+                              {isMe && <span className="text-[10px] text-gold font-normal">(You)</span>}
+                            </div>
+                            <div className="text-[10px] text-slate-400">
+                              {m.roleTitle || 'Church Member'}
+                            </div>
+                          </div>
+                        </div>
+                        {!isMe && (
+                          <button
+                            onClick={() => {
+                              setIsGroupDetailsOpen(false);
+                              handleStartDirectMessage(m);
+                            }}
+                            className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-700 dark:text-slate-300 hover:bg-gold hover:text-slate-950 transition"
+                          >
+                            Message
+                          </button>
+                        )}
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
+
+            {/* Group Actions */}
+            {activeConversation.id !== 'fellowship' && (
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
+                <button
+                  onClick={() => handleLeaveGroup(activeConversation.id)}
+                  className="px-3.5 py-2 rounded-xl border border-rose-200 dark:border-rose-900/60 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-xs font-bold transition flex items-center gap-1.5"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Leave Group</span>
+                </button>
+                {['super_admin', 'church_admin', 'pastor'].includes(currentUser.role) && (
+                  <button
+                    onClick={() => handleDeleteConversationForEveryone(activeConversation)}
+                    className="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition flex items-center gap-1.5"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete for Everyone</span>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* 6.8 ADD PARTICIPANTS TO GROUP MODAL                            */}
+      {/* ============================================================== */}
+      {isAddMemberToGroupOpen && activeConversation && (
+        <div 
+          onClick={() => setIsAddMemberToGroupOpen(false)}
+          className="fixed inset-0 z-[9999999] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl p-5 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4"
+          >
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+              <h4 className="font-serif font-bold text-sm text-slate-900 dark:text-white flex items-center gap-1.5">
+                <UserPlus className="w-4 h-4 text-gold" />
+                <span>Add Participants</span>
+              </h4>
+              <button onClick={() => setIsAddMemberToGroupOpen(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="max-h-[220px] overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 border border-slate-200 dark:border-slate-800 rounded-2xl p-1">
+              {registeredUsers
+                .filter(u => {
+                  let currentMembers: string[] = [];
+                  try {
+                    if (activeConversation.symbol && activeConversation.symbol.startsWith('{')) {
+                      const parsed = JSON.parse(activeConversation.symbol);
+                      if (Array.isArray(parsed.members)) currentMembers = parsed.members;
+                    }
+                  } catch {}
+                  return !currentMembers.includes(u.id);
+                })
+                .map(member => {
+                  const isSelected = newMemberIdsToAdd.includes(member.id);
+                  return (
+                    <label
+                      key={member.id}
+                      className={`p-2 rounded-xl flex items-center justify-between cursor-pointer transition select-none ${
+                        isSelected ? 'bg-gold/15' : 'hover:bg-slate-50 dark:hover:bg-slate-800/60'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setNewMemberIdsToAdd(prev => [...prev, member.id]);
+                            } else {
+                              setNewMemberIdsToAdd(prev => prev.filter(id => id !== member.id));
+                            }
+                          }}
+                          className="rounded text-gold focus:ring-gold/30 w-4 h-4"
+                        />
+                        <img
+                          src={member.avatar || '/icons/church-logo.png'}
+                          alt={member.name}
+                          className="w-7 h-7 rounded-full object-cover"
+                        />
+                        <span className="text-xs font-bold text-slate-900 dark:text-white">{member.name}</span>
+                      </div>
+                    </label>
+                  );
+                })}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <button
+                onClick={() => {
+                  setNewMemberIdsToAdd([]);
+                  setIsAddMemberToGroupOpen(false);
+                }}
+                className="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddMembersToGroup}
+                disabled={newMemberIdsToAdd.length === 0}
+                className="px-4 py-1.5 rounded-xl text-xs font-bold bg-gold text-slate-950 hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Add Selected ({newMemberIdsToAdd.length})
+              </button>
             </div>
           </div>
         </div>
