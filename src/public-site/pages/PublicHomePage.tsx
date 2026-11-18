@@ -7,6 +7,7 @@ import {
 import { PublicPageId } from '../types';
 import { PUBLIC_CHURCH_DATA } from '../data/publicChurchData';
 import { CHURCH_MOMENT_PHOTOS } from '../../features/landing/churchMomentsData';
+import { WhoWeAreSection } from '../components/WhoWeAreSection';
 
 interface PublicHomePageProps {
   onNavigate: (page: PublicPageId) => void;
@@ -374,7 +375,10 @@ export const PublicHomePage: React.FC<PublicHomePageProps> = ({
         </div>
       </section>
 
-      {/* 5. VISITING & SANCTUARY LOCATION (Exact design from user diagram) */}
+      {/* 5. WHO WE ARE - Signature Ministry Photo Showcase */}
+      <WhoWeAreSection onNavigate={onNavigate} showExploreButton={true} />
+
+      {/* 6. VISITING & SANCTUARY LOCATION (Exact design from user diagram) */}
       <section className="max-w-6xl mx-auto px-4 sm:px-6">
         <div className="rounded-3xl bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 p-6 sm:p-10 shadow-lg space-y-6 sm:space-y-8">
           

@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { PublicPageId } from '../types';
 import { PublicPageHero } from '../components/PublicPageHero';
+import { WhoWeAreSection } from '../components/WhoWeAreSection';
 import { PUBLIC_CHURCH_DATA } from '../data/publicChurchData';
 
 interface PublicAboutPageProps {
@@ -32,6 +33,9 @@ export const PublicAboutPage: React.FC<PublicAboutPageProps> = ({
         scriptureText="And we all, with unveiled face, beholding the glory of the Lord, are being transformed into the same image..."
         scriptureRef="2 Corinthians 3:18"
       />
+
+      {/* WHO WE ARE - Signature Ministry Photo Showcase (Matches riverofgod.ph reference) */}
+      <WhoWeAreSection onNavigate={onNavigate} />
 
       {/* Main Story & Introduction */}
       <section className="max-w-5xl mx-auto px-4 sm:px-6 space-y-10">

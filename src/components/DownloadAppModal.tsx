@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Smartphone, Download, X, Check, Share, PlusSquare, 
-  ExternalLink, Sparkles, Shield, ArrowRight, CheckCircle2 
+  ExternalLink, Sparkles, Shield, ArrowRight, CheckCircle2,
+  QrCode, Image as ImageIcon
 } from 'lucide-react';
 
 interface DownloadAppModalProps {
@@ -10,23 +11,31 @@ interface DownloadAppModalProps {
 }
 
 export const DownloadAppModal: React.FC<DownloadAppModalProps> = ({ isOpen, onClose }) => {
-  const [platform, setPlatform] = useState<'ios' | 'android'>('android');
+  const [platform, setPlatform] = useState<'qr' | 'ios' | 'android'>('qr');
   const [isStandalone, setIsStandalone] = useState(false);
   const [canPromptInstall, setCanPromptInstall] = useState(false);
 
   useEffect(() => {
-    // Detect OS
-    const userAgent = window.navigator.userAgent.toLowerCase();
-    const isIOSDevice = /iphone|ipad|ipod/.test(userAgent);
-    setPlatform(isIOSDevice ? 'ios' : 'android');
+    // Detect device type and OS
+    if (typeof window !== 'undefined') {
+      const userAgent = window.navigator.userAgent.toLowerCase();
+      const isMobile = /iphone|ipad|ipod|android/i.test(userAgent) || window.innerWidth < 768;
+      const isIOSDevice = /iphone|ipad|ipod/.test(userAgent);
+      
+      if (isMobile) {
+        setPlatform(isIOSDevice ? 'ios' : 'android');
+      } else {
+        setPlatform('qr');
+      }
 
-    // Check if already installed as PWA standalone
-    const isStandaloneMode = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
-    setIsStandalone(!!isStandaloneMode);
+      // Check if already installed as PWA standalone
+      const isStandaloneMode = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
+      setIsStandalone(!!isStandaloneMode);
 
-    // Check for native install prompt
-    if ((window as any).deferredInstallPrompt) {
-      setCanPromptInstall(true);
+      // Check for native install prompt
+      if ((window as any).deferredInstallPrompt) {
+        setCanPromptInstall(true);
+      }
     }
 
     const handlePromptReady = () => setCanPromptInstall(true);
@@ -35,6 +44,15 @@ export const DownloadAppModal: React.FC<DownloadAppModalProps> = ({ isOpen, onCl
   }, []);
 
   if (!isOpen) return null;
+
+  const handleDownloadImage = (url: string, filename: string) => {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
 
   const handleNativeInstall = async () => {
     const promptEvent = (window as any).deferredInstallPrompt;
@@ -91,30 +109,42 @@ export const DownloadAppModal: React.FC<DownloadAppModalProps> = ({ isOpen, onCl
           </button>
         </div>
 
-        {/* Platform Selector Switch (iOS / Android) */}
+        {/* Platform Selector Switch (QR / Android / iOS) */}
         <div className="p-3 bg-stone-100 dark:bg-slate-800/60 border-b border-stone-200 dark:border-slate-800 flex gap-1.5">
           <button
+            onClick={() => setPlatform('qr')}
+            className={`flex-1 py-2 px-2.5 rounded-xl font-bold text-xs transition flex items-center justify-center gap-1.5 cursor-pointer ${
+              platform === 'qr'
+                ? 'bg-gradient-to-r from-gold to-amber-300 text-slate-950 shadow-soft font-black'
+                : 'bg-white dark:bg-slate-700 text-stone-600 dark:text-slate-300 hover:bg-stone-50'
+            }`}
+          >
+            <QrCode className="w-4 h-4" />
+            <span>Scan QR</span>
+          </button>
+
+          <button
             onClick={() => setPlatform('android')}
-            className={`flex-1 py-2 px-3 rounded-xl font-bold text-xs transition flex items-center justify-center gap-2 ${
+            className={`flex-1 py-2 px-2.5 rounded-xl font-bold text-xs transition flex items-center justify-center gap-1.5 cursor-pointer ${
               platform === 'android'
                 ? 'bg-[#1E293B] text-white shadow-soft'
                 : 'bg-white dark:bg-slate-700 text-stone-600 dark:text-slate-300 hover:bg-stone-50'
             }`}
           >
             <Smartphone className="w-4 h-4 text-emerald-400" />
-            <span>Android (Chrome)</span>
+            <span>Android</span>
           </button>
 
           <button
             onClick={() => setPlatform('ios')}
-            className={`flex-1 py-2 px-3 rounded-xl font-bold text-xs transition flex items-center justify-center gap-2 ${
+            className={`flex-1 py-2 px-2.5 rounded-xl font-bold text-xs transition flex items-center justify-center gap-1.5 cursor-pointer ${
               platform === 'ios'
                 ? 'bg-[#1E293B] text-white shadow-soft'
                 : 'bg-white dark:bg-slate-700 text-stone-600 dark:text-slate-300 hover:bg-stone-50'
             }`}
           >
             <Smartphone className="w-4 h-4 text-sky-400" />
-            <span>iPhone / iPad (iOS)</span>
+            <span>iPhone</span>
           </button>
         </div>
 
@@ -125,6 +155,56 @@ export const DownloadAppModal: React.FC<DownloadAppModalProps> = ({ isOpen, onCl
             <div className="p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
               <span>Great news! You are already running the installed BJC App.</span>
+            </div>
+          )}
+
+          {/* QR Code Section */}
+          {platform === 'qr' && (
+            <div className="space-y-4 text-center">
+              <div className="p-4 rounded-3xl bg-stone-50 dark:bg-slate-800/70 border border-stone-200/80 dark:border-slate-700 flex flex-col items-center">
+                {/* QR Image Box */}
+                <div className="w-56 h-56 sm:w-60 sm:h-60 rounded-2xl overflow-hidden bg-white p-2.5 border-2 border-gold/40 shadow-md">
+                  <img 
+                    src="/images/bjc-app-qr-code.png" 
+                    alt="Beholding Jesus Church App QR Code" 
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+
+                <div className="mt-3">
+                  <h4 className="font-bold text-sm text-stone-900 dark:text-white">
+                    Scan with Your Phone Camera
+                  </h4>
+                  <p className="text-[11px] text-stone-500 dark:text-slate-400 mt-0.5">
+                    Opens directly in Safari or Chrome to install without App Store
+                  </p>
+                </div>
+
+                <div className="mt-2.5 px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-900 border border-gold/30 text-gold-dark dark:text-gold text-[11px] font-mono font-bold">
+                  beholding-jesus.netlify.app
+                </div>
+              </div>
+
+              {/* Download Photo Buttons */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleDownloadImage('/images/bjc-app-qr-code.png', 'bjc-app-qr-code.png')}
+                  className="py-2.5 px-3 rounded-xl bg-gold hover:bg-gold-dark text-slate-950 font-bold text-xs transition shadow-xs flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Save QR Card</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleDownloadImage('/images/bjc-download-app-poster.png', 'bjc-download-app-poster.png')}
+                  className="py-2.5 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs transition border border-slate-200 dark:border-slate-700 flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+                >
+                  <ImageIcon className="w-3.5 h-3.5 text-gold" />
+                  <span>Save Full Poster</span>
+                </button>
+              </div>
             </div>
           )}
 
@@ -246,6 +326,18 @@ export const DownloadAppModal: React.FC<DownloadAppModalProps> = ({ isOpen, onCl
                 📱 The BJC icon will now sit on your iPhone home screen, launching full-screen without Safari browser bars!
               </div>
             </div>
+          )}
+
+          {/* Quick toggle to QR view for printing or sharing */}
+          {platform !== 'qr' && (
+            <button
+              type="button"
+              onClick={() => setPlatform('qr')}
+              className="w-full py-2.5 px-3 rounded-2xl bg-gold/10 hover:bg-gold/20 text-gold-dark dark:text-gold border border-gold/30 font-bold text-xs transition flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+            >
+              <QrCode className="w-4 h-4" />
+              <span>View &amp; Save QR Code Photo</span>
+            </button>
           )}
 
           {/* Benefits */}

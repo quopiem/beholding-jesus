@@ -6,7 +6,7 @@ import {
   Columns, AlignLeft, Sparkles, BookMarked, PenSquare, Trash2, X,
   ExternalLink, Layers, Info, Headphones, Volume2, VolumeX, Play, Pause,
   Square, Maximize2, Minimize2, Type, CheckCircle2, Globe, Heart, Loader2,
-  Lightbulb, Send, MoreHorizontal
+  Lightbulb, Send, MoreHorizontal, CircleEllipsis
 } from 'lucide-react';
 import { BIBLE_BOOKS, BIBLE_TRANSLATIONS } from './bibleBooks';
 import { CHAPTER_PARAGRAPHS } from './bibleContent';
@@ -21,12 +21,14 @@ interface BibleViewProps {
   onNavigate?: (tab: string) => void;
   initialBookId?: string;
   initialChapter?: number;
+  isActive?: boolean;
 }
 
 export const BibleView: React.FC<BibleViewProps> = ({ 
   onNavigate,
   initialBookId,
-  initialChapter 
+  initialChapter,
+  isActive = true
 }) => {
   // -------------------------------------------------------------
   // NAVIGATION & TRANSLATION STATE
@@ -220,6 +222,20 @@ export const BibleView: React.FC<BibleViewProps> = ({
       }
     };
   }, []);
+
+  // Stop audio and close any active popovers/modals when navigating away from the Bible tab
+  useEffect(() => {
+    if (!isActive) {
+      stopAudio();
+      setSelectedVerse(null);
+      setIsDisplayMenuOpen(false);
+      setIsBookPickerOpen(false);
+      setIsTranslationPickerOpen(false);
+      setIsSearchOpen(false);
+      setIsAiModalOpen(false);
+      setIsNoteModalOpen(false);
+    }
+  }, [isActive]);
 
   // -------------------------------------------------------------
   // NAVIGATION HANDLERS (Seamless across chapters & books with auto-scroll)
@@ -674,14 +690,14 @@ Please answer pastorally and expositorily, grounded in Scripture.`;
 
   // Theme Styling Classes
   const themeStyles = {
-    dark: 'bg-[#121212] text-[#F3F4F6]',
+    dark: 'bg-[#121212] text-[#EDEDED]',
     midnight: 'bg-[#0b1329] text-[#e2e8f0]',
     sepia: 'bg-[#fbf0d9] text-[#433422]',
     light: 'bg-[#ffffff] text-[#1e293b]'
   };
 
   const themeTopBar = {
-    dark: 'bg-[#121212]/95 border-white/5 text-white',
+    dark: 'bg-[#121212] border-transparent text-white',
     midnight: 'bg-[#111c38]/95 border-slate-800 text-white',
     sepia: 'bg-[#f4e6cb]/95 border-[#e6d3af] text-[#433422]',
     light: 'bg-white/95 border-slate-200 text-slate-800'
@@ -739,48 +755,44 @@ Please answer pastorally and expositorily, grounded in Scripture.`;
       {/* ============================================================== */}
       {/* 1. TOP HEADER BAR (Exact Match to YouVersion Reference Image)  */}
       {/* ============================================================== */}
-      <header className={`sticky top-0 z-30 w-full backdrop-blur-md border-b px-4 sm:px-6 py-2.5 flex items-center justify-between ${themeTopBar[readingTheme]}`}>
+      <header className={`sticky top-0 z-30 w-full backdrop-blur-md px-4 sm:px-6 py-3 flex items-center justify-between ${themeTopBar[readingTheme]}`}>
         
-        {/* Left: Combined Pill [ Joshua 10 | NLT ] */}
-        <div className="flex items-center">
-          <div className="inline-flex items-center rounded-full bg-[#242528] hover:bg-[#2c2d31] border border-neutral-700/60 p-0.5 text-xs sm:text-sm font-semibold shadow-xs transition-colors">
-            <button
-              onClick={() => {
-                setTempBook(selectedBook);
-                setBookPickerTab(selectedBook.testament);
-                setPickerMode('books');
-                setIsBookPickerOpen(true);
-              }}
-              className="px-3 py-1.5 text-white hover:text-gold transition rounded-full flex items-center gap-1 active:scale-95 cursor-pointer"
-              title="Choose Scripture Book & Chapter"
-            >
-              <span>{selectedBook.name} {currentChapter}</span>
-            </button>
+        {/* Left: Two Separate Capsule Pills [ Joshua 10 ] [ NLT ] */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              setTempBook(selectedBook);
+              setBookPickerTab(selectedBook.testament);
+              setPickerMode('books');
+              setIsBookPickerOpen(true);
+            }}
+            className="px-3.5 py-1.5 rounded-full bg-[#242426] hover:bg-[#2e2e32] active:bg-[#35353a] text-white text-[14px] font-semibold tracking-tight transition active:scale-95 cursor-pointer shadow-xs flex items-center justify-center border border-white/5"
+            title="Choose Scripture Book & Chapter"
+          >
+            <span>{selectedBook.name} {currentChapter}</span>
+          </button>
 
-            <span className="w-px h-3.5 bg-neutral-600/70 shrink-0" />
-
-            <button
-              onClick={() => setIsTranslationPickerOpen(true)}
-              className="px-2.5 py-1.5 text-white hover:text-gold transition rounded-full flex items-center gap-1 active:scale-95 cursor-pointer"
-              title="Choose Bible Translation"
-            >
-              <span>{selectedTranslation}</span>
-            </button>
-          </div>
+          <button
+            onClick={() => setIsTranslationPickerOpen(true)}
+            className="px-3 py-1.5 rounded-full bg-[#242426] hover:bg-[#2e2e32] active:bg-[#35353a] text-white text-[14px] font-semibold tracking-tight transition active:scale-95 cursor-pointer shadow-xs flex items-center justify-center border border-white/5"
+            title="Choose Bible Translation"
+          >
+            <span>{selectedTranslation}</span>
+          </button>
         </div>
 
-        {/* Right: Audio Speaker, Search, More Options (...) */}
-        <div className="flex items-center gap-1.5 sm:gap-2.5 text-white">
+        {/* Right: Audio Speaker, Search, Circle More (...) */}
+        <div className="flex items-center gap-3.5 sm:gap-4 text-white">
           {/* Audio Speaker */}
           <button
             onClick={toggleAudio}
-            className={`p-2 rounded-full hover:bg-white/10 transition active:scale-95 cursor-pointer relative ${
-              isAudioPlaying ? 'text-gold' : 'text-neutral-200 hover:text-white'
+            className={`p-1.5 rounded-full hover:bg-white/10 transition active:scale-95 cursor-pointer relative ${
+              isAudioPlaying ? 'text-gold' : 'text-white hover:text-neutral-200'
             }`}
             title={isAudioPlaying ? 'Pause Audio Reading' : 'Listen to Scripture Audio'}
             aria-label="Audio Bible"
           >
-            <Volume2 className="w-5 h-5" />
+            <Volume2 className="w-[21px] h-[21px] stroke-[2]" />
             {isAudioPlaying && (
               <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
             )}
@@ -789,24 +801,22 @@ Please answer pastorally and expositorily, grounded in Scripture.`;
           {/* Search */}
           <button
             onClick={() => setIsSearchOpen(true)}
-            className="p-2 rounded-full hover:bg-white/10 text-neutral-200 hover:text-white transition active:scale-95 cursor-pointer"
+            className="p-1.5 rounded-full hover:bg-white/10 text-white hover:text-neutral-200 transition active:scale-95 cursor-pointer"
             title="Search Bible"
             aria-label="Search Bible"
           >
-            <Search className="w-5 h-5" />
+            <Search className="w-[21px] h-[21px] stroke-[2]" />
           </button>
 
           {/* More Options (...) with Display Menu Popover */}
           <div className="relative">
             <button
               onClick={() => setIsDisplayMenuOpen(!isDisplayMenuOpen)}
-              className={`w-8 h-8 rounded-full border border-neutral-700/70 flex items-center justify-center hover:bg-white/10 transition active:scale-95 cursor-pointer ${
-                isDisplayMenuOpen ? 'border-gold text-gold bg-white/10' : 'text-neutral-200 hover:text-white'
-              }`}
+              className="p-1 rounded-full hover:bg-white/10 text-white hover:text-neutral-200 transition active:scale-95 cursor-pointer"
               title="Reading Settings & Display (Font, Size, Theme)"
               aria-label="Display Settings"
             >
-              <MoreHorizontal className="w-4 h-4" />
+              <CircleEllipsis className="w-[22px] h-[22px] stroke-[1.8]" />
             </button>
 
             {/* Display Menu Popover */}
@@ -973,8 +983,8 @@ Please answer pastorally and expositorily, grounded in Scripture.`;
       {/* ============================================================== */}
       {/* 2. MAIN READING CANVAS (Clean, Full Screen, Paragraph Flow)   */}
       {/* ============================================================== */}
-      <div className="w-full px-4 sm:px-6 pt-4 sm:pt-6 pb-36 select-text">
-        <div className="max-w-[660px] mx-auto">
+      <div className="w-full px-4 sm:px-6 pt-3 sm:pt-5 pb-44 select-text">
+        <div className="max-w-[620px] mx-auto">
           {viewMode === 'single' ? (
             verses.length === 0 ? (
               <div className="py-24 flex flex-col items-center justify-center gap-4 text-center">
@@ -994,11 +1004,11 @@ Please answer pastorally and expositorily, grounded in Scripture.`;
                 {paragraphGroups.map((group, groupIdx) => {
                   const firstVerseWithSection = group.find(v => !!v.sectionTitle);
                   return (
-                    <div key={`para-${groupIdx}`} className="mb-5 sm:mb-6">
+                    <div key={`para-${groupIdx}`} className="mb-6">
                       {/* Section Title Heading (e.g. "Israel Defeats the Southern Armies") */}
                       {firstVerseWithSection?.sectionTitle && (
                         <h2 
-                          className="font-bold text-lg sm:text-[21px] text-white tracking-tight leading-snug mb-3 pt-2"
+                          className="font-bold text-[21px] sm:text-[23px] text-white tracking-tight leading-snug mb-3.5 pt-3"
                           style={{ fontFamily: "-apple-system-ui-serif, Charter, 'Sitka Text', Cambria, Georgia, serif" }}
                         >
                           {firstVerseWithSection.sectionTitle}
@@ -1007,7 +1017,7 @@ Please answer pastorally and expositorily, grounded in Scripture.`;
 
                       {/* Paragraph Text with Inline Flow & Superscript Verse Numbers */}
                       <p 
-                        className="leading-[1.82] text-[17px] sm:text-[18px] text-[#F3F4F6]"
+                        className="leading-[1.78] text-[18px] text-[#EDEDED] font-serif"
                         style={{ 
                           fontSize: `${fontSizePx}px`,
                           fontFamily: fontFamily === 'serif' ? "-apple-system-ui-serif, Charter, 'Sitka Text', Cambria, Georgia, serif" : 'inherit'
@@ -1036,7 +1046,7 @@ Please answer pastorally and expositorily, grounded in Scripture.`;
                               {v.verse > 1 && ' '}
 
                               {/* Superscript Verse Number */}
-                              <sup className="text-[0.62em] font-sans font-bold text-neutral-400 select-none mr-1 -top-1 inline-block">
+                              <sup className="text-[0.64em] font-sans font-bold text-neutral-400 select-none mr-1 -top-1 inline-block">
                                 {v.verse}
                               </sup>
 
@@ -1052,11 +1062,13 @@ Please answer pastorally and expositorily, grounded in Scripture.`;
                                     e.stopPropagation();
                                     setActiveFootnote(activeFootnote?.verse === v.verse ? null : { verse: v.verse, note: v.footnote || '' });
                                   }}
-                                  className="inline-flex items-center text-neutral-400 hover:text-gold mx-1.5 align-baseline transition cursor-pointer"
+                                  className="inline-flex items-center text-neutral-400 hover:text-white mx-1 align-baseline transition cursor-pointer"
                                   title="Footnote / Study Note"
                                   aria-label="View Footnote"
                                 >
-                                  <MessageSquare className="w-3.5 h-3.5 inline text-neutral-400 hover:text-gold" />
+                                  <svg className="w-[13.5px] h-[13.5px] inline text-neutral-400 hover:text-white -mb-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                                  </svg>
                                 </button>
                               )}
                             </span>
@@ -1115,30 +1127,30 @@ Please answer pastorally and expositorily, grounded in Scripture.`;
       {/* ============================================================== */}
       {/* 3. FLOATING BOTTOM CONTROLS (Exact YouVersion Control Cluster) */}
       {/* ============================================================== */}
-      {typeof document !== 'undefined' && createPortal(
-        <div className="fixed bottom-[84px] sm:bottom-[92px] md:bottom-8 left-0 right-0 z-40 pointer-events-none flex items-center justify-center gap-4 px-4 select-none">
+      {isActive && typeof document !== 'undefined' && createPortal(
+        <div className="fixed bottom-[66px] sm:bottom-[74px] md:bottom-8 left-0 right-0 z-40 pointer-events-none flex items-center justify-center gap-3.5 px-4 select-none">
           {/* Prev Chapter */}
           <button
             onClick={handlePrevChapter}
             disabled={isAtFirstChapter}
-            className="pointer-events-auto w-11 h-11 rounded-full bg-[#2A2B2E]/90 hover:bg-[#38393D] active:scale-95 disabled:opacity-20 disabled:cursor-not-allowed text-white shadow-xl backdrop-blur-md border border-white/10 flex items-center justify-center transition cursor-pointer"
+            className="pointer-events-auto w-10 h-10 rounded-full bg-[#2A2B2E] hover:bg-[#343538] active:scale-95 disabled:opacity-20 disabled:cursor-not-allowed text-white shadow-xl flex items-center justify-center transition cursor-pointer shrink-0 border border-white/5"
             title="Previous Chapter"
             aria-label="Previous Chapter"
           >
-            <ChevronLeft className="w-5 h-5 stroke-[2.5]" />
+            <ChevronLeft className="w-4 h-4 stroke-[2.5]" />
           </button>
 
           {/* Play / Pause Audio */}
           <button
             onClick={toggleAudio}
-            className="pointer-events-auto w-14 h-14 rounded-full bg-[#2A2B2E]/95 hover:bg-[#38393D] active:scale-95 text-white shadow-2xl backdrop-blur-md border border-white/15 flex items-center justify-center transition cursor-pointer"
+            className="pointer-events-auto w-[58px] h-[58px] rounded-full bg-[#38383B] hover:bg-[#444448] active:scale-95 text-white shadow-2xl flex items-center justify-center transition cursor-pointer shrink-0 border border-white/10"
             title={isAudioPlaying ? 'Pause Audio' : 'Play Audio'}
             aria-label={isAudioPlaying ? 'Pause Audio' : 'Play Audio'}
           >
             {isAudioPlaying ? (
-              <Pause className="w-6 h-6 fill-current text-gold" />
+              <Pause className="w-6 h-6 fill-white text-white" />
             ) : (
-              <Play className="w-6 h-6 fill-current ml-0.5 text-white" />
+              <Play className="w-6 h-6 fill-white text-white ml-0.5" />
             )}
           </button>
 
@@ -1146,11 +1158,11 @@ Please answer pastorally and expositorily, grounded in Scripture.`;
           <button
             onClick={handleNextChapter}
             disabled={isAtLastChapter}
-            className="pointer-events-auto w-11 h-11 rounded-full bg-[#2A2B2E]/90 hover:bg-[#38393D] active:scale-95 disabled:opacity-20 disabled:cursor-not-allowed text-white shadow-xl backdrop-blur-md border border-white/10 flex items-center justify-center transition cursor-pointer"
+            className="pointer-events-auto w-10 h-10 rounded-full bg-[#2A2B2E] hover:bg-[#343538] active:scale-95 disabled:opacity-20 disabled:cursor-not-allowed text-white shadow-xl flex items-center justify-center transition cursor-pointer shrink-0 border border-white/5"
             title="Next Chapter"
             aria-label="Next Chapter"
           >
-            <ChevronRight className="w-5 h-5 stroke-[2.5]" />
+            <ChevronRight className="w-4 h-4 stroke-[2.5]" />
           </button>
         </div>,
         document.body
@@ -1159,7 +1171,7 @@ Please answer pastorally and expositorily, grounded in Scripture.`;
       {/* ============================================================== */}
       {/* BOOK & CHAPTER SELECTOR MODAL (YouVersion Style)               */}
       {/* ============================================================== */}
-      {isBookPickerOpen && typeof document !== 'undefined' && createPortal(
+      {isActive && isBookPickerOpen && typeof document !== 'undefined' && createPortal(
         <div 
           className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
           onClick={(e) => {
@@ -1303,7 +1315,7 @@ Please answer pastorally and expositorily, grounded in Scripture.`;
       {/* ============================================================== */}
       {/* TRANSLATION PICKER MODAL                                      */}
       {/* ============================================================== */}
-      {isTranslationPickerOpen && typeof document !== 'undefined' && createPortal(
+      {isActive && isTranslationPickerOpen && typeof document !== 'undefined' && createPortal(
         <div 
           className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
           onClick={(e) => {
@@ -1359,7 +1371,7 @@ Please answer pastorally and expositorily, grounded in Scripture.`;
       {/* ============================================================== */}
       {/* SCRIPTURE SEARCH / REFERENCE MODAL                             */}
       {/* ============================================================== */}
-      {isSearchOpen && typeof document !== 'undefined' && createPortal(
+      {isActive && isSearchOpen && typeof document !== 'undefined' && createPortal(
         <div 
           className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-start justify-center pt-20 px-4"
           onClick={(e) => {
@@ -1450,7 +1462,7 @@ Please answer pastorally and expositorily, grounded in Scripture.`;
       {/* ============================================================== */}
       {/* 3. INTERACTIVE FLOATING ACTION POPOVER (Exact Match to Image 2) */}
       {/* ============================================================== */}
-      {selectedVerse && typeof document !== 'undefined' && createPortal(
+      {isActive && selectedVerse && typeof document !== 'undefined' && createPortal(
         <div 
           className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto"
           onClick={(e) => {
@@ -1673,7 +1685,7 @@ Please answer pastorally and expositorily, grounded in Scripture.`;
       {/* ============================================================== */}
       {/* 5. MULTI-TRANSLATION COMPARISON MODAL */}
       {/* ============================================================== */}
-      {viewMode === 'compare-verse' && selectedVerse && typeof document !== 'undefined' && createPortal(
+      {isActive && viewMode === 'compare-verse' && selectedVerse && typeof document !== 'undefined' && createPortal(
         <div 
           className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
           onClick={(e) => {
@@ -1721,7 +1733,7 @@ Please answer pastorally and expositorily, grounded in Scripture.`;
       {/* ============================================================== */}
       {/* 6. ADD NOTE MODAL */}
       {/* ============================================================== */}
-      {isNoteModalOpen && selectedVerse && typeof document !== 'undefined' && createPortal(
+      {isActive && isNoteModalOpen && selectedVerse && typeof document !== 'undefined' && createPortal(
         <div 
           className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
           onClick={(e) => {
@@ -1799,7 +1811,7 @@ Please answer pastorally and expositorily, grounded in Scripture.`;
       {/* ============================================================== */}
       {/* 7. BJC AI SCRIPTURE EXEGESIS MODAL                             */}
       {/* ============================================================== */}
-      {isAiModalOpen && aiActiveVerse && typeof document !== 'undefined' && createPortal(
+      {isActive && isAiModalOpen && aiActiveVerse && typeof document !== 'undefined' && createPortal(
         <div 
           className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
           onClick={(e) => {

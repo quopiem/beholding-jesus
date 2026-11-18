@@ -145,6 +145,7 @@ export function App() {
               onNavigate={setCurrentTab} 
               initialBookId={bibleTarget?.bookId}
               initialChapter={bibleTarget?.chapter}
+              isActive={currentTab === 'bible'}
             />
           </div>
         )}

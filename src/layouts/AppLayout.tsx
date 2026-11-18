@@ -903,13 +903,17 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         {/* ============================================================== */}
         <nav 
           aria-label="Mobile Navigation"
-          className={`fixed bottom-3 sm:bottom-5 left-1/2 -translate-x-1/2 z-35 w-[calc(100%-12px)] max-w-[520px] md:hidden select-none transition-all duration-300 ease-in-out ${
+          className={`fixed ${currentTab === 'bible' ? 'bottom-0 left-0 right-0 w-full' : 'bottom-3 sm:bottom-5 left-1/2 -translate-x-1/2 w-[calc(100%-12px)] max-w-[520px]'} z-35 md:hidden select-none transition-all duration-300 ease-in-out ${
             !isBottomNavHidden 
               ? 'translate-y-0 opacity-100 pointer-events-auto' 
               : 'translate-y-36 opacity-0 pointer-events-none'
           }`}
         >
-          <div className="relative flex items-center justify-between px-1.5 sm:px-2 py-2 sm:py-2.5 rounded-[28px] bg-[#12131A]/95 dark:bg-[#0A0C14]/96 backdrop-blur-2xl border border-white/20 dark:border-[#C5A46D]/40 shadow-[0_16px_50px_rgba(0,0,0,0.65)] ring-1 ring-white/10 gap-0.5 sm:gap-1 overflow-x-auto scrollbar-none no-scrollbar">
+          <div className={`relative flex items-center justify-between px-1.5 sm:px-2 py-1.5 sm:py-2 ${
+            currentTab === 'bible' 
+              ? 'rounded-none bg-[#121214]/96 border-t border-neutral-800/80 shadow-[0_-4px_20px_rgba(0,0,0,0.5)]' 
+              : 'rounded-[28px] bg-[#12131A]/95 dark:bg-[#0A0C14]/96 border border-white/20 dark:border-[#C5A46D]/40 shadow-[0_16px_50px_rgba(0,0,0,0.65)] ring-1 ring-white/10'
+          } backdrop-blur-2xl gap-0.5 sm:gap-1 overflow-x-auto scrollbar-none no-scrollbar`}>
             {([
               { id: 'home', label: 'Home', icon: Home },
               { id: 'feed', label: 'Feed', icon: Sparkles },
@@ -933,9 +937,9 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                     onTabChange(item.id);
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
-                  className={`relative flex flex-col items-center justify-center min-w-[46px] sm:min-w-[58px] flex-1 py-2 sm:py-2.5 px-1 rounded-[20px] transition-all duration-300 cursor-pointer active:scale-95 shrink-0 group ${
+                  className={`relative flex flex-col items-center justify-center min-w-[46px] sm:min-w-[58px] flex-1 py-1.5 sm:py-2 px-1 ${currentTab === 'bible' ? 'rounded-xl' : 'rounded-[20px]'} transition-all duration-300 cursor-pointer active:scale-95 shrink-0 group ${
                     isActive 
-                      ? 'bg-white/20 dark:bg-gradient-to-b dark:from-[#C5A46D]/30 dark:to-[#9E7C44]/20 text-white dark:text-[#E8D4A8] border border-white/25 dark:border-[#C5A46D]/50 shadow-[0_3px_14px_rgba(197,164,109,0.25)]' 
+                      ? (currentTab === 'bible' ? 'text-white font-bold' : 'bg-white/20 dark:bg-gradient-to-b dark:from-[#C5A46D]/30 dark:to-[#9E7C44]/20 text-white dark:text-[#E8D4A8] border border-white/25 dark:border-[#C5A46D]/50 shadow-[0_3px_14px_rgba(197,164,109,0.25)]')
                       : 'text-stone-400 hover:text-white dark:text-stone-400 dark:hover:text-stone-200 hover:bg-white/5 border border-transparent'
                   }`}
                   aria-label={item.label}
