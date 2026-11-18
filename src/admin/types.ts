@@ -49,7 +49,10 @@ export interface AdminUser {
   name: string;
   username: string;
   email: string;
-  role: 'super_admin';
+  role: 'super_admin' | 'church_admin';
   role_title: string;
   avatar?: string;
+  is_suspended?: boolean;
 }
+
+export type { AdminAccessRequest, AdminRequestStatus, AdminAccountStatus, SystemAdminAuditLog, AdminAuditAction } from '../types';

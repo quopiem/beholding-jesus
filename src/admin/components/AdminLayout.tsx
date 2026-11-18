@@ -11,6 +11,7 @@ import {
   Menu, 
   X, 
   ShieldCheck,
+  Shield,
   Calendar,
   Sparkles,
   UserCheck,
@@ -19,8 +20,9 @@ import {
 import { AdminUser } from '../types';
 import { ChurchDataStore } from '../../services/churchDataStore';
 import { AuthService } from '../../services/authService';
+import { AdminService } from '../../services/adminService';
 
-export type AdminViewType = 'dashboard' | 'announcements' | 'members' | 'requests' | 'recovery' | 'audit' | 'setup';
+export type AdminViewType = 'dashboard' | 'admin_management' | 'announcements' | 'members' | 'requests' | 'recovery' | 'audit' | 'setup';
 
 interface AdminLayoutProps {
   currentAdmin: AdminUser;
@@ -42,6 +44,9 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [pendingMinistryCount, setPendingMinistryCount] = useState(0);
   const [pendingRecoveryCount, setPendingRecoveryCount] = useState(0);
+  const [pendingAdminCount, setPendingAdminCount] = useState(0);
+
+  const isSuperAdmin = currentAdmin.role === 'super_admin';
 
   const updateCounts = async () => {
     try {
@@ -56,12 +61,16 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
 
       const pendingRec = recs ? recs.filter(r => r.status === 'pending').length : 0;
       setPendingRecoveryCount(pendingRec);
+
+      const adminReqs = AdminService.getAdminRequests();
+      setPendingAdminCount(adminReqs.filter(r => r.status === 'pending').length);
     } catch {
       // fallback
       const pendingReg = ChurchDataStore.getPendingMinistryRegistrations().length;
       const pendingJoin = ChurchDataStore.getJoinRequests().filter(j => j.status === 'pending').length;
       setPendingMinistryCount(pendingReg + pendingJoin);
       setPendingRecoveryCount(AuthService.getRecoveryRequests().filter(r => r.status === 'pending').length);
+      setPendingAdminCount(AdminService.getAdminRequests().filter(r => r.status === 'pending').length);
     }
   };
 
@@ -72,6 +81,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
     const handleSync = () => updateCounts();
     window.addEventListener('bjc_join_requests_change', handleSync);
     window.addEventListener('bjc_recovery_change', handleSync);
+    window.addEventListener('bjc_admin_requests_change', handleSync);
     window.addEventListener('bjc_users_change', handleSync);
     window.addEventListener('storage', handleSync);
 
@@ -79,6 +89,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
       clearInterval(interval);
       window.removeEventListener('bjc_join_requests_change', handleSync);
       window.removeEventListener('bjc_recovery_change', handleSync);
+      window.removeEventListener('bjc_admin_requests_change', handleSync);
       window.removeEventListener('bjc_users_change', handleSync);
       window.removeEventListener('storage', handleSync);
     };
@@ -86,6 +97,14 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
 
   const navItems: { id: AdminViewType; label: string; icon: React.ReactNode; badge?: number }[] = [
     { id: 'dashboard', label: 'Overview', icon: <LayoutDashboard className="w-4 h-4" /> },
+    ...(isSuperAdmin ? [
+      {
+        id: 'admin_management' as AdminViewType,
+        label: 'Admin Management',
+        icon: <ShieldCheck className="w-4 h-4 text-purple-600" />,
+        badge: pendingAdminCount > 0 ? pendingAdminCount : undefined
+      }
+    ] : []),
     { 
       id: 'requests', 
       label: 'Ministry Approvals', 
@@ -137,10 +156,17 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
                   <span className="font-serif tracking-wide font-bold text-sm sm:text-base text-[#1F1D1D]">
                     Beholding Jesus Church
                   </span>
-                  <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[#8C5858]/10 text-[#8C5858] border border-[#8C5858]/20">
-                    <ShieldCheck className="w-3 h-3" />
-                    Super Admin
-                  </span>
+                  {isSuperAdmin ? (
+                    <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-purple-100 text-purple-900 border border-purple-300">
+                      <ShieldCheck className="w-3 h-3 text-purple-700" />
+                      Super Admin
+                    </span>
+                  ) : (
+                    <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-900 border border-amber-300">
+                      <Shield className="w-3 h-3 text-amber-700" />
+                      Church Administrator
+                    </span>
+                  )}
                 </div>
                 <div className="text-[11px] text-[#78716E] hidden sm:block">
                   Dedicated Administrator Console &bull; Supabase Cloud

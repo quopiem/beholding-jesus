@@ -10,6 +10,7 @@ import { AdminAuditLogsView } from './components/AdminAuditLogsView';
 import { AdminSetupView } from './components/AdminSetupView';
 import { AdminMinistryRequestsView } from './components/AdminMinistryRequestsView';
 import { AdminAccountRecoveryView } from './components/AdminAccountRecoveryView';
+import { AdminManagementView } from '../features/admin/components/AdminManagementView';
 
 export const AdminApp: React.FC = () => {
   const [currentAdmin, setCurrentAdmin] = useState<AdminUser | null>(null);
@@ -90,6 +91,10 @@ export const AdminApp: React.FC = () => {
           onOpenCreateModal={handleCreateFromDashboard}
           onEditAnnouncement={handleEditFromDashboard}
         />
+      )}
+
+      {currentView === 'admin_management' && currentAdmin.role === 'super_admin' && (
+        <AdminManagementView currentUser={currentAdmin as any} />
       )}
 
       {currentView === 'requests' && (

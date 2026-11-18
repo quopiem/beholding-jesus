@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { ChurchDataStore } from '../services/churchDataStore';
 import { AuthService } from '../services/authService';
+import { AdminService } from '../services/adminService';
 import { CHURCH_INFO } from '../services/churchInfo';
 import { AuthModal } from '../features/auth/AuthModal';
 import { UserProfile, UserRole, NotificationItem } from '../types';
@@ -387,7 +388,8 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
 
   const navItems = navSections.flatMap(s => s.items);
 
-  const canAccessAdmin = ['super_admin', 'church_admin', 'pastor', 'ministry_leader'].includes(currentUser.role);
+  const isSuperAdmin = AdminService.isSuperAdmin(currentUser);
+  const canAccessAdmin = AdminService.canAccessAdminDashboard(currentUser);
 
   return (
     <div className="min-h-screen bg-[#F6F3EE] dark:bg-[#0c0e14] flex flex-col md:flex-row text-stone-800 dark:text-stone-100 transition-colors duration-200">
@@ -481,19 +483,23 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                   <Shield className="w-4 h-4 text-amber-500" />
                   <span>Admin Console</span>
                 </div>
-                <span className="text-[9px] bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded font-mono font-bold">
-                  RBAC
+                <span className={`text-[9px] px-2 py-0.5 rounded font-bold uppercase tracking-wider ${
+                  isSuperAdmin 
+                    ? 'bg-purple-600 text-white shadow-xs' 
+                    : 'bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30'
+                }`}>
+                  {isSuperAdmin ? 'Super Admin' : 'Admin'}
                 </span>
               </button>
 
-              {currentUser.role === 'super_admin' && (
+              {canAccessAdmin && (
                 <a
                   href="/admin.html"
                   className="mt-1.5 w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-semibold text-[#8C5858] dark:text-[#E8DBD4] bg-[#F8F3F0] dark:bg-slate-800/80 border border-[#EBDCD5] dark:border-slate-700 hover:bg-[#F0E6E1] dark:hover:bg-slate-700 transition-all"
                   title="Open Dedicated Admin Dashboard (admin.bjcchurch.com)"
                 >
                   <div className="flex items-center gap-2">
-                    <Sparkles className="w-3.5 h-3.5" />
+                    <Sparkles className="w-3.5 h-3.5 text-purple-600" />
                     <span>Dedicated Admin Site</span>
                   </div>
                   <ExternalLink className="w-3.5 h-3.5" />
@@ -817,24 +823,29 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                     onTabChange('admin');
                     setIsMobileMenuOpen(false);
                   }}
-                  className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-amber-600 dark:text-amber-400"
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium text-amber-600 dark:text-amber-400"
                 >
-                  <Shield className="w-4 h-4" />
-                  <span>Admin Console</span>
+                  <div className="flex items-center gap-3">
+                    <Shield className="w-4 h-4" />
+                    <span>Admin Console</span>
+                  </div>
+                  <span className={`text-[9px] px-2 py-0.5 rounded font-bold uppercase tracking-wider ${
+                    isSuperAdmin ? 'bg-purple-600 text-white' : 'bg-amber-500/20 text-amber-700'
+                  }`}>
+                    {isSuperAdmin ? 'Super Admin' : 'Admin'}
+                  </span>
                 </button>
 
-                {currentUser.role === 'super_admin' && (
-                  <a
-                    href="/admin.html"
-                    className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold text-[#8C5858] bg-[#F8F3F0] dark:bg-slate-800/80 border border-[#EBDCD5] dark:border-slate-700"
-                  >
-                    <span className="flex items-center gap-2">
-                      <Sparkles className="w-3.5 h-3.5" />
-                      <span>Dedicated Admin Site</span>
-                    </span>
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
-                )}
+                <a
+                  href="/admin.html"
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold text-[#8C5858] bg-[#F8F3F0] dark:bg-slate-800/80 border border-[#EBDCD5] dark:border-slate-700"
+                >
+                  <span className="flex items-center gap-2">
+                    <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+                    <span>Dedicated Admin Site</span>
+                  </span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
               </>
             )}
 
@@ -1183,8 +1194,12 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                           <Shield className="w-4 h-4 text-amber-500" />
                           <span>Admin Console</span>
                         </div>
-                        <span className="text-[9px] bg-amber-500/20 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded font-mono font-bold">
-                          RBAC
+                        <span className={`text-[9px] px-2 py-0.5 rounded font-bold uppercase tracking-wider ${
+                          isSuperAdmin 
+                            ? 'bg-purple-600 text-white shadow-xs' 
+                            : 'bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30'
+                        }`}>
+                          {isSuperAdmin ? 'Super Admin' : 'Admin'}
                         </span>
                       </button>
                     )}

@@ -83,6 +83,51 @@ export interface RegistrationData {
 }
 
 // -------------------------------------------------------------
+// BJC SUPER ADMIN & ADMIN MANAGEMENT SYSTEM TYPES
+// -------------------------------------------------------------
+export type AdminRequestStatus = 'pending' | 'approved' | 'rejected';
+export type AdminAccountStatus = 'active' | 'suspended' | 'removed';
+
+export interface AdminAccessRequest {
+  id: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  userUsername?: string;
+  userAvatar?: string;
+  reason: string;
+  status: AdminRequestStatus;
+  rejectionReason?: string;
+  createdAt: string;
+  resolvedAt?: string;
+  resolvedBy?: string;
+}
+
+export type AdminAuditAction = 
+  | 'APPROVE_ADMIN'
+  | 'REJECT_ADMIN'
+  | 'PROMOTE_ADMIN'
+  | 'SUSPEND_ADMIN'
+  | 'REACTIVATE_ADMIN'
+  | 'REMOVE_ADMIN_ROLE'
+  | 'DELETE_ADMIN_ACCOUNT'
+  | 'SUBMIT_ADMIN_REQUEST'
+  | 'UPDATE_SYSTEM_SETTINGS';
+
+export interface SystemAdminAuditLog {
+  id: string;
+  action: AdminAuditAction;
+  performedBy: string;
+  performedByName: string;
+  performedByRole: string;
+  targetUserId: string;
+  targetUserName: string;
+  targetUserEmail?: string;
+  details: string;
+  createdAt: string;
+}
+
+// -------------------------------------------------------------
 // WORSHIP & SONG VOCAL KEY TYPES (Exact Flowchart & Requirements)
 // -------------------------------------------------------------
 export type MusicalKey = 'C' | 'Db' | 'D' | 'Eb' | 'E' | 'F' | 'F#' | 'G' | 'Ab' | 'A' | 'Bb' | 'B';

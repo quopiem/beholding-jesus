@@ -2,15 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { 
   Shield, Users, Bell, Music, Calendar, CheckCircle2, 
   XCircle, Plus, Edit, Trash2, Database, AlertCircle, 
-  Check, ArrowRight, ShieldCheck, Layers, KeyRound, Copy, Lock, RefreshCw
+  Check, ArrowRight, ShieldCheck, Layers, KeyRound, Copy, Lock, RefreshCw,
+  ShieldAlert, Ban, UserCog
 } from 'lucide-react';
 import { ChurchDataStore } from '../../services/churchDataStore';
 import { AuthService } from '../../services/authService';
+import { AdminService } from '../../services/adminService';
 import { isSupabaseConfigured } from '../../lib/supabase';
 import { UserProfile, UserRole, MinistryJoinRequest, Announcement, PasswordRecoveryRequest } from '../../types';
+import { AdminManagementView } from './components/AdminManagementView';
 
 export const AdminDashboardView: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'members' | 'requests' | 'recovery' | 'announcements' | 'system'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'admin_management' | 'members' | 'requests' | 'recovery' | 'announcements' | 'system'>('overview');
   
   const [usersList, setUsersList] = useState<UserProfile[]>(() => ChurchDataStore.getUsers());
   const songs = ChurchDataStore.getSongs();
@@ -24,6 +27,9 @@ export const AdminDashboardView: React.FC = () => {
   );
   const [approvalsSubTab, setApprovalsSubTab] = useState<'registrations' | 'join_requests'>('registrations');
   const [recoveryRequests, setRecoveryRequests] = useState<PasswordRecoveryRequest[]>(AuthService.getRecoveryRequests());
+  const [pendingAdminCount, setPendingAdminCount] = useState<number>(() => 
+    AdminService.getAdminRequests().filter(r => r.status === 'pending').length
+  );
   const [resolvedTempPassword, setResolvedTempPassword] = useState<{ id: string; tempPass: string } | null>(null);
   const [copiedKey, setCopiedKey] = useState(false);
   const [isRefreshingCloud, setIsRefreshingCloud] = useState(false);
@@ -97,12 +103,14 @@ export const AdminDashboardView: React.FC = () => {
       setPendingRegistrations(ChurchDataStore.getPendingMinistryRegistrations());
       setJoinRequests(ChurchDataStore.getJoinRequests());
       setRecoveryRequests(AuthService.getRecoveryRequests());
+      setPendingAdminCount(AdminService.getAdminRequests().filter(r => r.status === 'pending').length);
     };
 
     window.addEventListener('bjc_users_change', handleStoreChange);
     window.addEventListener('bjc_auth_change', handleStoreChange);
     window.addEventListener('bjc_join_requests_change', handleStoreChange);
     window.addEventListener('bjc_recovery_change', handleStoreChange);
+    window.addEventListener('bjc_admin_requests_change', handleStoreChange);
     window.addEventListener('storage', handleStoreChange);
 
     return () => {
@@ -114,11 +122,47 @@ export const AdminDashboardView: React.FC = () => {
       window.removeEventListener('bjc_auth_change', handleStoreChange);
       window.removeEventListener('bjc_join_requests_change', handleStoreChange);
       window.removeEventListener('bjc_recovery_change', handleStoreChange);
+      window.removeEventListener('bjc_admin_requests_change', handleStoreChange);
       window.removeEventListener('storage', handleStoreChange);
     };
   }, []);
 
   const currentUser: UserProfile | null = ChurchDataStore.getCurrentUser();
+
+  // STRICT BACKEND CLEARANCE VERIFICATION
+  if (!currentUser || !AdminService.canAccessAdminDashboard(currentUser)) {
+    return (
+      <div className="max-w-xl mx-auto my-12 p-8 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-card space-y-4">
+        <div className="w-14 h-14 mx-auto rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-600 flex items-center justify-center">
+          <ShieldAlert className="w-8 h-8" />
+        </div>
+        <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+          Access Denied: Administrative Clearance Required
+        </h3>
+        <p className="text-sm text-slate-500 leading-relaxed">
+          The Admin Console is restricted to approved Church Administrators and the Super Admin. If you require access, please submit an Admin Access Request from your profile.
+        </p>
+      </div>
+    );
+  }
+
+  if (currentUser.isSuspended) {
+    return (
+      <div className="max-w-xl mx-auto my-12 p-8 text-center bg-white dark:bg-slate-900 rounded-3xl border border-rose-300 dark:border-rose-900/60 shadow-card space-y-4">
+        <div className="w-14 h-14 mx-auto rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-600 flex items-center justify-center">
+          <Ban className="w-8 h-8" />
+        </div>
+        <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+          Administrator Account Suspended
+        </h3>
+        <p className="text-sm text-slate-500 leading-relaxed">
+          Your administrative privileges have been suspended by the Super Admin. You cannot access the Admin Dashboard.
+        </p>
+      </div>
+    );
+  }
+
+  const isSuperAdmin = AdminService.isSuperAdmin(currentUser);
 
   const handleJoinDecision = async (requestId: string, status: 'approved' | 'declined') => {
     const updated = await ChurchDataStore.handleJoinRequest(requestId, status);
@@ -208,8 +252,19 @@ export const AdminDashboardView: React.FC = () => {
               <RefreshCw className={`w-3.5 h-3.5 text-gold-300 ${isRefreshingCloud ? 'animate-spin' : ''}`} />
               <span>{isRefreshingCloud ? 'Syncing...' : 'Sync Cloud'}</span>
             </button>
-            <div className="p-3 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 text-xs space-y-0.5">
-              <div className="font-semibold text-gold-300">Active Operator</div>
+            <div className="p-3 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 text-xs space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-gold-300">Active Operator</span>
+                {isSuperAdmin ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-purple-600 text-white shadow-xs">
+                    <ShieldCheck className="w-2.5 h-2.5" /> Super Admin
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-amber-500 text-slate-950 shadow-xs">
+                    <Shield className="w-2.5 h-2.5" /> Administrator
+                  </span>
+                )}
+              </div>
               <div className="font-bold text-white">{currentUser.name}</div>
               <div className="text-[10px] text-slate-300">{currentUser.roleTitle}</div>
             </div>
@@ -222,11 +277,32 @@ export const AdminDashboardView: React.FC = () => {
         <button
           onClick={() => setActiveTab('overview')}
           className={`px-4 py-2 rounded-xl transition ${
-            activeTab === 'overview' ? 'bg-primary text-white shadow-soft' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
+            activeTab === 'overview' ? 'bg-primary text-white shadow-soft font-bold' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
           }`}
         >
           Overview & Metrics
         </button>
+
+        {/* Super Admin Exclusive Management Section */}
+        {isSuperAdmin && (
+          <button
+            onClick={() => setActiveTab('admin_management')}
+            className={`px-4 py-2 rounded-xl transition flex items-center gap-1.5 cursor-pointer font-bold ${
+              activeTab === 'admin_management' 
+                ? 'bg-purple-900 text-white shadow-soft ring-2 ring-purple-400/40' 
+                : 'text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-950/50'
+            }`}
+          >
+            <UserCog className="w-4 h-4 text-purple-400" />
+            <span>Admin Management</span>
+            {pendingAdminCount > 0 && (
+              <span className="px-2 py-0.5 rounded-full bg-amber-500 text-slate-950 font-bold text-[10px]">
+                {pendingAdminCount}
+              </span>
+            )}
+          </button>
+        )}
+
         <button
           onClick={() => setActiveTab('requests')}
           className={`px-4 py-2 rounded-xl transition flex items-center gap-1.5 cursor-pointer ${
@@ -280,6 +356,11 @@ export const AdminDashboardView: React.FC = () => {
           System & Database
         </button>
       </div>
+
+      {/* SUPER ADMIN EXCLUSIVE ADMIN MANAGEMENT */}
+      {activeTab === 'admin_management' && isSuperAdmin && (
+        <AdminManagementView currentUser={currentUser} />
+      )}
 
       {/* OVERVIEW METRICS */}
       {activeTab === 'overview' && (

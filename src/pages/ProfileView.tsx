@@ -2,18 +2,21 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   UserCircle, Mail, Phone, Calendar, Heart, Bookmark, 
   Users, Music, Bell, Shield, CheckCircle2, Edit3, MapPin, ExternalLink, Compass,
-  KeyRound, Lock, UserPlus, LogIn, LogOut, ShieldCheck, Camera, Upload, Check, X, Loader2, Sparkles, Image as ImageIcon
+  KeyRound, Lock, UserPlus, LogIn, LogOut, ShieldCheck, Camera, Upload, Check, X, Loader2, Sparkles, Image as ImageIcon,
+  Clock, XCircle, Send, ShieldAlert, UserCheck
 } from 'lucide-react';
 import { ChurchDataStore } from '../services/churchDataStore';
 import { BibleService } from '../features/bible/bibleService';
 import { AuthService } from '../services/authService';
+import { AdminService } from '../services/adminService';
 import { CHURCH_INFO } from '../services/churchInfo';
 import { AuthModal } from '../features/auth/AuthModal';
-import { UserProfile } from '../types';
+import { UserProfile, AdminAccessRequest } from '../types';
 
 interface ProfileViewProps {
   currentUser?: UserProfile;
   onLogout?: () => void;
+  onNavigate?: (tab: string) => void;
 }
 
 const PRESET_AVATARS = [
@@ -25,7 +28,7 @@ const PRESET_AVATARS = [
   { label: 'Prayer & Faith', url: '/images/chat-prayer.png' },
 ];
 
-export const ProfileView: React.FC<ProfileViewProps> = ({ currentUser: initialUser, onLogout }) => {
+export const ProfileView: React.FC<ProfileViewProps> = ({ currentUser: initialUser, onLogout, onNavigate }) => {
   const [currentUser, setCurrentUser] = useState<UserProfile>(() => {
     return initialUser || ChurchDataStore.getCurrentUser() || ChurchDataStore.getRequiredCurrentUser();
   });
@@ -40,6 +43,26 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ currentUser: initialUs
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Admin Access Request State
+  const [adminRequest, setAdminRequest] = useState<AdminAccessRequest | null>(null);
+  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
+  const [adminReason, setAdminReason] = useState('');
+  const [adminSubmitting, setAdminSubmitting] = useState(false);
+  const [adminFeedback, setAdminFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  const loadAdminRequest = () => {
+    const reqs = AdminService.getAdminRequests();
+    const mine = reqs.find(r => r.userId === currentUser.id);
+    setAdminRequest(mine || null);
+  };
+
+  useEffect(() => {
+    loadAdminRequest();
+    const handleAdminReqChange = () => loadAdminRequest();
+    window.addEventListener('bjc_admin_requests_change', handleAdminReqChange);
+    return () => window.removeEventListener('bjc_admin_requests_change', handleAdminReqChange);
+  }, [currentUser.id]);
 
   useEffect(() => {
     const handleAuthChange = () => {
@@ -74,6 +97,27 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ currentUser: initialUs
   const handleAuthSuccess = (u: UserProfile) => {
     setCurrentUser(u);
     setIsAuthOpen(false);
+  };
+
+  const handleAdminRequestSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAdminSubmitting(true);
+    setAdminFeedback(null);
+    try {
+      const res = await AdminService.submitAdminRequest(currentUser, adminReason);
+      if (res.success && res.request) {
+        setAdminRequest(res.request);
+        setAdminFeedback({ type: 'success', message: 'Praise God! Your Admin Access Request has been submitted to the Super Admin for review.' });
+        setIsAdminModalOpen(false);
+        setAdminReason('');
+      } else {
+        setAdminFeedback({ type: 'error', message: res.error || 'Failed to submit request.' });
+      }
+    } catch (err: any) {
+      setAdminFeedback({ type: 'error', message: err.message || 'Error submitting request.' });
+    } finally {
+      setAdminSubmitting(false);
+    }
   };
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -686,6 +730,198 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ currentUser: initialUs
           </button>
         </div>
       </div>
+
+      {/* Church Administration & Role Access Card */}
+      <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-6 sm:p-8 shadow-card space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 gap-2">
+          <div className="flex items-center gap-2">
+            <Shield className="w-4 h-4 text-purple-600" />
+            <h2 className="font-serif font-bold text-base text-slate-900 dark:text-white">
+              Church Administration & Role Access
+            </h2>
+          </div>
+          <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider ${
+            AdminService.isSuperAdmin(currentUser) 
+              ? 'bg-purple-100 text-purple-900 border border-purple-300 dark:bg-purple-950/40 dark:text-purple-300' 
+              : currentUser.role === 'church_admin'
+                ? 'bg-amber-100 text-amber-900 border border-amber-300 dark:bg-amber-950/40 dark:text-amber-300'
+                : 'bg-slate-100 text-slate-700 border border-slate-200 dark:bg-slate-800 dark:text-slate-300'
+          }`}>
+            {AdminService.isSuperAdmin(currentUser) ? 'Super Admin' : currentUser.role === 'church_admin' ? 'Church Admin' : 'Congregation Member'}
+          </span>
+        </div>
+
+        {/* Feedback message if any */}
+        {adminFeedback && (
+          <div className={`p-3 rounded-xl text-xs font-semibold flex items-center gap-2 ${
+            adminFeedback.type === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-rose-50 text-rose-800 border border-rose-200'
+          }`}>
+            {adminFeedback.type === 'success' ? <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> : <XCircle className="w-4 h-4 text-rose-600 shrink-0" />}
+            <span>{adminFeedback.message}</span>
+          </div>
+        )}
+
+        {/* Case 1: Super Admin */}
+        {AdminService.isSuperAdmin(currentUser) && (
+          <div className="p-4 rounded-2xl bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="font-bold text-xs text-purple-900 dark:text-purple-300 flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-purple-600" />
+                <span>Super Admin (Highest Authority)</span>
+              </div>
+              <p className="text-xs text-slate-600 dark:text-slate-300">
+                You hold executive governance over the BJC application, admin promotions, and security settings.
+              </p>
+            </div>
+            <button
+              onClick={() => onNavigate ? onNavigate('admin') : (window.location.hash = 'admin')}
+              className="px-4 py-2 rounded-xl bg-purple-900 hover:bg-purple-950 text-white font-bold text-xs shrink-0 shadow-soft transition cursor-pointer"
+            >
+              Open Admin Console
+            </button>
+          </div>
+        )}
+
+        {/* Case 2: Approved Church Admin */}
+        {!AdminService.isSuperAdmin(currentUser) && currentUser.role === 'church_admin' && (
+          <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="font-bold text-xs text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
+                <Shield className="w-4 h-4 text-amber-600" />
+                <span>Authorized Church Administrator</span>
+              </div>
+              <p className="text-xs text-slate-600 dark:text-slate-300">
+                Your account is approved for church management, announcements, events, and ministry coordination.
+              </p>
+            </div>
+            <button
+              onClick={() => onNavigate ? onNavigate('admin') : (window.location.hash = 'admin')}
+              className="px-4 py-2 rounded-xl bg-primary hover:bg-slate-800 text-white font-bold text-xs shrink-0 shadow-soft transition cursor-pointer"
+            >
+              Open Admin Console
+            </button>
+          </div>
+        )}
+
+        {/* Case 3: Regular Member / Ministry Member */}
+        {!AdminService.isSuperAdmin(currentUser) && currentUser.role !== 'church_admin' && (
+          <div className="space-y-3">
+            {adminRequest && adminRequest.status === 'pending' ? (
+              <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 space-y-2">
+                <div className="flex items-center gap-2 text-xs font-bold text-amber-900 dark:text-amber-300">
+                  <Clock className="w-4 h-4 text-amber-600 animate-pulse" />
+                  <span>Admin Access Request Pending Review</span>
+                </div>
+                <p className="text-xs text-slate-600 dark:text-slate-300">
+                  Your application submitted on {new Date(adminRequest.createdAt).toLocaleDateString()} is awaiting decision by the Super Admin.
+                </p>
+                <div className="p-2.5 rounded-xl bg-white/80 dark:bg-slate-800 text-[11px] text-slate-600 dark:text-slate-300 italic border border-amber-100 dark:border-amber-900/40">
+                  "{adminRequest.reason}"
+                </div>
+              </div>
+            ) : adminRequest && adminRequest.status === 'rejected' ? (
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300">
+                    <XCircle className="w-4 h-4 text-rose-500" />
+                    <span>Previous Admin Request Reviewed</span>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    Status: Not approved at this time ({adminRequest.rejectionReason || 'Reviewed by leadership'}). You may re-apply if your ministry duties expand.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setIsAdminModalOpen(true)}
+                  className="px-4 py-2 rounded-xl bg-purple-900 hover:bg-purple-950 text-white font-bold text-xs shrink-0 shadow-soft transition cursor-pointer"
+                >
+                  Re-Apply for Admin
+                </button>
+              </div>
+            ) : (
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="font-bold text-xs text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <UserPlus className="w-4 h-4 text-purple-600" />
+                    <span>Serve as a Church Administrator</span>
+                  </div>
+                  <p className="text-xs text-slate-500 max-w-lg">
+                    Trusted members and ministry coordinators can apply for administrative access to publish announcements, manage church events, and assist pastoral operations.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setIsAdminModalOpen(true)}
+                  className="px-4 py-2 rounded-xl bg-purple-900 hover:bg-purple-950 text-white font-bold text-xs shrink-0 shadow-soft transition cursor-pointer"
+                >
+                  Request Admin Access
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* REQUEST ADMIN ACCESS MODAL */}
+      {isAdminModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 shadow-elevated border border-slate-200 dark:border-slate-800 space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-purple-600" />
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Request Administrator Access
+                </h3>
+              </div>
+              <button
+                onClick={() => setIsAdminModalOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              Please explain why you need administrative access to Beholding Jesus Church (e.g. your ministry assignment, announcements oversight, or pastoral assistance). Your application will be personally reviewed by the Super Admin.
+            </p>
+
+            <form onSubmit={handleAdminRequestSubmit} className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Reason for Request *
+                </label>
+                <textarea
+                  rows={4}
+                  required
+                  value={adminReason}
+                  onChange={e => setAdminReason(e.target.value)}
+                  placeholder="e.g. As part of the Media and Communications team, I need to create and manage weekly church announcements and Sunday service event schedules..."
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs focus:outline-hidden focus:ring-2 focus:ring-purple-500"
+                />
+                <span className="text-[10px] text-slate-400">
+                  Minimum 10 characters ({adminReason.trim().length}/10)
+                </span>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAdminModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={adminSubmitting || adminReason.trim().length < 10}
+                  className="px-4 py-2 rounded-xl bg-purple-900 hover:bg-purple-950 text-white text-xs font-semibold shadow-soft flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>{adminSubmitting ? 'Submitting...' : 'Submit Application'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       <AuthModal
         isOpen={isAuthOpen}

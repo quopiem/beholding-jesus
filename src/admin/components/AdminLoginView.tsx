@@ -74,10 +74,10 @@ export const AdminLoginView: React.FC<AdminLoginViewProps> = ({ onLoginSuccess, 
               <Shield className="w-8 h-8 stroke-[1.75]" />
             </div>
             <h1 className="font-serif text-2xl sm:text-3xl font-bold tracking-tight text-[#1F1D1D]">
-              Super Admin Access
+              Administrator Console
             </h1>
             <p className="text-xs sm:text-sm text-[#6B6360] mt-1.5 max-w-xs mx-auto">
-              Designated management console for Beholding Jesus Church announcements & media
+              Authorized management console for Beholding Jesus Church administration & governance
             </p>
           </div>
 
@@ -86,7 +86,7 @@ export const AdminLoginView: React.FC<AdminLoginViewProps> = ({ onLoginSuccess, 
             <Lock className="w-4 h-4 text-[#8C5858] mt-0.5 shrink-0" />
             <div className="text-xs text-[#5C5654] leading-relaxed">
               <strong className="text-[#1F1D1D] block mb-0.5">Strict Authorized Access Only</strong>
-              Public administrator sign-up is disabled. Only the designated church Super Admin is permitted.
+              Only the designated Super Admin and approved Church Administrators may log in. Public registration is restricted.
             </div>
           </div>
 
@@ -105,7 +105,7 @@ export const AdminLoginView: React.FC<AdminLoginViewProps> = ({ onLoginSuccess, 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-[#4A4543] mb-1.5">
-                Super Admin Username / Email
+                Administrator Username or Email
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#8C8380]">

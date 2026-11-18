@@ -177,6 +177,7 @@ export function App() {
           <div style={{ display: currentTab === 'profile' ? 'block' : 'none' }}>
             <ProfileView 
               currentUser={currentUser} 
+              onNavigate={setCurrentTab}
               onLogout={() => {
                 window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
                 document.documentElement.scrollTop = 0;
