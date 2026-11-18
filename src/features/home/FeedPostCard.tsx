@@ -158,11 +158,11 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
 
   return (
     <article 
-      className={`w-full bg-white dark:bg-slate-900 border-y sm:border border-stone-200/90 dark:border-slate-800/90 sm:rounded-xl shadow-none transition-colors overflow-hidden ${
+      className={`w-full bg-white dark:bg-slate-900 border-y sm:border border-stone-200/80 dark:border-slate-800/80 rounded-none sm:rounded-3xl shadow-none sm:shadow-xs hover:sm:shadow-md transition-all duration-300 overflow-hidden ${
         post.isHidden
           ? 'opacity-60 bg-rose-50/20 dark:bg-rose-950/20'
           : isAnnouncement
-          ? 'border-l-4 border-l-gold'
+          ? 'border-l-4 border-l-gold bg-gradient-to-r from-gold/[0.03] via-transparent to-transparent'
           : ''
       }`}
     >

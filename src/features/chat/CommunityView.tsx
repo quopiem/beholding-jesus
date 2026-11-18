@@ -2200,7 +2200,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
         {/* ============================================================ */}
         {/* LEFT COLUMN: MESSENGER INBOX & STORIES                       */}
         {/* ============================================================ */}
-        <div className={`${mobileActiveView === 'chat' ? 'hidden md:flex' : 'flex'} md:col-span-5 lg:col-span-4 border-r border-slate-200/80 dark:border-slate-800 flex-col h-full min-h-0 overflow-hidden bg-white dark:bg-slate-900`}>
+        <div className={`${mobileActiveView === 'chat' ? 'hidden md:flex' : 'flex'} md:col-span-5 lg:col-span-5 xl:col-span-4 border-r border-slate-200/80 dark:border-slate-800 flex-col h-full min-h-0 overflow-hidden bg-white dark:bg-slate-900`}>
           
           {/* Top Bar (Messenger style: Avatar, Chats Title, Compose button) */}
           <div className="shrink-0 px-4 pt-3.5 pb-2 flex items-center justify-between">
@@ -2261,18 +2261,18 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
           </div>
 
           {/* Search Capsule (Messenger Pill Input) */}
-          <div className="shrink-0 px-4 py-1.5">
-            <div className="relative flex items-center bg-slate-100 dark:bg-slate-800/80 rounded-full px-3.5 py-2 transition focus-within:ring-2 focus-within:ring-gold/30">
+          <div className="shrink-0 px-4 py-2">
+            <div className="relative flex items-center bg-slate-100/90 dark:bg-slate-800/80 rounded-2xl sm:rounded-full px-3.5 py-2 sm:py-2.5 transition border border-slate-200/80 dark:border-slate-700/70 focus-within:border-gold/50 focus-within:ring-2 focus-within:ring-gold/25 shadow-2xs">
               <Search className="w-4 h-4 text-slate-400 shrink-0 mr-2" />
               <input
                 type="text"
-                placeholder="Search messages or all church members..."
+                placeholder="Search messages or members..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full bg-transparent text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none"
               />
               {searchQuery && (
-                <button onClick={() => setSearchQuery('')} className="text-slate-400 hover:text-slate-600 p-0.5">
+                <button onClick={() => setSearchQuery('')} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 cursor-pointer">
                   <X className="w-3.5 h-3.5" />
                 </button>
               )}
@@ -2280,7 +2280,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
           </div>
 
           {/* Stories / Active Members Horizontal Tray (Messenger Style) */}
-          <div className="shrink-0 px-3 pt-2.5 pb-2.5 flex items-center gap-3.5 overflow-x-auto no-scrollbar border-b border-slate-100 dark:border-slate-800/60">
+          <div className="shrink-0 px-3.5 pt-2.5 pb-2.5 flex items-center gap-3.5 overflow-x-auto no-scrollbar border-b border-slate-100 dark:border-slate-800/60">
             
             {/* 1st Item: Your Story / Faith Note (Compact & Organized) */}
             <div 
@@ -2290,12 +2290,12 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
             >
               <div className="relative mb-1 flex flex-col items-center">
                 {/* Speech note bubble above head */}
-                <div className="mb-1 px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-[9px] text-slate-700 dark:text-slate-200 font-semibold max-w-[68px] truncate shadow-xs border border-slate-300/60 dark:border-slate-700">
+                <div className="mb-1 px-2.5 py-0.5 rounded-full bg-white dark:bg-slate-800 text-[9px] text-slate-800 dark:text-slate-200 font-bold max-w-[70px] truncate shadow-xs border border-gold/30">
                   {userFaithNote || 'Faith note...'}
                 </div>
                 {/* Fixed-size circular avatar container */}
                 <div 
-                  className="relative rounded-full p-0.5 shrink-0 bg-gradient-to-tr from-gold to-amber-200 shadow-xs"
+                  className="relative rounded-full p-0.5 shrink-0 bg-gradient-to-tr from-gold via-amber-200 to-[#99793D] shadow-xs group-hover:scale-105 transition-transform"
                   style={{ width: '56px', height: '56px', minWidth: '56px', minHeight: '56px', maxWidth: '56px', maxHeight: '56px' }}
                 >
                   <img 
@@ -2308,7 +2308,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
                   </span>
                 </div>
               </div>
-              <span className="text-[11px] font-medium text-slate-600 dark:text-slate-300 truncate max-w-[64px]">
+              <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-200 group-hover:text-gold truncate max-w-[64px] transition-colors">
                 Your note
               </span>
             </div>
@@ -2326,28 +2326,28 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
                   <div className="relative mb-1 flex flex-col items-center">
                     {/* Speech note bubble above head if note exists */}
                     {note && (
-                      <div className="mb-1 px-2 py-0.5 rounded-full bg-[#1e293b] dark:bg-[#1a2b42] text-[#EADBB8] text-[9px] font-bold max-w-[68px] truncate shadow-xs border border-gold/25">
+                      <div className="mb-1 px-2.5 py-0.5 rounded-full bg-[#111c2e] dark:bg-[#152338] text-[#EADBB8] text-[9px] font-bold max-w-[70px] truncate shadow-xs border border-gold/35">
                         {note}
                       </div>
                     )}
                     {/* Fixed-size circular avatar container */}
                     <div 
-                      className="relative rounded-full p-0.5 shrink-0"
+                      className={`relative rounded-full p-0.5 shrink-0 transition-transform group-hover:scale-105 ${
+                        member.isOnline ? 'bg-gradient-to-tr from-emerald-400 to-teal-500 shadow-xs' : 'bg-slate-200 dark:bg-slate-700'
+                      }`}
                       style={{ width: '56px', height: '56px', minWidth: '56px', minHeight: '56px', maxWidth: '56px', maxHeight: '56px' }}
                     >
                       <img 
                         src={member.avatar || '/icons/church-logo.png'} 
                         alt={member.name} 
-                        className={`w-full h-full rounded-full object-cover border-2 ${
-                          member.isOnline ? 'border-emerald-400 group-hover:border-gold' : 'border-slate-300 dark:border-slate-700'
-                        } transition shadow-xs shrink-0 block`} 
+                        className="w-full h-full rounded-full object-cover border border-white dark:border-slate-900 transition shadow-xs shrink-0 block" 
                       />
                       <span className={`absolute bottom-0.5 right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-slate-900 shadow-xs ${
                         member.isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'
                       }`}></span>
                     </div>
                   </div>
-                  <span className="text-[11px] font-medium text-slate-700 dark:text-slate-200 group-hover:text-gold truncate max-w-[64px]">
+                  <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-200 group-hover:text-gold truncate max-w-[64px] transition-colors">
                     {member.name.split(' ')[0]}
                   </span>
                 </div>
@@ -2356,7 +2356,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
           </div>
 
           {/* Filter Pills (All, Groups, Direct, Members) */}
-          <div className="shrink-0 px-4 py-2 flex items-center gap-1.5 overflow-x-auto text-xs no-scrollbar">
+          <div className="shrink-0 px-3 py-2 flex items-center justify-between gap-1 overflow-x-auto text-xs no-scrollbar">
             {[
               { id: 'all', label: 'All', count: totalUnreadCount },
               { id: 'groups', label: 'Groups', count: groupsUnreadCount },
@@ -2366,10 +2366,10 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
               <button
                 key={tab.id}
                 onClick={() => setFilterTab(tab.id as any)}
-                className={`px-3.5 py-1 rounded-full font-bold transition text-xs active:scale-95 flex items-center gap-1.5 ${
+                className={`px-2.5 sm:px-3 py-1.5 rounded-full font-bold transition-all text-xs active:scale-95 flex items-center gap-1 shrink-0 cursor-pointer ${
                   filterTab === tab.id
-                    ? 'bg-slate-900 dark:bg-gold text-white dark:text-slate-950 shadow-xs'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                    ? 'bg-slate-900 dark:bg-gradient-to-r dark:from-gold dark:to-amber-300 text-white dark:text-slate-950 shadow-xs ring-1 ring-gold/30'
+                    : 'bg-slate-100/90 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
                 }`}
               >
                 {tab.id === 'members' && <Users className="w-3.5 h-3.5 text-gold shrink-0" />}
@@ -2528,7 +2528,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
                         isActive
                           ? 'bg-slate-100 dark:bg-slate-800/90 shadow-2xs'
                           : hasUnread
-                            ? 'bg-amber-500/[0.07] dark:bg-amber-400/[0.08] hover:bg-amber-500/[0.12] border-l-3 border-amber-500 shadow-2xs'
+                            ? 'bg-gradient-to-r from-amber-500/[0.08] via-amber-500/[0.03] to-transparent hover:from-amber-500/[0.12] border-l-4 border-gold shadow-2xs'
                             : 'hover:bg-slate-50 dark:hover:bg-slate-800/40'
                       }`}
                     >
@@ -2539,7 +2539,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
                           alt={conv.title}
                           className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full object-cover transition-all ${
                             hasUnread
-                              ? 'ring-2 ring-amber-500 ring-offset-2 ring-offset-white dark:ring-offset-slate-900 shadow-sm'
+                              ? 'ring-2 ring-gold ring-offset-2 ring-offset-white dark:ring-offset-slate-900 shadow-sm'
                               : 'border border-slate-200/80 dark:border-slate-700/80 shadow-xs'
                           }`}
                         />
@@ -2568,7 +2568,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
                             )}
                           </div>
                           <span className={`text-[11px] shrink-0 ml-1 transition-colors ${
-                            hasUnread ? 'font-bold text-amber-600 dark:text-amber-400' : 'text-slate-400 font-medium'
+                            hasUnread ? 'font-bold text-gold-dark dark:text-gold' : 'text-slate-400 font-medium'
                           }`}>
                             {conv.timestamp}
                           </span>
@@ -2589,7 +2589,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
                           {/* Aesthetic Unread Number Badge */}
                           {hasUnread ? (
                             <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                              <span className="min-w-5 h-5 px-1.5 rounded-full bg-gradient-to-r from-amber-500 via-amber-400 to-amber-600 text-slate-950 font-black text-[10px] flex items-center justify-center shadow-md shadow-amber-500/35 ring-2 ring-white dark:ring-slate-900 animate-in zoom-in-75">
+                              <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-gradient-to-r from-gold via-amber-400 to-[#b38e4a] text-slate-950 font-black text-[10px] flex items-center justify-center shadow-sm shadow-gold/30 ring-2 ring-white dark:ring-slate-900 animate-in zoom-in-75">
                                 {conv.unreadCount! > 99 ? '99+' : conv.unreadCount}
                               </span>
                             </div>
@@ -2739,7 +2739,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
           style={mobileActiveView === 'chat' && typeof window !== 'undefined' && window.innerWidth < 768 ? chatViewportStyle : undefined}
           className={`${
             mobileActiveView === 'list' ? 'hidden md:flex' : 'flex'
-          } md:col-span-7 lg:col-span-8 flex-col h-full min-h-0 overflow-hidden bg-white dark:bg-slate-950 ${
+          } md:col-span-7 lg:col-span-7 xl:col-span-8 flex-col h-full min-h-0 overflow-hidden bg-white dark:bg-slate-950 ${
             mobileActiveView === 'chat' ? 'fixed inset-0 z-40 md:relative md:inset-auto md:z-auto' : ''
           }`}
         >
@@ -2929,19 +2929,19 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
           {/* ============================================================ */}
           {/* MESSENGER PINNED ANNOUNCEMENT / EXHORTATION BANNER           */}
           {/* ============================================================ */}
-          <div className="shrink-0 px-4 py-2 bg-slate-900/90 dark:bg-[#0c0e14]/95 backdrop-blur-md border-b border-slate-800/80 flex items-center justify-between text-xs text-slate-300 shadow-xs">
+          <div className="shrink-0 px-4 py-2 bg-gradient-to-r from-[#0c1424] via-[#111c2e] to-[#0c1424] border-b border-[#C5A46D]/30 flex items-center justify-between text-xs text-stone-200 shadow-xs">
             <div className="flex items-center gap-2.5 truncate">
-              <span className="w-6 h-6 rounded-full bg-slate-800 border border-slate-700/80 flex items-center justify-center text-slate-300 shrink-0 shadow-xs">
+              <span className="w-6 h-6 rounded-full bg-gold/15 border border-gold/40 flex items-center justify-center text-gold shrink-0 shadow-xs">
                 <Pin className="w-3.5 h-3.5 text-gold rotate-45" />
               </span>
-              <span className="truncate font-medium text-slate-200">
+              <span className="truncate font-semibold text-[#EADBB8]">
                 {activeConversation.type === 'direct'
                   ? `Direct message thread • ${activeConversation.title}`
                   : 'Weekly Sunday Grace Service @ 10:00 AM • "Beholding the Glory of Christ"'}
               </span>
             </div>
             <button 
-              className="p-1 rounded-full text-slate-400 hover:text-white hover:bg-slate-800/60 transition"
+              className="p-1 rounded-full text-[#EADBB8]/70 hover:text-white hover:bg-white/10 transition cursor-pointer"
               title="Pinned notice options"
             >
               <ChevronDown className="w-4 h-4" />
@@ -3057,7 +3057,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
                           </div>
                         ) : (
                           /* Messenger Bubble */
-                          <div className="bg-[#1E293B] text-white rounded-[22px] rounded-br-[4px] p-3 sm:px-4 sm:py-3 shadow-md text-xs sm:text-[13.5px] leading-relaxed space-y-2 border border-slate-700/60">
+                          <div className="bg-gradient-to-br from-[#1E293B] via-[#162032] to-[#0F172A] text-white rounded-[22px] rounded-br-[4px] p-3 sm:px-4 sm:py-3 shadow-md text-xs sm:text-[13.5px] leading-relaxed space-y-2 border border-slate-700/60 font-medium">
                             
                             {/* Quoted Reply Preview Bar */}
                             {parsed.reply && (
@@ -3214,7 +3214,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
                           </div>
                         ) : (
                           /* Messenger Bubble */
-                          <div className="bg-white dark:bg-[#1e2330] text-slate-900 dark:text-white rounded-[22px] rounded-bl-[4px] p-3 sm:px-4 sm:py-3 shadow-xs border border-slate-200/80 dark:border-slate-800 text-xs sm:text-[13.5px] leading-relaxed space-y-2">
+                          <div className="bg-white dark:bg-[#151c28] text-slate-900 dark:text-stone-100 rounded-[22px] rounded-bl-[4px] p-3 sm:px-4 sm:py-3 shadow-xs border border-slate-200/90 dark:border-slate-800 text-xs sm:text-[13.5px] leading-relaxed space-y-2">
                             
                             {/* Quoted Reply Preview Bar */}
                             {parsed.reply && (
@@ -3385,7 +3385,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
           {/* ============================================================ */}
           {/* BOTTOM CHAT INPUT BAR (MESSENGER CAPSULE LAYOUT)             */}
           {/* ============================================================ */}
-          <div className="shrink-0 p-2.5 sm:p-3 sm:px-4 pb-[max(env(safe-area-inset-bottom),12px)] bg-white dark:bg-[#0c0e14] border-t border-slate-200/80 dark:border-slate-800/80 relative z-20">
+          <div className="shrink-0 p-2.5 sm:p-3 sm:px-4 pb-[max(env(safe-area-inset-bottom),12px)] bg-white/95 dark:bg-[#0c121e]/95 backdrop-blur-xl border-t border-slate-200/80 dark:border-slate-800/80 relative z-20">
             
             {/* Active Quoted Reply Preview Bar */}
             {replyingTo && (
@@ -3579,7 +3579,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
               </div>
 
               {/* Center Pill Capsule with Aa placeholder & inside action icons */}
-              <div className="flex-1 min-w-0 flex items-center bg-slate-100 dark:bg-[#1a2332] rounded-2xl sm:rounded-full px-3 sm:px-3.5 py-1 sm:py-1.5 border border-slate-200/80 dark:border-slate-800 focus-within:ring-2 focus-within:ring-gold/40 transition">
+              <div className="flex-1 min-w-0 flex items-center bg-slate-100/90 dark:bg-[#162030] rounded-2xl sm:rounded-full px-3 sm:px-3.5 py-1 sm:py-1.5 border border-slate-200/80 dark:border-slate-700/80 focus-within:border-gold/50 focus-within:ring-2 focus-within:ring-gold/30 transition shadow-inner">
                 <textarea
                   ref={textareaRef}
                   rows={1}
@@ -3627,16 +3627,16 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
               {inputText.trim() || attachedImage || attachedVideo ? (
                 <button
                   type="submit"
-                  className="w-9 h-9 rounded-full bg-[#1E293B] dark:bg-gold text-white dark:text-slate-950 flex items-center justify-center transition shadow-md hover:scale-105 active:scale-95 shrink-0"
+                  className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-r from-gold via-[#e0c48e] to-[#b8955c] text-slate-950 flex items-center justify-center transition shadow-gold hover:brightness-110 active:scale-95 shrink-0 cursor-pointer"
                   title="Send Message"
                 >
-                  <Send className="w-4 h-4 stroke-[2.2] translate-x-[-1px] translate-y-[-1px]" />
+                  <Send className="w-4 h-4 stroke-[2.4] translate-x-[-1px] translate-y-[-1px]" />
                 </button>
               ) : (
                 <button
                   type="button"
                   onClick={() => handleSendQuickLike('👍')}
-                  className="w-9 h-9 rounded-full text-gold hover:scale-125 active:scale-90 transition flex items-center justify-center shrink-0"
+                  className="w-9 h-9 sm:w-10 sm:h-10 rounded-full text-gold hover:scale-125 active:scale-90 transition flex items-center justify-center shrink-0 cursor-pointer"
                   title="Send Quick Like 👍"
                 >
                   <ThumbsUp className="w-5 h-5 fill-current text-gold" />

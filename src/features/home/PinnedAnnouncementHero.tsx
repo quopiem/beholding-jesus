@@ -82,10 +82,10 @@ export const PinnedAnnouncementHero: React.FC<PinnedAnnouncementHeroProps> = ({
 
     // Admin empty state prompt to pin an announcement
     return (
-      <div className="relative overflow-hidden rounded-none sm:rounded-2xl p-4 sm:p-6 bg-gradient-to-br from-[#1C1616] via-[#2A1F1F] to-[#120F0F] text-white border-y sm:border border-[#C5A46D]/30 shadow-none sm:shadow-md flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div className="relative overflow-hidden rounded-none sm:rounded-3xl p-4 sm:p-6 bg-gradient-to-br from-[#0c1424] via-[#111c2e] to-[#070b13] text-white border-y sm:border border-[#C5A46D]/35 shadow-none sm:shadow-lg flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-3.5 text-center sm:text-left">
-          <div className="w-12 h-12 rounded-2xl bg-gold/20 text-gold flex items-center justify-center shrink-0 border border-gold/40">
-            <Pin className="w-6 h-6 rotate-45" />
+          <div className="w-12 h-12 rounded-2xl bg-gold/15 text-gold flex items-center justify-center shrink-0 border border-gold/40 shadow-sm">
+            <Pin className="w-6 h-6 rotate-45 text-gold" />
           </div>
           <div>
             <div className="flex items-center gap-2 justify-center sm:justify-start">
@@ -104,7 +104,7 @@ export const PinnedAnnouncementHero: React.FC<PinnedAnnouncementHeroProps> = ({
 
         <button
           onClick={onOpenCreateAnnouncement}
-          className="px-4 py-2 rounded-xl bg-gold text-slate-950 font-bold text-xs hover:bg-gold-light transition shadow-gold flex items-center gap-2 shrink-0 cursor-pointer"
+          className="px-4 py-2 rounded-xl bg-gradient-to-r from-gold to-[#b09058] text-slate-950 font-bold text-xs hover:brightness-110 transition shadow-gold flex items-center gap-2 shrink-0 cursor-pointer"
         >
           <Plus className="w-4 h-4 stroke-[2.5]" />
           <span>Publish Pinned Announcement</span>
@@ -132,7 +132,7 @@ export const PinnedAnnouncementHero: React.FC<PinnedAnnouncementHeroProps> = ({
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
-      <div className="relative overflow-hidden rounded-none sm:rounded-2xl p-4 sm:p-7 bg-gradient-to-br from-[#1A1414] via-[#261C1C] to-[#110E0E] text-white border-y sm:border border-[#C5A46D]/40 shadow-none sm:shadow-lg">
+      <div className="relative overflow-hidden rounded-none sm:rounded-3xl p-4 sm:p-7 bg-gradient-to-br from-[#0c1424] via-[#111c2e] to-[#070b13] text-white border-y sm:border border-[#C5A46D]/35 shadow-none sm:shadow-xl">
         
         {/* 5-second Auto-Rotation Progress Bar */}
         {pinnedPosts.length > 1 && (
@@ -147,21 +147,22 @@ export const PinnedAnnouncementHero: React.FC<PinnedAnnouncementHeroProps> = ({
         )}
 
         {/* Background Atmospheric Glows */}
-        <div className="absolute -right-20 -top-20 w-96 h-96 rounded-full bg-[#8C5858]/20 blur-3xl pointer-events-none" />
-        <div className="absolute left-10 bottom-0 w-80 h-80 rounded-full bg-[#C5A46D]/15 blur-3xl pointer-events-none" />
+        <div className="absolute -right-16 -top-16 w-80 h-80 rounded-full bg-[#C5A46D]/15 blur-3xl pointer-events-none" />
+        <div className="absolute left-5 bottom-0 w-80 h-80 rounded-full bg-sky-900/20 blur-3xl pointer-events-none" />
 
         <div className="relative z-10 space-y-5">
           
           {/* Top Bar: PINNED Label, Admin Controls & Multi-post Switcher */}
-          <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-white/10">
+          <div className="flex flex-wrap items-center justify-between gap-3 pb-3.5 border-b border-white/10">
             <div className="flex items-center gap-2.5 flex-wrap">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-[#C5A46D] to-[#E6CA92] text-slate-950 font-black text-xs uppercase tracking-wider shadow-md">
                 <Pin className="w-3.5 h-3.5 rotate-45 fill-current" />
                 <span>PINNED ANNOUNCEMENT</span>
               </span>
 
-              <span className="text-xs text-gold/90 font-medium hidden sm:inline">
-                Official Pastoral Word
+              <span className="text-xs text-[#EADBB8] font-medium hidden sm:inline flex items-center gap-1">
+                <Sparkles className="w-3 h-3 text-gold" />
+                <span>Pastoral Word</span>
               </span>
 
               {pinnedPosts.length > 1 && (
@@ -225,14 +226,14 @@ export const PinnedAnnouncementHero: React.FC<PinnedAnnouncementHeroProps> = ({
                 <div className="flex items-center gap-1">
                   <button
                     onClick={prevSlide}
-                    className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition cursor-pointer"
+                    className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition cursor-pointer active:scale-95"
                     title="Previous Pinned"
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
                   <button
                     onClick={nextSlide}
-                    className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition cursor-pointer"
+                    className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition cursor-pointer active:scale-95"
                     title="Next Pinned (Auto-advances every 5s)"
                   >
                     <ChevronRight className="w-4 h-4" />
@@ -311,7 +312,7 @@ export const PinnedAnnouncementHero: React.FC<PinnedAnnouncementHeroProps> = ({
                         onNavigate('events');
                       }
                     }}
-                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-gold via-[#d4b57e] to-[#b8955c] text-slate-950 font-bold text-xs hover:brightness-110 transition shadow-gold flex items-center gap-2 cursor-pointer"
+                    className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-gold via-[#e0c48e] to-[#b8955c] text-slate-950 font-bold text-xs hover:brightness-110 transition shadow-gold flex items-center gap-2 cursor-pointer active:scale-95"
                   >
                     <span>{currentAnnouncement.actionButtonLabel}</span>
                     <ArrowRight className="w-4 h-4" />
@@ -321,7 +322,7 @@ export const PinnedAnnouncementHero: React.FC<PinnedAnnouncementHeroProps> = ({
                 {/* Comment / Discuss trigger */}
                 <button
                   onClick={() => onOpenComments(currentAnnouncement)}
-                  className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-medium text-xs transition border border-white/15 flex items-center gap-2 cursor-pointer"
+                  className="px-4 py-2.5 rounded-2xl bg-white/10 hover:bg-white/15 text-white font-medium text-xs transition border border-white/15 flex items-center gap-2 cursor-pointer active:scale-95 backdrop-blur-md"
                 >
                   <MessageSquare className="w-4 h-4 text-gold" />
                   <span>Discussion ({currentAnnouncement.commentsCount || 0})</span>
@@ -335,22 +336,22 @@ export const PinnedAnnouncementHero: React.FC<PinnedAnnouncementHeroProps> = ({
               <div className="lg:col-span-5 relative group/img">
                 <div 
                   onClick={() => onOpenImageLightbox(coverImage)}
-                  className="relative rounded-2xl overflow-hidden cursor-pointer shadow-2xl border border-white/20 bg-stone-900/60 flex items-center justify-center p-2 min-h-[140px] sm:min-h-[220px] max-h-[200px] sm:max-h-[380px]"
+                  className="relative rounded-2xl sm:rounded-3xl overflow-hidden cursor-pointer shadow-2xl border border-white/20 bg-stone-900/60 flex items-center justify-center p-2 min-h-[140px] sm:min-h-[220px] max-h-[200px] sm:max-h-[380px]"
                 >
                   <img
                     src={coverImage}
                     alt={currentAnnouncement.announcementTitle || 'Announcement cover'}
-                    className="w-full max-h-[190px] sm:max-h-[360px] h-auto object-contain rounded-xl group-hover/img:scale-[1.02] transition-transform duration-500"
+                    className="w-full max-h-[190px] sm:max-h-[360px] h-auto object-contain rounded-xl sm:rounded-2xl group-hover/img:scale-[1.02] transition-transform duration-500"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/30 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center gap-2 p-3">
-                    <span className="px-3 py-1.5 rounded-full bg-black/75 backdrop-blur-md text-white text-xs font-semibold flex items-center gap-1.5 border border-white/30 hover:bg-black/90 transition shadow-lg">
-                      <Maximize2 className="w-3.5 h-3.5" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-black/30 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center gap-2 p-3">
+                    <span className="px-3.5 py-1.5 rounded-full bg-black/75 backdrop-blur-md text-white text-xs font-semibold flex items-center gap-1.5 border border-white/30 hover:bg-black/90 transition shadow-lg">
+                      <Maximize2 className="w-3.5 h-3.5 text-gold" />
                       <span>Full View</span>
                     </span>
                     <button
                       type="button"
                       onClick={(e) => handleDownloadImage(e, coverImage, currentAnnouncement.announcementTitle)}
-                      className="px-3 py-1.5 rounded-full bg-[#C5A46D] hover:bg-[#d8b982] text-slate-950 text-xs font-bold flex items-center gap-1.5 shadow-lg transition active:scale-95 cursor-pointer"
+                      className="px-3.5 py-1.5 rounded-full bg-gradient-to-r from-gold to-[#c8aa74] hover:brightness-105 text-slate-950 text-xs font-bold flex items-center gap-1.5 shadow-lg transition active:scale-95 cursor-pointer"
                       title="Save / Download Photo"
                     >
                       <Download className="w-3.5 h-3.5" />

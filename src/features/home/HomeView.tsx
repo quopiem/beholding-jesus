@@ -258,22 +258,24 @@ export const HomeView: React.FC<HomeViewProps> = ({
           <main className="lg:col-span-6 space-y-2 sm:space-y-3.5 bg-stone-100/70 dark:bg-slate-950 sm:bg-transparent pb-16 sm:pb-6">
             
             {/* MODERN COMMUNITY FEED HEADER */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md px-4 py-3 sm:p-5 rounded-none sm:rounded-2xl border-b sm:border border-stone-200/80 dark:border-slate-800/80 shadow-none sm:shadow-xs">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md px-4 py-3.5 sm:p-5 rounded-none sm:rounded-3xl border-b sm:border border-stone-200/80 dark:border-slate-800/80 shadow-none sm:shadow-xs">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-gold to-amber-200 p-0.5 shadow-sm flex items-center justify-center shrink-0">
-                  <Sparkles className="w-5 h-5 text-slate-950" />
+                <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-gold to-amber-200 p-0.5 shadow-sm flex items-center justify-center shrink-0">
+                  <div className="w-full h-full rounded-[14px] bg-slate-950 flex items-center justify-center">
+                    <Sparkles className="w-5 h-5 text-gold" />
+                  </div>
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h2 className="font-serif font-black text-base sm:text-lg text-stone-900 dark:text-white tracking-wide">
+                    <h2 className="font-serif font-black text-base sm:text-xl text-stone-900 dark:text-white tracking-wide">
                       Community Feed
                     </h2>
-                    <span className="inline-flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                    <span className="inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                       Live Fellowship
                     </span>
                   </div>
-                  <p className="text-[11px] text-stone-500 dark:text-stone-400">
+                  <p className="text-[11px] sm:text-xs text-stone-500 dark:text-stone-400">
                     Testimonies, prayer needs, and pastoral encouragement
                   </p>
                 </div>
@@ -282,7 +284,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
               {/* View Church Landing Page pill */}
               <button
                 onClick={() => onNavigate('home')}
-                className="px-3.5 py-1.5 rounded-xl border border-gold/30 bg-gold/10 hover:bg-gold/20 text-gold-dark dark:text-gold text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ml-auto sm:ml-0 shadow-xs active:scale-95"
+                className="px-4 py-2 rounded-2xl border border-gold/40 bg-gold/10 hover:bg-gold/20 text-gold-dark dark:text-gold text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ml-auto sm:ml-0 shadow-2xs active:scale-95"
               >
                 <span>Church Home</span>
                 <ChevronRight className="w-3.5 h-3.5" />
@@ -316,8 +318,8 @@ export const HomeView: React.FC<HomeViewProps> = ({
             />
 
             {/* 3. FEED CONTROLS & FILTER TABS */}
-            <div className="flex items-center justify-between gap-2 overflow-x-auto px-3.5 sm:px-0 py-2 sm:py-0 scrollbar-none bg-white dark:bg-slate-900 sm:bg-transparent border-y sm:border-y-0 border-stone-200/80 dark:border-slate-800/80">
-              <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center justify-between gap-2 overflow-x-auto px-3.5 sm:px-0 py-2.5 sm:py-0 no-scrollbar bg-white dark:bg-slate-900 sm:bg-transparent border-y sm:border-y-0 border-stone-200/80 dark:border-slate-800/80">
+              <div className="flex items-center gap-2 flex-nowrap sm:flex-wrap overflow-x-auto no-scrollbar py-0.5">
                 {[
                   { id: 'all', label: 'All Feed', icon: Sparkles },
                   { id: 'announcements', label: 'Announcements', icon: Bell },
@@ -335,7 +337,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                       className={`px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full text-xs font-bold transition-all duration-200 flex items-center gap-1.5 shrink-0 cursor-pointer active:scale-95 ${
                         isActive
                           ? 'bg-stone-900 dark:bg-gold text-white dark:text-slate-950 shadow-sm ring-1 ring-gold/40'
-                          : 'bg-stone-100 dark:bg-slate-800/90 border border-stone-200/80 dark:border-slate-700 text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-slate-700'
+                          : 'bg-stone-100 dark:bg-slate-800/90 border border-stone-200/80 dark:border-slate-700/80 text-stone-600 dark:text-stone-300 hover:bg-stone-200/70 dark:hover:bg-slate-700'
                       }`}
                     >
                       <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-gold dark:text-slate-950' : 'text-stone-400'}`} />

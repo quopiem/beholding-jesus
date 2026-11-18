@@ -168,37 +168,90 @@ export const CreatePostComposer: React.FC<CreatePostComposerProps> = ({
     <div className={
       isOpenAsModal
         ? "w-full max-w-lg bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-stone-200 dark:border-slate-800 flex flex-col max-h-[calc(100dvh-2.5rem)] sm:max-h-[88vh] overflow-hidden transition-colors"
-        : "rounded-none sm:rounded-xl bg-white dark:bg-slate-900 border-y sm:border border-stone-200/90 dark:border-slate-800/90 shadow-none sm:shadow-2xs p-3.5 sm:p-4 transition-colors"
+        : "rounded-none sm:rounded-3xl bg-white dark:bg-slate-900 border-y sm:border border-stone-200/80 dark:border-slate-800/80 shadow-none sm:shadow-xs p-3.5 sm:p-5 transition-colors"
     }>
       
-      {/* Top collapsed row */}
+      {/* Top collapsed row & Quick Action Buttons */}
       {!isExpanded ? (
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 border border-gold/40 shadow-xs">
-            <img 
-              src={currentUser.avatar || '/icons/church-logo.png'} 
-              alt={currentUser.name} 
-              className="w-full h-full object-cover"
-            />
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-full p-0.5 bg-gradient-to-tr from-gold to-amber-200 shrink-0 shadow-xs">
+              <img 
+                src={currentUser.avatar || '/icons/church-logo.png'} 
+                alt={currentUser.name} 
+                className="w-full h-full rounded-full object-cover bg-stone-900"
+              />
+            </div>
+
+            <button
+              onClick={() => setIsExpanded(true)}
+              className="flex-1 bg-stone-100/90 hover:bg-stone-200/80 dark:bg-slate-800/90 dark:hover:bg-slate-750 text-left px-4 py-2.5 sm:px-4.5 sm:py-3 rounded-full text-xs sm:text-sm text-stone-500 dark:text-stone-300 border border-stone-200/60 dark:border-slate-700/60 hover:border-gold/40 transition cursor-pointer shadow-2xs"
+            >
+              What would you like to share with the church, {firstName}?
+            </button>
+
+            <button
+              onClick={() => {
+                setIsExpanded(true);
+                setTimeout(() => fileInputRef.current?.click(), 100);
+              }}
+              className="p-2.5 sm:p-3 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25 transition cursor-pointer shrink-0 active:scale-95"
+              title="Attach Photo"
+            >
+              <ImageIcon className="w-4 h-4" />
+            </button>
           </div>
 
-          <button
-            onClick={() => setIsExpanded(true)}
-            className="flex-1 bg-stone-100 hover:bg-stone-200/70 dark:bg-slate-800/90 dark:hover:bg-slate-700/80 text-left px-4 py-2.5 rounded-full text-xs sm:text-sm text-stone-500 dark:text-stone-400 border border-transparent hover:border-gold/20 transition cursor-pointer"
-          >
-            What would you like to share with the church, {firstName}?
-          </button>
+          {/* Quick Action Badges */}
+          <div className="flex items-center justify-between pt-1 border-t border-stone-100 dark:border-slate-800/80 gap-1.5 overflow-x-auto no-scrollbar">
+            <button
+              type="button"
+              onClick={() => {
+                setCategory('Scripture Reflection');
+                setIsExpanded(true);
+              }}
+              className="px-3 py-1.5 rounded-full hover:bg-stone-100 dark:hover:bg-slate-800 text-stone-600 dark:text-stone-300 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer shrink-0 active:scale-95"
+            >
+              <span className="text-amber-500 text-sm">📖</span>
+              <span>Scripture</span>
+            </button>
 
-          <button
-            onClick={() => {
-              setIsExpanded(true);
-              setTimeout(() => fileInputRef.current?.click(), 100);
-            }}
-            className="p-2.5 rounded-full bg-stone-100 hover:bg-stone-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-stone-600 dark:text-stone-300 transition cursor-pointer shrink-0"
-            title="Attach Photo"
-          >
-            <ImageIcon className="w-4 h-4 text-emerald-500" />
-          </button>
+            <button
+              type="button"
+              onClick={() => {
+                setCategory('Testimony');
+                setIsExpanded(true);
+              }}
+              className="px-3 py-1.5 rounded-full hover:bg-stone-100 dark:hover:bg-slate-800 text-stone-600 dark:text-stone-300 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer shrink-0 active:scale-95"
+            >
+              <span className="text-gold text-sm">✝️</span>
+              <span>Testimony</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setCategory('Prayer Encouragement');
+                setIsExpanded(true);
+              }}
+              className="px-3 py-1.5 rounded-full hover:bg-stone-100 dark:hover:bg-slate-800 text-stone-600 dark:text-stone-300 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer shrink-0 active:scale-95"
+            >
+              <span className="text-rose-500 text-sm">🙏</span>
+              <span>Prayer</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setIsExpanded(true);
+                setTimeout(() => fileInputRef.current?.click(), 100);
+              }}
+              className="px-3 py-1.5 rounded-full hover:bg-stone-100 dark:hover:bg-slate-800 text-stone-600 dark:text-stone-300 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer shrink-0 active:scale-95"
+            >
+              <span className="text-emerald-500 text-sm">📸</span>
+              <span>Photo</span>
+            </button>
+          </div>
         </div>
       ) : (
         /* Expanded Composer Form */
