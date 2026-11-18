@@ -17,12 +17,14 @@ import {
   Pin,
   PinOff,
   UserCheck,
-  KeyRound
+  KeyRound,
+  ShieldCheck
 } from 'lucide-react';
 import { AdminAnnouncement, AdminAuditLog, AdminDashboardStats } from '../types';
 import { AdminAnnouncementService } from '../services/adminAnnouncementService';
 import { ChurchDataStore } from '../../services/churchDataStore';
 import { AuthService } from '../../services/authService';
+import { AdminService } from '../../services/adminService';
 
 interface AdminDashboardHomeProps {
   onNavigateToAnnouncements: () => void;
@@ -30,6 +32,7 @@ interface AdminDashboardHomeProps {
   onNavigateToAudit: () => void;
   onNavigateToRequests?: () => void;
   onNavigateToRecovery?: () => void;
+  onNavigateToAdminManagement?: () => void;
   onOpenCreateModal: () => void;
   onEditAnnouncement: (announcement: AdminAnnouncement) => void;
 }
@@ -40,6 +43,7 @@ export const AdminDashboardHome: React.FC<AdminDashboardHomeProps> = ({
   onNavigateToAudit,
   onNavigateToRequests,
   onNavigateToRecovery,
+  onNavigateToAdminManagement,
   onOpenCreateModal,
   onEditAnnouncement
 }) => {
@@ -53,6 +57,7 @@ export const AdminDashboardHome: React.FC<AdminDashboardHomeProps> = ({
   });
   const [pendingMinistryCount, setPendingMinistryCount] = useState(0);
   const [pendingRecoveryCount, setPendingRecoveryCount] = useState(0);
+  const [pendingAdminCount, setPendingAdminCount] = useState(0);
   const [recentAnnouncements, setRecentAnnouncements] = useState<AdminAnnouncement[]>([]);
   const [recentLogs, setRecentLogs] = useState<AdminAuditLog[]>([]);
   const [loading, setLoading] = useState(false);
@@ -65,12 +70,13 @@ export const AdminDashboardHome: React.FC<AdminDashboardHomeProps> = ({
       setIsSyncing(true);
     }
     try {
-      const [allAnnouncements, logsData, joins, users, recs] = await Promise.all([
+      const [allAnnouncements, logsData, joins, users, recs, adminReqs] = await Promise.all([
         AdminAnnouncementService.getAllAnnouncements(),
         AdminAnnouncementService.getAuditLogs(),
         ChurchDataStore.fetchJoinRequestsFromCloud(),
         ChurchDataStore.fetchUsersFromCloud(),
-        AuthService.fetchRecoveryRequestsFromCloud()
+        AuthService.fetchRecoveryRequestsFromCloud(),
+        AdminService.fetchAdminRequestsFromCloud()
       ]);
       const statsData = await AdminAnnouncementService.getDashboardStats(allAnnouncements);
       setStats(statsData);
@@ -83,6 +89,9 @@ export const AdminDashboardHome: React.FC<AdminDashboardHomeProps> = ({
 
       const pendingRec = recs ? recs.filter(r => r.status === 'pending').length : 0;
       setPendingRecoveryCount(pendingRec);
+
+      const pendingAdmin = adminReqs ? adminReqs.filter(r => r.status === 'pending').length : 0;
+      setPendingAdminCount(pendingAdmin);
     } catch (err) {
       console.error('Error loading dashboard overview:', err);
     } finally {
@@ -144,7 +153,7 @@ export const AdminDashboardHome: React.FC<AdminDashboardHomeProps> = ({
       </div>
 
       {/* Action Required Banner for Pending Requests */}
-      {(pendingMinistryCount > 0 || pendingRecoveryCount > 0) && (
+      {(pendingMinistryCount > 0 || pendingRecoveryCount > 0 || pendingAdminCount > 0) && (
         <div className="p-5 sm:p-6 rounded-3xl bg-amber-50 border border-amber-300 text-amber-950 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 animate-fadeIn">
           <div className="flex items-start sm:items-center gap-3">
             <div className="p-2.5 rounded-2xl bg-amber-200 text-amber-800 shrink-0">
@@ -154,13 +163,27 @@ export const AdminDashboardHome: React.FC<AdminDashboardHomeProps> = ({
               <div className="font-serif font-bold text-base text-amber-950">
                 Action Required by Super Admin
               </div>
-              <p className="text-xs text-amber-900 mt-0.5">
+              <p className="text-xs text-amber-900 mt-0.5 space-y-1 sm:space-y-0">
+                {pendingAdminCount > 0 && (
+                  <span className="font-bold text-purple-900 block sm:inline">
+                    🛡️ {pendingAdminCount} Admin access application(s) awaiting your decision.{' '}
+                  </span>
+                )}
                 {pendingMinistryCount > 0 && `${pendingMinistryCount} ministry application/registration request(s) awaiting verification. `}
                 {pendingRecoveryCount > 0 && `${pendingRecoveryCount} account recovery request(s) needing password reset.`}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {pendingAdminCount > 0 && onNavigateToAdminManagement && (
+              <button
+                onClick={onNavigateToAdminManagement}
+                className="px-4 py-2 rounded-xl bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs flex items-center gap-1.5 transition shadow-xs cursor-pointer"
+              >
+                <ShieldCheck className="w-4 h-4" />
+                <span>Review Admin ({pendingAdminCount})</span>
+              </button>
+            )}
             {pendingMinistryCount > 0 && onNavigateToRequests && (
               <button
                 onClick={onNavigateToRequests}
@@ -184,7 +207,36 @@ export const AdminDashboardHome: React.FC<AdminDashboardHomeProps> = ({
       )}
 
       {/* KPI Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        {/* Admin Applications KPI Card */}
+        <div 
+          onClick={onNavigateToAdminManagement}
+          className={`p-5 rounded-2xl border transition-all cursor-pointer group ${
+            pendingAdminCount > 0 
+              ? 'bg-purple-50/70 border-purple-300 shadow-sm ring-1 ring-purple-300' 
+              : 'bg-white border-[#E8DBD4] shadow-xs hover:border-purple-500/40'
+          }`}
+        >
+          <div className="flex items-center justify-between text-[#78716E] mb-2">
+            <span className="text-xs font-semibold uppercase tracking-wider">Admin Requests</span>
+            <div className={`p-2 rounded-xl ${
+              pendingAdminCount > 0 
+                ? 'bg-purple-200 text-purple-900' 
+                : 'bg-[#F8F3F0] text-purple-700 group-hover:bg-purple-700 group-hover:text-white'
+            } transition-colors`}>
+              <ShieldCheck className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-2xl sm:text-3xl font-bold font-serif text-[#1F1D1D]">
+            {loading ? '-' : pendingAdminCount}
+          </div>
+          <div className="text-[11px] text-[#78716E] mt-1 flex items-center gap-1">
+            <span className={pendingAdminCount > 0 ? 'text-purple-700 font-semibold' : ''}>
+              {pendingAdminCount > 0 ? 'Awaiting Super Admin' : 'Up to date'}
+            </span>
+            <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+          </div>
+        </div>
         {/* Ministry Approvals KPI Card */}
         <div 
           onClick={onNavigateToRequests}

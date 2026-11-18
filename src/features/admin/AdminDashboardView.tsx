@@ -62,11 +62,12 @@ export const AdminDashboardView: React.FC = () => {
   const refreshAllCloudData = async () => {
     setIsRefreshingCloud(true);
     try {
-      const [cloudAnn, cloudJoin, cloudRec, cloudUsers] = await Promise.all([
+      const [cloudAnn, cloudJoin, cloudRec, cloudUsers, cloudAdminReqs] = await Promise.all([
         ChurchDataStore.fetchAnnouncementsFromCloud(),
         ChurchDataStore.fetchJoinRequestsFromCloud(),
         AuthService.fetchRecoveryRequestsFromCloud(),
-        ChurchDataStore.fetchUsersFromCloud()
+        ChurchDataStore.fetchUsersFromCloud(),
+        AdminService.fetchAdminRequestsFromCloud()
       ]);
       if (cloudAnn) setAnnList(cloudAnn);
       if (cloudJoin) setJoinRequests(cloudJoin);
@@ -74,6 +75,9 @@ export const AdminDashboardView: React.FC = () => {
       if (cloudUsers) {
         setUsersList(cloudUsers);
         setPendingRegistrations(ChurchDataStore.getPendingMinistryRegistrations());
+      }
+      if (cloudAdminReqs) {
+        setPendingAdminCount(cloudAdminReqs.filter(r => r.status === 'pending').length);
       }
     } catch (err) {
       console.warn('Dashboard cloud refresh error:', err);
@@ -396,6 +400,23 @@ export const AdminDashboardView: React.FC = () => {
               <div className="text-[10px] text-slate-500">Pending Review</div>
             </div>
 
+            {isSuperAdmin && (
+              <div 
+                onClick={() => setActiveTab('admin_management')}
+                className={`p-5 rounded-2xl border shadow-card space-y-1 cursor-pointer transition ${
+                  pendingAdminCount > 0 
+                    ? 'bg-purple-50 dark:bg-purple-950/60 border-purple-300 dark:border-purple-800 ring-2 ring-purple-400/40' 
+                    : 'bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800 hover:border-purple-400'
+                }`}
+              >
+                <span className="text-[10px] font-bold uppercase text-purple-700 dark:text-purple-300">Admin Requests</span>
+                <div className="text-2xl font-serif font-bold text-purple-900 dark:text-purple-100">{pendingAdminCount}</div>
+                <div className="text-[10px] text-purple-600 dark:text-purple-400 font-semibold">
+                  {pendingAdminCount > 0 ? 'Awaiting Approval' : 'All Clear'}
+                </div>
+              </div>
+            )}
+
             <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-card space-y-1">
               <span className="text-[10px] font-bold uppercase text-slate-400">Supabase State</span>
               <div className="text-sm font-bold text-slate-900 dark:text-white truncate">
@@ -410,6 +431,31 @@ export const AdminDashboardView: React.FC = () => {
       {/* MINISTRY APPROVALS & JOIN REQUESTS (SUPER ADMIN GOVERNANCE) */}
       {activeTab === 'requests' && (
         <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-6 sm:p-8 shadow-card space-y-6">
+          {/* Admin Applications Alert Banner */}
+          {isSuperAdmin && pendingAdminCount > 0 && (
+            <div className="p-4 rounded-2xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 text-purple-950 dark:text-purple-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fadeIn">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-purple-200 dark:bg-purple-900 text-purple-900 dark:text-purple-200 shrink-0">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="font-bold text-xs sm:text-sm">
+                    🛡️ {pendingAdminCount} Admin Access Application(s) Awaiting Decision
+                  </div>
+                  <p className="text-[11px] text-purple-800 dark:text-purple-300">
+                    A congregation member applied for Church Administrator rights. Review and approve in Admin Management.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setActiveTab('admin_management')}
+                className="px-4 py-2 rounded-xl bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs flex items-center gap-1.5 transition shadow-xs cursor-pointer shrink-0"
+              >
+                <span>Go to Admin Management &rarr;</span>
+              </button>
+            </div>
+          )}
+
           <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800 gap-3">
             <div>
               <div className="flex items-center gap-2">

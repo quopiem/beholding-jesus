@@ -88,6 +88,7 @@ export const AdminApp: React.FC = () => {
           onNavigateToAudit={() => setCurrentView('audit')}
           onNavigateToRequests={() => setCurrentView('requests')}
           onNavigateToRecovery={() => setCurrentView('recovery')}
+          onNavigateToAdminManagement={() => setCurrentView('admin_management')}
           onOpenCreateModal={handleCreateFromDashboard}
           onEditAnnouncement={handleEditFromDashboard}
         />
@@ -98,7 +99,10 @@ export const AdminApp: React.FC = () => {
       )}
 
       {currentView === 'requests' && (
-        <AdminMinistryRequestsView />
+        <AdminMinistryRequestsView 
+          onNavigateToAdminManagement={() => setCurrentView('admin_management')}
+          currentAdmin={currentAdmin}
+        />
       )}
 
       {currentView === 'recovery' && (

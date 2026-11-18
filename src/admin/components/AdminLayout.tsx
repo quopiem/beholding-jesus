@@ -50,9 +50,10 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
 
   const updateCounts = async () => {
     try {
-      const [joins, recs] = await Promise.all([
+      const [joins, recs, adminReqs] = await Promise.all([
         ChurchDataStore.fetchJoinRequestsFromCloud(),
-        AuthService.fetchRecoveryRequestsFromCloud()
+        AuthService.fetchRecoveryRequestsFromCloud(),
+        AdminService.fetchAdminRequestsFromCloud()
       ]);
       const pendingReg = ChurchDataStore.getPendingMinistryRegistrations().length;
       const pendingJoin = joins ? joins.filter(j => j.status === 'pending').length : 0;
@@ -61,8 +62,8 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
       const pendingRec = recs ? recs.filter(r => r.status === 'pending').length : 0;
       setPendingRecoveryCount(pendingRec);
 
-      const adminReqs = AdminService.getAdminRequests();
-      setPendingAdminCount(adminReqs.filter(r => r.status === 'pending').length);
+      const pendingAdmin = adminReqs ? adminReqs.filter(r => r.status === 'pending').length : 0;
+      setPendingAdminCount(pendingAdmin);
     } catch {
       // fallback
       const pendingReg = ChurchDataStore.getPendingMinistryRegistrations().length;
