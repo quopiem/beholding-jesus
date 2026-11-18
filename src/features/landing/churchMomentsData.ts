@@ -17,6 +17,22 @@ export interface ChurchMomentPhoto {
 
 export const CHURCH_MOMENT_PHOTOS: ChurchMomentPhoto[] = [
   {
+    id: 'moment-sanctuary-worship',
+    title: 'Sunday Sanctuary Preaching & Media Ministry',
+    category: 'worship',
+    categoryLabel: 'Sunday Sanctuary',
+    badgeBg: 'bg-gold/15',
+    badgeText: 'text-gold-dark dark:text-gold',
+    badgeBorder: 'border-gold/30',
+    imageUrl: '/images/bjc-sanctuary-worship-bg.jpg',
+    tagline: 'Raising Disciples Who Know the Voice of God',
+    description: 'Our congregation gathered under the Word of God and the Cross, with live streaming and media ministry proclaiming the gospel of Jesus Christ.',
+    scriptureReference: 'John 10:27',
+    scriptureText: 'My sheep hear my voice, and I know them, and they follow me.',
+    aspect: 'landscape',
+    featured: true
+  },
+  {
     id: 'moment-family',
     title: 'Church Family Table Fellowship',
     category: 'fellowship',

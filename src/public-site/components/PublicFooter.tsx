@@ -59,6 +59,40 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({
                 Love God, Love People, Make Christ-like Disciples
               </div>
             </div>
+
+            {/* Social Media Channels (Facebook & YouTube) */}
+            <div className="pt-2 space-y-2">
+              <div className="text-gold font-bold uppercase tracking-wider text-[10px]">
+                Connect With Us Online
+              </div>
+              <div className="flex items-center gap-3">
+                <a
+                  href={PUBLIC_CHURCH_DATA.socialLinks.facebook}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-10 h-10 rounded-full bg-[#1877F2] hover:bg-[#166fe5] text-white flex items-center justify-center shadow-md transition-all duration-300 transform hover:scale-110 active:scale-95 group border border-white/20"
+                  aria-label="Facebook Page"
+                  title="Follow us on Facebook"
+                >
+                  <svg className="w-5 h-5 fill-white" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                  </svg>
+                </a>
+                <a
+                  href={PUBLIC_CHURCH_DATA.socialLinks.youtube}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-10 h-10 rounded-full bg-[#FF0000] hover:bg-[#E60000] text-white flex items-center justify-center shadow-md transition-all duration-300 transform hover:scale-110 active:scale-95 group border border-white/20"
+                  aria-label="YouTube Channel"
+                  title="Subscribe on YouTube"
+                >
+                  <svg className="w-5 h-5 fill-white" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                  </svg>
+                </a>
+                <span className="text-xs text-stone-400">@beholdingjesuschurch</span>
+              </div>
+            </div>
           </div>
 
           {/* Col 2: About & Doctrine */}

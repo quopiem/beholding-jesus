@@ -8,6 +8,7 @@ export const PUBLIC_CHURCH_DATA = {
   address: CHURCH_INFO.address,
   shortAddress: CHURCH_INFO.shortAddress,
   googleMapsUrl: CHURCH_INFO.googleMapsUrl,
+  socialLinks: CHURCH_INFO.socialLinks,
   schedules: CHURCH_INFO.schedules,
 
   themeVerses: [

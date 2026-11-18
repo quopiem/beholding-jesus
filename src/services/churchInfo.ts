@@ -14,6 +14,10 @@ export const CHURCH_INFO = {
   shortAddress: 'Camella Springville Molino 3, Bacoor City, Cavite',
   googleMapsQuery: 'Camella Springville Molino 3, Bacoor City, Cavite',
   googleMapsUrl: 'https://maps.google.com/?q=2nd+Flr+B15+L39+MVillar+Avenue+Ph2+central+Camella+Springville+Molino+3+Bacoor+City+Cavite',
+  socialLinks: {
+    facebook: 'https://www.facebook.com/beholdingjesuschurch',
+    youtube: 'https://www.youtube.com/@beholdingjesuschurch'
+  },
   banners: {
     serviceBanner: '/images/church-service-banner.png',
     weeklySchedules: '/images/weekly-schedules-banner.png'

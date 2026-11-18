@@ -42,31 +42,44 @@ export const PublicHomePage: React.FC<PublicHomePageProps> = ({
   return (
     <div className="space-y-16 sm:space-y-24 pb-16">
       
-      {/* 1. HERO SECTION */}
-      <section className="relative min-h-[580px] sm:min-h-[680px] flex items-center justify-center overflow-hidden bg-gradient-to-b from-stone-950 via-stone-900 to-slate-950 text-white pt-10 sm:pt-16 pb-16 px-4 sm:px-6">
-        {/* Ambient Glows */}
-        <div className="absolute inset-0 pointer-events-none opacity-25">
-          <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full bg-gold blur-[120px]" />
-          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 rounded-full bg-emerald-600 blur-[140px]" />
+      {/* 1. HERO SECTION (With Sanctuary Worship Background & River of God Style Live Social Buttons) */}
+      <section className="relative min-h-[640px] sm:min-h-[720px] lg:min-h-[760px] flex items-center justify-center overflow-hidden text-white pt-12 sm:pt-20 pb-16 px-4 sm:px-6">
+        
+        {/* Sanctuary Worship Background Photo */}
+        <div className="absolute inset-0 z-0 overflow-hidden">
+          <img 
+            src="/images/bjc-sanctuary-worship-bg.jpg" 
+            alt="Beholding Jesus Church Sanctuary Worship"
+            className="w-full h-full object-cover object-center filter brightness-[0.42] contrast-[1.12] saturate-[1.15] scale-105 transform motion-safe:animate-pulse duration-[8000ms]"
+          />
+          {/* Layered dark gradients for pristine text contrast */}
+          <div className="absolute inset-0 bg-gradient-to-b from-stone-950/85 via-stone-950/70 to-stone-950" />
+          <div className="absolute inset-0 bg-radial from-amber-500/15 via-transparent to-black/75 pointer-events-none" />
         </div>
 
-        <div className="relative max-w-5xl mx-auto text-center space-y-6 sm:space-y-8 z-10">
+        {/* Ambient Glows */}
+        <div className="absolute inset-0 pointer-events-none opacity-30 z-1">
+          <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full bg-gold blur-[140px]" />
+          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 rounded-full bg-emerald-600 blur-[150px]" />
+        </div>
+
+        <div className="relative max-w-4xl mx-auto text-center space-y-6 sm:space-y-7 z-10">
           
           {/* Top Pill */}
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 border border-gold/40 text-gold text-xs font-bold uppercase tracking-widest shadow-sm">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-gold/40 text-gold text-xs font-bold uppercase tracking-widest shadow-sm">
             <Sparkles className="w-3.5 h-3.5 text-gold shrink-0" />
             <span>Welcome to Beholding Jesus Church</span>
           </div>
 
           {/* Main Title */}
           <div className="space-y-3">
-            <h1 className="font-serif font-black text-3xl sm:text-5xl md:text-6xl text-white tracking-tight leading-tight sm:leading-none uppercase">
+            <h1 className="font-serif font-black text-3xl sm:text-5xl md:text-6xl text-white tracking-tight leading-tight uppercase drop-shadow-lg">
               Fix Your Eyes <br className="hidden sm:block" />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-gold via-amber-300 to-amber-200">
                 On Jesus Christ
               </span>
             </h1>
-            <p className="font-serif italic text-sm sm:text-lg text-stone-300 max-w-2xl mx-auto leading-relaxed">
+            <p className="font-serif italic text-sm sm:text-lg text-stone-300 max-w-2xl mx-auto leading-relaxed drop-shadow-sm">
               &ldquo;Looking unto Jesus the author and finisher of our faith...&rdquo;
               <span className="not-italic font-sans text-xs font-bold text-gold block sm:inline sm:ml-2">
                 — Hebrews 12:2
@@ -74,13 +87,63 @@ export const PublicHomePage: React.FC<PublicHomePageProps> = ({
             </p>
           </div>
 
-          {/* Intro Description */}
-          <p className="text-xs sm:text-base text-stone-300 max-w-2xl mx-auto leading-relaxed font-sans">
-            A Christ-centered, grace-anchored church family in Bacoor City, Cavite. We exist to know Christ and make Him known through passionate worship, sound biblical doctrine, loving fellowship, and intentional discipleship.
-          </p>
+          {/* River of God Style: Welcoming & Sunday Gathering Times */}
+          <div className="space-y-2 max-w-2xl mx-auto pt-1">
+            <p className="font-sans font-bold text-base sm:text-xl text-stone-100 tracking-wide drop-shadow-sm">
+              You are welcome at our Sunday Services
+            </p>
+            <div className="inline-flex flex-wrap items-center justify-center gap-2 px-4 py-1.5 rounded-full bg-black/40 backdrop-blur-md border border-gold/30 text-gold font-black text-xs sm:text-sm tracking-wider uppercase shadow-inner">
+              <span>9:00 AM SUNDAY WORSHIP</span>
+              <span className="text-stone-400">•</span>
+              <span>1:00 PM JESUS GEN YOUTH</span>
+            </div>
+          </div>
 
-          {/* CTA Buttons */}
-          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+          {/* Sanctuary Location Line */}
+          <div className="text-xs sm:text-sm text-stone-300 max-w-2xl mx-auto leading-relaxed flex items-center justify-center gap-1.5 drop-shadow-sm px-2">
+            <MapPin className="w-4 h-4 text-gold shrink-0" />
+            <span>2nd Flr. B15 L39 MVillar Avenue Ph2 Central Camella Springville, Molino 3, Bacoor City, Cavite</span>
+          </div>
+
+          {/* River of God Style: Live Streaming Invitation & Facebook + YouTube Circular Buttons */}
+          <div className="pt-2 sm:pt-3 space-y-3">
+            <p className="text-xs sm:text-sm font-semibold text-stone-200 tracking-wide drop-shadow-sm">
+              Join us LIVE on Facebook & YouTube
+            </p>
+            
+            <div className="flex items-center justify-center gap-4">
+              {/* Facebook Round Icon Button */}
+              <a
+                href="https://www.facebook.com/beholdingjesuschurch"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-13 h-13 sm:w-14 sm:h-14 rounded-full bg-[#1877F2] hover:bg-[#166fe5] text-white flex items-center justify-center shadow-[0_8px_24px_rgba(24,119,242,0.45)] hover:shadow-[0_12px_32px_rgba(24,119,242,0.65)] transition-all duration-300 transform hover:scale-115 active:scale-95 group border-2 border-white/25 cursor-pointer"
+                aria-label="Join Beholding Jesus Church on Facebook Live"
+                title="Join us on Facebook Live"
+              >
+                <svg className="w-6 h-6 sm:w-7 sm:h-7 fill-white transition-transform duration-300 group-hover:scale-110" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                </svg>
+              </a>
+
+              {/* YouTube Round Icon Button */}
+              <a
+                href="https://www.youtube.com/@beholdingjesuschurch"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-13 h-13 sm:w-14 sm:h-14 rounded-full bg-[#FF0000] hover:bg-[#E60000] text-white flex items-center justify-center shadow-[0_8px_24px_rgba(255,0,0,0.45)] hover:shadow-[0_12px_32px_rgba(255,0,0,0.65)] transition-all duration-300 transform hover:scale-115 active:scale-95 group border-2 border-white/25 cursor-pointer"
+                aria-label="Watch Beholding Jesus Church on YouTube"
+                title="Watch us on YouTube Live"
+              >
+                <svg className="w-6 h-6 sm:w-7 sm:h-7 fill-white transition-transform duration-300 group-hover:scale-110" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                </svg>
+              </a>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-3">
             <button
               onClick={() => onNavigate('first-time')}
               className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-gold via-amber-400 to-gold hover:from-amber-400 hover:to-gold text-slate-950 font-black text-xs sm:text-sm shadow-lg transition-all flex items-center gap-2 cursor-pointer hover:scale-[1.03] active:scale-95"
@@ -91,7 +154,7 @@ export const PublicHomePage: React.FC<PublicHomePageProps> = ({
 
             <button
               onClick={() => onNavigate('events')}
-              className="px-6 py-3.5 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/20 text-white font-bold text-xs sm:text-sm shadow-sm transition-all flex items-center gap-2 cursor-pointer hover:scale-[1.02] active:scale-95"
+              className="px-6 py-3.5 rounded-2xl bg-white/10 hover:bg-white/15 backdrop-blur-md border border-white/20 text-white font-bold text-xs sm:text-sm shadow-sm transition-all flex items-center gap-2 cursor-pointer hover:scale-[1.02] active:scale-95"
             >
               <Calendar className="w-4 h-4 text-gold" />
               <span>Gathering Schedules</span>
@@ -99,24 +162,11 @@ export const PublicHomePage: React.FC<PublicHomePageProps> = ({
 
             <button
               onClick={onOpenRegister}
-              className="px-6 py-3.5 rounded-2xl bg-emerald-900/60 hover:bg-emerald-800/70 border border-emerald-500/40 text-emerald-200 font-bold text-xs sm:text-sm shadow-sm transition-all flex items-center gap-2 cursor-pointer hover:scale-[1.02] active:scale-95"
+              className="px-6 py-3.5 rounded-2xl bg-emerald-900/60 hover:bg-emerald-800/70 backdrop-blur-md border border-emerald-500/40 text-emerald-200 font-bold text-xs sm:text-sm shadow-sm transition-all flex items-center gap-2 cursor-pointer hover:scale-[1.02] active:scale-95"
             >
               <Users className="w-4 h-4 text-emerald-400" />
               <span>Join Church Family</span>
             </button>
-          </div>
-
-          {/* Highlight Badge */}
-          <div className="pt-4 flex flex-wrap items-center justify-center gap-4 text-xs text-stone-400">
-            <div className="flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5 text-gold" />
-              <span>Sundays at 9:00 AM</span>
-            </div>
-            <span>•</span>
-            <div className="flex items-center gap-1.5">
-              <MapPin className="w-3.5 h-3.5 text-gold" />
-              <span>Camella Springville Molino 3, Bacoor</span>
-            </div>
           </div>
 
         </div>
