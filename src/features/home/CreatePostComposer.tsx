@@ -1,9 +1,10 @@
 import React, { useState, useRef } from 'react';
 import { 
   Image as ImageIcon, Sparkles, X, Plus, Send, Heart, BookOpen, 
-  MessageSquare, Bell, Calendar, MapPin, Pin, AlertCircle, ShieldAlert
+  MessageSquare, Bell, Calendar, MapPin, Pin, AlertCircle, ShieldAlert,
+  Users, Lock, Globe
 } from 'lucide-react';
-import { UserProfile, FeedPostType } from '../../types';
+import { UserProfile, FeedPostType, PrayerAudience } from '../../types';
 import { isChurchAdmin, ChurchFeedStore } from '../../services/churchFeedStore';
 
 interface CreatePostComposerProps {
@@ -25,6 +26,9 @@ export const CreatePostComposer: React.FC<CreatePostComposerProps> = ({
   const [content, setContent] = useState('');
   const [category, setCategory] = useState<string>('Personal Update');
   const [postType, setPostType] = useState<FeedPostType>(initialPostType);
+  const [prayerAudience, setPrayerAudience] = useState<PrayerAudience>('community');
+  const [targetGroupId, setTargetGroupId] = useState<string>('');
+  const [targetGroupName, setTargetGroupName] = useState<string>('');
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -126,14 +130,19 @@ export const CreatePostComposer: React.FC<CreatePostComposerProps> = ({
     setErrorMessage(null);
 
     try {
+      const effectiveType: FeedPostType = postType === 'announcement' ? (isAdmin ? 'announcement' : 'community') : postType;
+
       await ChurchFeedStore.createPost({
         author: currentUser,
         content,
         imageUrls,
-        category,
-        postType: isAdmin ? postType : 'community',
-        announcementTitle: isAdmin && postType === 'announcement' ? announcementTitle : undefined,
-        announcementPriority: isAdmin && postType === 'announcement' ? announcementPriority : undefined,
+        category: effectiveType === 'prayer_request' ? 'Prayer Request' : category,
+        postType: effectiveType,
+        prayerAudience: effectiveType === 'prayer_request' ? prayerAudience : undefined,
+        targetGroupId: effectiveType === 'prayer_request' && prayerAudience === 'group' ? (targetGroupId || currentUser.groupRooms?.[0]) : undefined,
+        targetGroupName: effectiveType === 'prayer_request' && prayerAudience === 'group' ? (targetGroupName || 'My Fellowship Group') : undefined,
+        announcementTitle: isAdmin && effectiveType === 'announcement' ? announcementTitle : undefined,
+        announcementPriority: isAdmin && effectiveType === 'announcement' ? announcementPriority : undefined,
         eventDate: eventDate.trim() || undefined,
         eventTime: eventTime.trim() || undefined,
         eventLocation: eventLocation.trim() || undefined,
@@ -231,13 +240,14 @@ export const CreatePostComposer: React.FC<CreatePostComposerProps> = ({
             <button
               type="button"
               onClick={() => {
-                setCategory('Prayer Encouragement');
+                setPostType('prayer_request');
+                setCategory('Prayer Request');
                 setIsExpanded(true);
               }}
               className="px-3 py-1.5 rounded-full hover:bg-stone-100 dark:hover:bg-slate-800 text-stone-600 dark:text-stone-300 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer shrink-0 active:scale-95"
             >
               <span className="text-rose-500 text-sm">🙏</span>
-              <span>Prayer</span>
+              <span>Prayer Request</span>
             </button>
 
             <button
@@ -301,32 +311,117 @@ export const CreatePostComposer: React.FC<CreatePostComposerProps> = ({
           {/* Form scrollable body */}
           <div className={isOpenAsModal ? "flex-1 overflow-y-auto p-4 space-y-4 overscroll-contain" : "space-y-4"}>
 
-          {/* Admin Post Type Toggle: Official Announcement vs Community Post */}
-          {isAdmin && (
-            <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-stone-100 dark:bg-slate-800 text-xs">
+          {/* Post Type Selector: Community Post vs Prayer Request vs Official Announcement */}
+          <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-stone-100 dark:bg-slate-800 text-xs">
+            <button
+              type="button"
+              onClick={() => {
+                setPostType('community');
+                setCategory('Personal Update');
+              }}
+              className={`flex-1 py-1.5 px-2 rounded-xl font-bold transition text-center cursor-pointer ${
+                postType === 'community' 
+                  ? 'bg-white dark:bg-slate-700 text-stone-900 dark:text-white shadow-xs' 
+                  : 'text-stone-500 hover:text-stone-900 dark:hover:text-white'
+              }`}
+            >
+              💬 Community
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setPostType('prayer_request');
+                setCategory('Prayer Request');
+              }}
+              className={`flex-1 py-1.5 px-2 rounded-xl font-bold transition text-center cursor-pointer flex items-center justify-center gap-1 ${
+                postType === 'prayer_request' 
+                  ? 'bg-rose-500 text-white shadow-xs' 
+                  : 'text-stone-500 hover:text-stone-900 dark:hover:text-white'
+              }`}
+            >
+              <span>🙏 Prayer Request</span>
+            </button>
+            {isAdmin && (
               <button
                 type="button"
-                onClick={() => setPostType('community')}
-                className={`flex-1 py-1.5 rounded-xl font-bold transition text-center cursor-pointer ${
-                  postType === 'community' 
-                    ? 'bg-white dark:bg-slate-700 text-stone-900 dark:text-white shadow-xs' 
-                    : 'text-stone-500 hover:text-stone-900 dark:hover:text-white'
-                }`}
-              >
-                Community Post
-              </button>
-              <button
-                type="button"
-                onClick={() => setPostType('announcement')}
-                className={`flex-1 py-1.5 rounded-xl font-bold transition text-center cursor-pointer flex items-center justify-center gap-1.5 ${
+                onClick={() => {
+                  setPostType('announcement');
+                  setCategory('Official Announcement');
+                }}
+                className={`flex-1 py-1.5 px-2 rounded-xl font-bold transition text-center cursor-pointer flex items-center justify-center gap-1 ${
                   postType === 'announcement' 
                     ? 'bg-gradient-to-r from-gold to-amber-200 text-slate-950 shadow-xs' 
                     : 'text-stone-500 hover:text-stone-900 dark:hover:text-white'
                 }`}
               >
                 <Bell className="w-3.5 h-3.5" />
-                <span>Official Announcement</span>
+                <span>Announcement</span>
               </button>
+            )}
+          </div>
+
+          {/* Prayer Request Privacy & Audience Options */}
+          {postType === 'prayer_request' && (
+            <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/20 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-rose-700 dark:text-rose-300 flex items-center gap-1.5 uppercase tracking-wide">
+                  <span>🙏</span>
+                  <span>Prayer Audience & Privacy</span>
+                </span>
+                <span className="text-[10px] text-rose-600/80 dark:text-rose-400">
+                  {prayerAudience === 'private' ? 'Confidential' : prayerAudience === 'group' ? 'Group Only' : 'Church Wide'}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setPrayerAudience('community')}
+                  className={`p-2 rounded-xl border text-left transition cursor-pointer flex flex-col items-center justify-center gap-1 ${
+                    prayerAudience === 'community'
+                      ? 'bg-white dark:bg-slate-900 border-rose-400 text-rose-700 dark:text-rose-300 shadow-xs'
+                      : 'bg-white/50 dark:bg-slate-900/40 border-stone-200 dark:border-slate-700 text-stone-600 dark:text-stone-400 hover:border-rose-300'
+                  }`}
+                >
+                  <Globe className="w-4 h-4 text-emerald-500" />
+                  <span className="text-[11px] font-bold text-center leading-tight">Church Family</span>
+                  <span className="text-[9px] text-stone-500 text-center leading-tight">All Members</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setPrayerAudience('group')}
+                  className={`p-2 rounded-xl border text-left transition cursor-pointer flex flex-col items-center justify-center gap-1 ${
+                    prayerAudience === 'group'
+                      ? 'bg-white dark:bg-slate-900 border-rose-400 text-rose-700 dark:text-rose-300 shadow-xs'
+                      : 'bg-white/50 dark:bg-slate-900/40 border-stone-200 dark:border-slate-700 text-stone-600 dark:text-stone-400 hover:border-rose-300'
+                  }`}
+                >
+                  <Users className="w-4 h-4 text-sky-500" />
+                  <span className="text-[11px] font-bold text-center leading-tight">Fellowship</span>
+                  <span className="text-[9px] text-stone-500 text-center leading-tight">Group Only</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setPrayerAudience('private')}
+                  className={`p-2 rounded-xl border text-left transition cursor-pointer flex flex-col items-center justify-center gap-1 ${
+                    prayerAudience === 'private'
+                      ? 'bg-white dark:bg-slate-900 border-rose-400 text-rose-700 dark:text-rose-300 shadow-xs'
+                      : 'bg-white/50 dark:bg-slate-900/40 border-stone-200 dark:border-slate-700 text-stone-600 dark:text-stone-400 hover:border-rose-300'
+                  }`}
+                >
+                  <Lock className="w-4 h-4 text-amber-500" />
+                  <span className="text-[11px] font-bold text-center leading-tight">Pastoral Care</span>
+                  <span className="text-[9px] text-stone-500 text-center leading-tight">Confidential</span>
+                </button>
+              </div>
+
+              <p className="text-[10px] text-stone-500 dark:text-stone-400 pt-0.5">
+                {prayerAudience === 'community' && '✨ Your prayer request will appear in the Community Feed so brothers and sisters can stand with you and pray.'}
+                {prayerAudience === 'group' && '👥 Visible only to members of your Fellowship group and church pastoral care.'}
+                {prayerAudience === 'private' && '🔒 Completely confidential — visible only to you and pastoral leadership for intercession.'}
+              </p>
             </div>
           )}
 
@@ -467,7 +562,13 @@ export const CreatePostComposer: React.FC<CreatePostComposerProps> = ({
           {/* Textarea */}
           <textarea
             rows={4}
-            placeholder={`What would you like to share with the church, ${firstName}? (Bible verse reflection, testimony, prayer encouragement...)`}
+            placeholder={
+              postType === 'prayer_request'
+                ? `Share your prayer request, burdens, or praises with your church family, ${firstName}... We are standing with you in faith.`
+                : postType === 'announcement'
+                ? "Write the official announcement details, scriptures, call to action..."
+                : `What would you like to share with the church, ${firstName}? (Bible verse reflection, testimony, prayer encouragement...)`
+            }
             value={content}
             onChange={(e) => setContent(e.target.value)}
             className="w-full p-3.5 rounded-2xl bg-stone-50 dark:bg-slate-800/60 border border-stone-200 dark:border-slate-700 text-stone-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-gold resize-none leading-relaxed"
@@ -547,7 +648,7 @@ export const CreatePostComposer: React.FC<CreatePostComposerProps> = ({
                 className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-gold to-[#b09058] hover:brightness-105 disabled:opacity-50 text-slate-950 font-bold text-xs shadow-gold flex items-center gap-2 transition cursor-pointer"
               >
                 <Send className="w-3.5 h-3.5" />
-                <span>{isUploading ? 'Publishing...' : 'Post to Church'}</span>
+                <span>{isUploading ? 'Publishing...' : postType === 'prayer_request' ? 'Share Prayer Request' : 'Post to Church'}</span>
               </button>
             </div>
           </div>

@@ -128,7 +128,7 @@ export function App() {
         {/* Preserved Main Swipe Sections (State remains intact across tab switches) */}
         {visitedTabs.has('feed') && (
           <div style={{ display: (currentTab === 'feed' || currentTab === 'home' || currentTab === 'landing') ? 'block' : 'none' }}>
-            <HomeView onNavigate={setCurrentTab} onOpenQuickAction={() => setCurrentTab('worship')} currentUser={currentUser} />
+            <HomeView onNavigate={setCurrentTab} onOpenQuickAction={() => setCurrentTab('feed')} currentUser={currentUser} />
           </div>
         )}
 
@@ -194,12 +194,10 @@ export function App() {
           <div className="w-full">
             {(() => {
               switch (currentTab) {
-                case 'worship': return <WorshipView />;
                 case 'events': return <EventsView />;
-                case 'prayer': return <PrayerFaithView />;
                 case 'admin': return <AdminDashboardView />;
                 case 'bjc-ai': return <BjcAiView onNavigate={setCurrentTab} currentUser={currentUser} />;
-                default: return <HomeView onNavigate={setCurrentTab} onOpenQuickAction={() => setCurrentTab('worship')} currentUser={currentUser} />;
+                default: return <HomeView onNavigate={setCurrentTab} onOpenQuickAction={() => setCurrentTab('feed')} currentUser={currentUser} />;
               }
             })()}
           </div>
@@ -215,7 +213,7 @@ export function App() {
       <AppLayout 
         currentTab={currentTab} 
         onTabChange={setCurrentTab}
-        onOpenQuickAction={() => setCurrentTab('worship')}
+        onOpenQuickAction={() => setCurrentTab('feed')}
         currentUser={currentUser}
         isChatConversationOpen={isInsideChat}
         onLogout={() => {

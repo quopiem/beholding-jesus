@@ -373,8 +373,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
       items: [
         { id: 'bible', label: 'Bible', icon: BookOpen },
         { id: 'stories', label: 'Bible Stories', icon: BookMarked },
-        { id: 'prayer', label: 'Prayer & Faith', icon: Heart },
-        { id: 'worship', label: 'Worship Hub', icon: Music, badge: 'VOCAL KEYS' },
       ]
     },
     {
@@ -913,13 +911,13 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                     </div>
                   </button>
                   <button 
-                    onClick={() => { onTabChange('worship'); setIsSearchOpen(false); }}
-                    className="p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-left flex items-center gap-2"
+                    onClick={() => { onTabChange('events'); setIsSearchOpen(false); }}
+                    className="p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-left flex items-center gap-2 cursor-pointer"
                   >
-                    <Music className="w-4 h-4 text-gold" />
+                    <Calendar className="w-4 h-4 text-gold" />
                     <div>
-                      <div className="font-semibold text-slate-900 dark:text-white">Song Keys</div>
-                      <div className="text-[10px]">Worship songs</div>
+                      <div className="font-semibold text-slate-900 dark:text-white">Church Events</div>
+                      <div className="text-[10px]">Calendar & Schedule</div>
                     </div>
                   </button>
                 </div>
@@ -1094,11 +1092,10 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                   <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">
                     Spiritual Life
                   </div>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {[
-                      { id: 'prayer', label: 'Prayer & Faith', icon: Heart, color: 'text-rose-500' },
-                      { id: 'worship', label: 'Worship Hub', icon: Music, color: 'text-amber-500' },
                       { id: 'stories', label: 'Bible Stories', icon: BookMarked, color: 'text-emerald-500' },
+                      { id: 'bible', label: 'Bible Study', icon: BookOpen, color: 'text-amber-500' },
                     ].map(m => {
                       const Icon = m.icon;
                       return (

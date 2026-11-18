@@ -18,6 +18,7 @@ export interface UserProfile {
   bio?: string;
   phone?: string;
   ministryIds?: string[];
+  groupRooms?: string[];
   joinedDate?: string;
   isSuspended?: boolean;
   ministryLabel?: string;
@@ -525,7 +526,8 @@ export interface ModerationAuditLog {
   createdAt: string;
 }
 
-export type FeedPostType = 'community' | 'announcement';
+export type FeedPostType = 'community' | 'announcement' | 'prayer_request';
+export type PrayerAudience = 'community' | 'group' | 'private';
 
 export interface FeedPost {
   id: string;
@@ -553,6 +555,16 @@ export interface FeedPost {
   eventLocation?: string;
   actionButtonLabel?: string;
   actionButtonUrl?: string;
+
+  // Prayer Request specific properties
+  prayerAudience?: PrayerAudience;
+  targetGroupId?: string;
+  targetGroupName?: string;
+  prayerCount?: number;
+  prayedUserIds?: string[];
+  isAnswered?: boolean;
+  answeredAt?: string;
+  praiseNote?: string;
 
   // Realtime reactions & comments
   reactions: PostReaction[];

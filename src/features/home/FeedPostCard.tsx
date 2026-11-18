@@ -3,7 +3,8 @@ import {
   MoreHorizontal, Heart, MessageSquare, Share2, Pin, PinOff, 
   Trash2, Edit3, EyeOff, Eye, MessageSquareOff, MessageSquarePlus,
   Flag, Send, CornerDownRight, Check, X, Bell, Clock, Calendar, MapPin, 
-  Maximize2, Sparkles, CheckCircle2, ChevronRight, ShieldCheck, Download
+  Maximize2, Sparkles, CheckCircle2, ChevronRight, ShieldCheck, Download,
+  Globe, Users, Lock
 } from 'lucide-react';
 import { 
   FeedPost, UserProfile, PostComment, FeedReactionType, 
@@ -49,6 +50,9 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editCommentText, setEditCommentText] = useState('');
   const [copiedShare, setCopiedShare] = useState(false);
+  const [isAnswerModalOpen, setIsAnswerModalOpen] = useState(false);
+  const [praiseReportNote, setPraiseReportNote] = useState('');
+  const [isSubmittingAnswer, setIsSubmittingAnswer] = useState(false);
 
   const menuRef = useRef<HTMLDivElement>(null);
   const isAdmin = isChurchAdmin(currentUser);
@@ -141,6 +145,29 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
     document.body.removeChild(a);
   };
 
+  const handleTogglePray = () => {
+    try {
+      ChurchFeedStore.togglePrayForPost(post.id, currentUser);
+      onCommentAdded();
+    } catch (err: any) {
+      alert(err.message || 'Could not update prayer support.');
+    }
+  };
+
+  const handleMarkAnswered = () => {
+    setIsSubmittingAnswer(true);
+    try {
+      ChurchFeedStore.markPrayerAnswered(post.id, currentUser, praiseReportNote);
+      setIsAnswerModalOpen(false);
+      setPraiseReportNote('');
+      onCommentAdded();
+    } catch (err: any) {
+      alert(err.message || 'Could not mark prayer as answered.');
+    } finally {
+      setIsSubmittingAnswer(false);
+    }
+  };
+
   const totalReactions = Object.values(post.reactionCounts).reduce((a, b) => a + b, 0);
   const activeReactionMeta = post.userReaction ? FEED_REACTIONS[post.userReaction] : null;
 
@@ -155,6 +182,8 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
   });
 
   const isAnnouncement = post.postType === 'announcement';
+  const isPrayerRequest = post.postType === 'prayer_request';
+  const hasUserPrayed = Array.isArray(post.prayedUserIds) && post.prayedUserIds.includes(currentUser.id);
 
   return (
     <article 
@@ -163,6 +192,10 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
           ? 'opacity-60 bg-rose-50/20 dark:bg-rose-950/20'
           : isAnnouncement
           ? 'border-l-4 border-l-gold bg-gradient-to-r from-gold/[0.03] via-transparent to-transparent'
+          : isPrayerRequest && post.isAnswered
+          ? 'border-l-4 border-l-amber-400 bg-gradient-to-r from-amber-500/[0.04] via-transparent to-transparent'
+          : isPrayerRequest
+          ? 'border-l-4 border-l-rose-400 bg-gradient-to-r from-rose-500/[0.03] via-transparent to-transparent'
           : ''
       }`}
     >
@@ -228,6 +261,29 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
             </span>
           )}
 
+          {isPrayerRequest && (
+            <div className="flex items-center gap-1">
+              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-wider ${
+                post.isAnswered
+                  ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30'
+                  : 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30'
+              }`}>
+                <span>{post.isAnswered ? '✨ Answered' : '🙏 Prayer'}</span>
+              </span>
+              {post.prayerAudience === 'private' ? (
+                <span className="hidden sm:inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/20 text-[9px] font-medium" title="Confidential Prayer">
+                  <Lock className="w-2.5 h-2.5" />
+                  <span>Private</span>
+                </span>
+              ) : post.prayerAudience === 'group' ? (
+                <span className="hidden sm:inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-sky-500/15 text-sky-700 dark:text-sky-300 border border-sky-500/20 text-[9px] font-medium" title="Group Prayer">
+                  <Users className="w-2.5 h-2.5" />
+                  <span>{post.targetGroupName || 'Group'}</span>
+                </span>
+              ) : null}
+            </div>
+          )}
+
           {post.isPinned && (
             <span className="p-1 rounded-full bg-gold/20 text-gold" title="Pinned Announcement">
               <Pin className="w-3.5 h-3.5 rotate-45 fill-current" />
@@ -257,6 +313,20 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
                   >
                     <Edit3 className="w-3.5 h-3.5 text-stone-500" />
                     <span>Edit Post</span>
+                  </button>
+                )}
+
+                {/* Author / Admin Mark Prayer as Answered */}
+                {isPrayerRequest && (isAuthor || isAdmin) && !post.isAnswered && (
+                  <button
+                    onClick={() => {
+                      setIsMenuOpen(false);
+                      setIsAnswerModalOpen(true);
+                    }}
+                    className="w-full px-3.5 py-2 text-left hover:bg-amber-50 dark:hover:bg-amber-950/40 text-amber-800 dark:text-amber-300 flex items-center gap-2 transition cursor-pointer font-medium"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-gold" />
+                    <span>Mark as Answered Prayer</span>
                   </button>
                 )}
 
@@ -360,6 +430,28 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
         </div>
       )}
 
+      {/* Answered Prayer Celebration Banner */}
+      {isPrayerRequest && post.isAnswered && (
+        <div className="mx-3.5 sm:mx-4 mb-3 p-3.5 rounded-2xl bg-gradient-to-r from-amber-500/15 via-gold/20 to-amber-500/15 border border-gold/40 text-stone-900 dark:text-white shadow-xs animate-in fade-in duration-300">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 font-bold text-xs sm:text-sm text-amber-700 dark:text-amber-300">
+              <Sparkles className="w-4 h-4 text-gold animate-pulse shrink-0" />
+              <span>PRAISE THE LORD — ANSWERED PRAYER!</span>
+            </div>
+            {post.answeredAt && (
+              <span className="text-[10px] text-stone-500 dark:text-stone-400">
+                {formatRelativeTime(post.answeredAt)}
+              </span>
+            )}
+          </div>
+          {post.praiseNote && (
+            <div className="mt-2 text-xs sm:text-sm text-stone-700 dark:text-stone-200 italic bg-white/80 dark:bg-slate-900/70 p-2.5 rounded-xl border border-gold/20">
+              "{post.praiseNote}"
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Post Text Content */}
       <div className="px-3.5 sm:px-4 pb-2.5">
         <p className="text-sm sm:text-base text-stone-800 dark:text-stone-200 whitespace-pre-line leading-relaxed font-sans">
@@ -375,6 +467,55 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
           </div>
         )}
       </div>
+
+      {/* Dedicated Prayer Bar for Prayer Requests */}
+      {isPrayerRequest && (
+        <div className="mx-3.5 sm:mx-4 mb-3 p-2.5 rounded-2xl bg-rose-500/10 dark:bg-rose-500/15 border border-rose-500/25 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-9 h-9 rounded-full bg-rose-500/20 text-rose-600 dark:text-rose-400 flex items-center justify-center text-base font-bold shrink-0">
+              🙏
+            </div>
+            <div className="min-w-0">
+              <div className="text-xs font-bold text-stone-900 dark:text-white flex items-center gap-1.5 flex-wrap">
+                <span>{(post.prayerCount || 0)} {(post.prayerCount === 1) ? 'believer is' : 'believers are'} praying</span>
+                {hasUserPrayed && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-500 text-white font-semibold">You prayed</span>
+                )}
+              </div>
+              <div className="text-[11px] text-stone-500 dark:text-stone-400 truncate">
+                Standing in faith together with {post.authorName}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={handleTogglePray}
+              className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition cursor-pointer shadow-xs active:scale-95 ${
+                hasUserPrayed
+                  ? 'bg-rose-600 text-white hover:bg-rose-700'
+                  : 'bg-white dark:bg-slate-800 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-slate-700 border border-rose-300 dark:border-rose-700'
+              }`}
+            >
+              <span>🙏</span>
+              <span>{hasUserPrayed ? 'Praying' : 'Pray for this'}</span>
+            </button>
+
+            {(isAuthor || isAdmin) && !post.isAnswered && (
+              <button
+                type="button"
+                onClick={() => setIsAnswerModalOpen(true)}
+                className="px-2.5 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-800 dark:text-amber-300 border border-amber-500/30 font-semibold text-xs flex items-center gap-1 transition cursor-pointer active:scale-95"
+                title="Mark this prayer as answered"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-gold" />
+                <span className="hidden sm:inline">Answered</span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Optional Event Details Box */}
       {(post.eventDate || post.eventLocation) && (
@@ -867,6 +1008,65 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
             )}
           </div>
 
+        </div>
+      )}
+
+      {/* Answered Prayer Testimony Modal */}
+      {isAnswerModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl p-5 border border-stone-200 dark:border-slate-800 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-stone-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">✨</span>
+                <h3 className="font-bold text-base text-stone-900 dark:text-white">
+                  Praise God! Mark as Answered
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAnswerModalOpen(false)}
+                className="p-1 rounded-full text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-stone-600 dark:text-stone-300">
+              Share a praise report or testimony with the church family on how the Lord answered this prayer!
+            </p>
+
+            <div>
+              <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
+                Praise Report / Testimony (Optional)
+              </label>
+              <textarea
+                rows={3}
+                value={praiseReportNote}
+                onChange={(e) => setPraiseReportNote(e.target.value)}
+                placeholder="Give glory to God! How did the Lord answer your prayer?..."
+                className="w-full p-3 rounded-2xl bg-stone-50 dark:bg-slate-800 border border-stone-200 dark:border-slate-700 text-stone-900 dark:text-white text-xs focus:ring-2 focus:ring-gold focus:outline-none resize-none"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsAnswerModalOpen(false)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-stone-500 hover:text-stone-800 dark:hover:text-stone-200 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isSubmittingAnswer}
+                onClick={handleMarkAnswered}
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-gold to-amber-500 text-slate-950 font-bold text-xs shadow-gold transition active:scale-95 disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>{isSubmittingAnswer ? 'Saving...' : 'Confirm Answered Prayer'}</span>
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

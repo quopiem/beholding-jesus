@@ -1,6 +1,6 @@
 import { 
   FeedPost, PostReaction, PostComment, PostReport, ModerationAuditLog,
-  FeedReactionType, UserProfile, FEED_REACTIONS, FeedPostType 
+  FeedReactionType, UserProfile, FEED_REACTIONS, FeedPostType, PrayerAudience 
 } from '../types';
 import { supabase } from '../lib/supabase';
 import { ChurchDataStore } from './churchDataStore';
@@ -223,10 +223,33 @@ export class ChurchFeedStore {
       };
     });
 
+    const user = currentUser || ChurchDataStore.getCurrentUser();
+    const isAdmin = user ? isChurchAdmin(user) : false;
+
+    // Strict Privacy Filtering (Community, Group, Private)
+    const visiblePosts = enrichedPosts.filter(post => {
+      if (post.postType === 'prayer_request') {
+        const audience = post.prayerAudience || 'community';
+        if (audience === 'private') {
+          // Visible only to author or church admin/pastor
+          return (user && post.authorId === user.id) || isAdmin;
+        }
+        if (audience === 'group') {
+          // Visible to author, church admin, or group member
+          if ((user && post.authorId === user.id) || isAdmin) return true;
+          if (post.targetGroupId && user) {
+            return user.groupRooms?.includes(post.targetGroupId) || false;
+          }
+          return true;
+        }
+      }
+      return true;
+    });
+
     // Sort order:
     // 1. Pinned announcements first (by pinnedAt or createdAt desc)
     // 2. All other posts by createdAt desc
-    return enrichedPosts.sort((a, b) => {
+    return visiblePosts.sort((a, b) => {
       const aIsPinned = !a.isHidden && a.postType === 'announcement' && a.isPinned === true && a.announcementPriority === 'pinned';
       const bIsPinned = !b.isHidden && b.postType === 'announcement' && b.isPinned === true && b.announcementPriority === 'pinned';
 
@@ -440,6 +463,49 @@ export class ChurchFeedStore {
             counts.like = p.likes_count;
           }
 
+          let postType: FeedPostType = 'community';
+          let category = 'Personal Update';
+          let prayerAudience: PrayerAudience | undefined = undefined;
+          let targetGroupId: string | undefined = undefined;
+          let isAnswered = false;
+          let praiseNote: string | undefined = undefined;
+          let cleanContent = p.content || '';
+
+          // Check answered tag
+          const ansMatch = cleanContent.match(/\[ANSWERED:([^\]]*)\]/);
+          if (ansMatch) {
+            isAnswered = true;
+            try {
+              praiseNote = decodeURIComponent(ansMatch[1]);
+            } catch {
+              praiseNote = ansMatch[1];
+            }
+            cleanContent = cleanContent.replace(/\[ANSWERED:([^\]]*)\]\s*/, '');
+          }
+
+          // Check prayer tag
+          const prayerMatch = cleanContent.match(/^\[PRAYER:([^:\]]+)(?::([^\]]+))?\]\s*(.*)$/s);
+          if (prayerMatch) {
+            postType = 'prayer_request';
+            category = 'Prayer Request';
+            prayerAudience = prayerMatch[1] as PrayerAudience;
+            targetGroupId = prayerMatch[2];
+            cleanContent = prayerMatch[3];
+          }
+
+          // Recover local cached prayer metadata
+          const localMatch = this.getRawPosts().find(lp => lp.id === p.id);
+          if (localMatch?.postType === 'prayer_request') {
+            postType = 'prayer_request';
+            category = 'Prayer Request';
+            if (localMatch.prayerAudience) prayerAudience = localMatch.prayerAudience;
+            if (localMatch.targetGroupId) targetGroupId = localMatch.targetGroupId;
+          }
+          const prayerCount = localMatch?.prayerCount || p.likes_count || 0;
+          const prayedUserIds = localMatch?.prayedUserIds || [];
+          if (localMatch?.isAnswered) isAnswered = true;
+          if (localMatch?.praiseNote) praiseNote = localMatch.praiseNote;
+
           mappedCommPosts.push({
             id: p.id,
             authorId: p.user_id,
@@ -447,9 +513,15 @@ export class ChurchFeedStore {
             authorAvatar: p.author_avatar || '/icons/church-logo.png',
             authorRole: p.author_role || 'Church Member',
             ministryLabel: 'Church Community',
-            content: p.content,
-            postType: 'community',
-            category: 'Personal Update',
+            content: cleanContent,
+            postType,
+            category,
+            prayerAudience,
+            targetGroupId,
+            prayerCount,
+            prayedUserIds,
+            isAnswered,
+            praiseNote,
             imageUrls: p.image_url ? [p.image_url] : [],
             createdAt: p.created_at || new Date().toISOString(),
             updatedAt: p.created_at || new Date().toISOString(),
@@ -469,13 +541,13 @@ export class ChurchFeedStore {
       // NEVER resurrect deleted posts from other users that are no longer in the cloud!
       const localCommunity = (cloudCommPosts && Array.isArray(cloudCommPosts))
         ? this.getRawPosts().filter(p => {
-            if (p.postType !== 'community' || deletedIds.includes(p.id)) return false;
+            if ((p.postType !== 'community' && p.postType !== 'prayer_request') || deletedIds.includes(p.id)) return false;
             if (mappedCommPosts.some(cp => cp.id === p.id)) return false;
             const isSelf = currentUser && p.authorId === currentUser.id;
             const isRecent = (Date.now() - new Date(p.createdAt).getTime()) < 2 * 60 * 1000;
             return Boolean(isSelf && isRecent);
           })
-        : this.getRawPosts().filter(p => p.postType === 'community' && !deletedIds.includes(p.id));
+        : this.getRawPosts().filter(p => (p.postType === 'community' || p.postType === 'prayer_request') && !deletedIds.includes(p.id));
 
       // Check local admin announcements cache for newly added or high-res cover photos
       const localAdminMap = new Map<string, any>();
@@ -626,6 +698,31 @@ export class ChurchFeedStore {
         const fresh = await ChurchFeedStore.fetchFeedPostsFromCloud();
         onUpdate(fresh);
       })
+      .on('broadcast', { event: 'feed_prayer_update' }, async ({ payload }: any) => {
+        if (payload?.postId) {
+          const current = this.getRawPosts();
+          const target = current.find(p => p.id === payload.postId);
+          if (target) {
+            target.prayerCount = payload.prayerCount;
+            target.prayedUserIds = payload.prayedUserIds;
+            this.save(KEY_FEED_POSTS, current);
+            onUpdate(this.getFeedPosts());
+          }
+        }
+      })
+      .on('broadcast', { event: 'feed_prayer_answered' }, async ({ payload }: any) => {
+        if (payload?.postId) {
+          const current = this.getRawPosts();
+          const target = current.find(p => p.id === payload.postId);
+          if (target) {
+            target.isAnswered = true;
+            target.answeredAt = payload.answeredAt;
+            if (payload.praiseNote) target.praiseNote = payload.praiseNote;
+            this.save(KEY_FEED_POSTS, current);
+            onUpdate(this.getFeedPosts());
+          }
+        }
+      })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'church_announcements' }, async () => {
         const fresh = await ChurchFeedStore.fetchFeedPostsFromCloud();
         onUpdate(fresh);
@@ -648,6 +745,9 @@ export class ChurchFeedStore {
     imageUrls?: string[];
     category?: string;
     postType?: FeedPostType;
+    prayerAudience?: PrayerAudience;
+    targetGroupId?: string;
+    targetGroupName?: string;
     announcementTitle?: string;
     announcementPriority?: 'pinned' | 'high' | 'normal';
     eventDate?: string;
@@ -677,7 +777,7 @@ export class ChurchFeedStore {
       ministryLabel: params.author.ministryLabel || (isAdmin ? 'Church Leadership' : undefined),
       content: params.content.trim(),
       postType: effectivePostType,
-      category: params.category || (effectivePostType === 'announcement' ? 'Official Announcement' : 'Personal Update'),
+      category: params.category || (effectivePostType === 'announcement' ? 'Official Announcement' : effectivePostType === 'prayer_request' ? 'Prayer Request' : 'Personal Update'),
       imageUrls: params.imageUrls || [],
       createdAt: nowIso,
       updatedAt: nowIso,
@@ -692,6 +792,15 @@ export class ChurchFeedStore {
       eventLocation: params.eventLocation,
       actionButtonLabel: params.actionButtonLabel,
       actionButtonUrl: params.actionButtonUrl,
+
+      // Prayer Request Properties
+      prayerAudience: effectivePostType === 'prayer_request' ? (params.prayerAudience || 'community') : undefined,
+      targetGroupId: params.targetGroupId,
+      targetGroupName: params.targetGroupName,
+      prayerCount: 0,
+      prayedUserIds: [],
+      isAnswered: false,
+
       reactions: [],
       reactionCounts: { like: 0, love: 0, care: 0, celebrate: 0, pray: 0 },
       comments: [],
@@ -726,13 +835,17 @@ export class ChurchFeedStore {
             updated_at: newPost.updatedAt
           });
         } else {
+          const cloudContent = effectivePostType === 'prayer_request'
+            ? `[PRAYER:${newPost.prayerAudience || 'community'}${newPost.targetGroupId ? `:${newPost.targetGroupId}` : ''}] ${newPost.content}`
+            : newPost.content;
+
           await supabase.from('church_community_posts').insert({
             id: newPost.id,
             user_id: newPost.authorId,
             author_name: newPost.authorName,
             author_avatar: newPost.authorAvatar,
             author_role: newPost.authorRole,
-            content: newPost.content,
+            content: cloudContent,
             image_url: newPost.imageUrls[0] || null,
             likes_count: 0,
             comments_count: 0,
@@ -751,6 +864,15 @@ export class ChurchFeedStore {
         id: `notif-announcement-${newPost.id}`,
         type: 'announcement',
         title: `Church Announcement: ${newPost.authorName}`,
+        message: (newPost.content || '').slice(0, 80),
+        linkRoute: 'feed',
+        createdAt: newPost.createdAt
+      });
+    } else if (newPost.postType === 'prayer_request' && newPost.prayerAudience !== 'private') {
+      ChurchDataStore.addNotification({
+        id: `notif-prayer-${newPost.id}`,
+        type: 'prayer',
+        title: `Prayer Request from ${newPost.authorName}`,
         message: (newPost.content || '').slice(0, 80),
         linkRoute: 'feed',
         createdAt: newPost.createdAt
@@ -1091,6 +1213,115 @@ export class ChurchFeedStore {
     }
 
     return changed;
+  }
+
+  /**
+   * Toggles prayer support for a prayer request or post.
+   */
+  static togglePrayForPost(postId: string, user: UserProfile): { prayed: boolean; prayerCount: number } {
+    const posts = this.getRawPosts();
+    const post = posts.find(p => p.id === postId);
+    if (!post) throw new Error("Post not found.");
+
+    let prayedUserIds = Array.isArray(post.prayedUserIds) ? [...post.prayedUserIds] : [];
+    const hasPrayed = prayedUserIds.includes(user.id);
+    let prayed = false;
+
+    if (hasPrayed) {
+      // Toggle OFF
+      prayedUserIds = prayedUserIds.filter(id => id !== user.id);
+      prayed = false;
+    } else {
+      // Toggle ON
+      prayedUserIds.push(user.id);
+      prayed = true;
+    }
+
+    post.prayedUserIds = prayedUserIds;
+    post.prayerCount = prayedUserIds.length;
+    this.save(KEY_FEED_POSTS, posts);
+
+    if (supabase) {
+      supabase.from('church_community_posts').update({
+        likes_count: post.prayerCount
+      }).eq('id', postId).then();
+    }
+
+    this.broadcastFeedEvent('feed_prayer_update', {
+      postId,
+      prayerCount: post.prayerCount,
+      prayedUserIds: post.prayedUserIds,
+      actorId: user.id,
+      prayed
+    });
+
+    // Notify author if another member is praying for them
+    if (prayed && post.authorId && post.authorId !== user.id) {
+      ChurchDataStore.addNotification({
+        id: `pray-notif-${postId}-${user.id}`,
+        userId: post.authorId,
+        type: 'prayer',
+        title: `${user.name} is praying for you`,
+        message: `${user.name} lifted your prayer request up in prayer: "${(post.content || '').slice(0, 45)}..."`,
+        linkRoute: 'feed',
+        createdAt: new Date().toISOString()
+      });
+    }
+
+    return { prayed, prayerCount: post.prayerCount };
+  }
+
+  /**
+   * Marks a prayer request as answered with optional praise report note.
+   */
+  static markPrayerAnswered(postId: string, user: UserProfile, praiseNote?: string): boolean {
+    const posts = this.getRawPosts();
+    const post = posts.find(p => p.id === postId);
+    if (!post) return false;
+
+    if (post.authorId !== user.id && !isChurchAdmin(user)) {
+      throw new Error("Only the author or pastor can mark this prayer request as answered.");
+    }
+
+    post.isAnswered = true;
+    post.answeredAt = new Date().toISOString();
+    if (praiseNote && praiseNote.trim()) {
+      post.praiseNote = praiseNote.trim();
+    }
+    this.save(KEY_FEED_POSTS, posts);
+
+    if (supabase) {
+      const ansPrefix = `[PRAYER:${post.prayerAudience || 'community'}${post.targetGroupId ? `:${post.targetGroupId}` : ''}][ANSWERED:${encodeURIComponent(post.praiseNote || '')}] `;
+      supabase.from('church_community_posts').update({
+        content: ansPrefix + post.content
+      }).eq('id', postId).then();
+    }
+
+    this.broadcastFeedEvent('feed_prayer_answered', {
+      postId,
+      isAnswered: true,
+      answeredAt: post.answeredAt,
+      praiseNote: post.praiseNote
+    });
+
+    // Notify believers who prayed for this request
+    if (Array.isArray(post.prayedUserIds)) {
+      post.prayedUserIds.forEach(prayingUserId => {
+        if (prayingUserId !== user.id) {
+          ChurchDataStore.addNotification({
+            id: `answered-notif-${postId}-${prayingUserId}`,
+            userId: prayingUserId,
+            type: 'prayer',
+            title: `✨ Answered Prayer! Praise God!`,
+            message: `${post.authorName}'s prayer was answered: "${(post.praiseNote || post.content || '').slice(0, 50)}..."`,
+            linkRoute: 'feed',
+            createdAt: new Date().toISOString()
+          });
+        }
+      });
+    }
+
+    return true;
   }
 
   // --- COMMENT SYSTEM ---
