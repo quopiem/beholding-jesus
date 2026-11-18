@@ -134,9 +134,10 @@ export class AdminService {
     try {
       const { data, error } = await supabase
         .from('church_prayer_requests')
-        .select('*')
+        .select('id, category, title, description, user_id, author_name, target_ministry_id, testimony_text, created_at')
         .eq('category', 'sys_admin_audit_log')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(50);
 
       if (data && !error) {
         const cloudLogs: SystemAdminAuditLog[] = data.map(d => {
@@ -302,9 +303,10 @@ export class AdminService {
     try {
       const { data, error } = await supabase
         .from('church_prayer_requests')
-        .select('*')
+        .select('id, category, title, description, user_id, author_name, is_answered, testimony_text, status, created_at')
         .eq('category', 'sys_admin_access_request')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(50);
 
       if (data && !error) {
         const cloudRequests: AdminAccessRequest[] = data.map(d => {

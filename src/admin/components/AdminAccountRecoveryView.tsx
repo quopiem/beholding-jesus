@@ -40,7 +40,7 @@ export const AdminAccountRecoveryView: React.FC = () => {
 
   useEffect(() => {
     refreshData();
-    const interval = setInterval(refreshData, 20000);
+    const interval = setInterval(refreshData, 120000);
 
     const unsubRec = AuthService.subscribeToRecoveryRequests((fresh) => {
       setRequests(fresh);

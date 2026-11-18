@@ -50,9 +50,8 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
 
   const updateCounts = async () => {
     try {
-      const [joins, users, recs] = await Promise.all([
+      const [joins, recs] = await Promise.all([
         ChurchDataStore.fetchJoinRequestsFromCloud(),
-        ChurchDataStore.fetchUsersFromCloud(),
         AuthService.fetchRecoveryRequestsFromCloud()
       ]);
       const pendingReg = ChurchDataStore.getPendingMinistryRegistrations().length;
@@ -76,7 +75,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
 
   useEffect(() => {
     updateCounts();
-    const interval = setInterval(updateCounts, 20000);
+    const interval = setInterval(updateCounts, 120000);
 
     const handleSync = () => updateCounts();
     window.addEventListener('bjc_join_requests_change', handleSync);

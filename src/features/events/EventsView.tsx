@@ -39,7 +39,7 @@ export const EventsView: React.FC = () => {
       }
     };
     loadEvents();
-    const interval = setInterval(loadEvents, 30000);
+    const interval = setInterval(loadEvents, 180000);
     return () => {
       isMounted = false;
       clearInterval(interval);

@@ -34,7 +34,7 @@ export const PrayerFaithView: React.FC = () => {
       }
     };
     loadPrayers();
-    const interval = setInterval(loadPrayers, 20000);
+    const interval = setInterval(loadPrayers, 120000);
     return () => {
       isMounted = false;
       clearInterval(interval);

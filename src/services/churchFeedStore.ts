@@ -268,8 +268,8 @@ export class ChurchFeedStore {
     if (!supabase) return this.getFeedPosts(currentUser);
 
     const now = Date.now();
-    // Cache guard: do not re-query cloud if queried within last 15 seconds unless forced
-    if (!force && this._cachedFeedResult.length > 0 && (now - this._lastFeedFetchTime < 15000)) {
+    // Cache guard: do not re-query cloud if queried within last 60 seconds unless forced
+    if (!force && this._cachedFeedResult.length > 0 && (now - this._lastFeedFetchTime < 60000)) {
       return this._cachedFeedResult;
     }
 
@@ -293,24 +293,28 @@ export class ChurchFeedStore {
         fetchFast(
           supabase
             .from('church_announcements')
-            .select('*')
-            .order('created_at', { ascending: false }),
+            .select('id, title, content, description, category, date, event_date, expiration_date, status, priority, is_important, is_read, author_name, author_role, target_audience, cover_image, image_url, created_by, created_at, updated_at')
+            .neq('status', 'archived')
+            .order('created_at', { ascending: false })
+            .limit(20),
           5000
         ),
         fetchFast(
           supabase
             .from('church_community_posts')
-            .select('*')
-            .order('created_at', { ascending: false }),
+            .select('id, user_id, author_name, author_avatar, author_role, content, image_url, likes_count, liked_user_ids, comments_count, status, created_at')
+            .neq('status', 'deleted')
+            .order('created_at', { ascending: false })
+            .limit(25),
           5000
         ),
         fetchFast(
           supabase
             .from('church_chat_messages')
-            .select('id, room_id, sender_id, sender_name, sender_avatar, sender_role, content, created_at')
+            .select('id, room_id, sender_id, sender_name, sender_role, content, created_at')
             .like('room_id', 'post_comments_%')
             .order('created_at', { ascending: true })
-            .limit(200),
+            .limit(100),
           3000
         )
       ]);

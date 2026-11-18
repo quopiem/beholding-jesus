@@ -996,14 +996,14 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
       try {
         const [cloudRooms, recentActivity, myDirectMessages] = await Promise.all([
           ChurchDataStore.fetchChatRoomsFromCloud(),
-          ChurchDataStore.fetchRecentChatActivity(150),
+          ChurchDataStore.fetchRecentChatActivity(25),
           supabase
             ? supabase
                 .from('church_chat_messages')
-                .select('room_id, sender_id, sender_name, sender_avatar, content, created_at')
+                .select('room_id, sender_id, sender_name, created_at')
                 .or(`sender_id.eq.${currentUser.id},room_id.ilike.%${currentUser.id}%`)
                 .order('created_at', { ascending: false })
-                .limit(100)
+                .limit(30)
             : Promise.resolve({ data: [] } as any)
         ]);
         if (!isMounted) return;
@@ -1018,13 +1018,14 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
           for (const msg of myDirectMessages.data) {
             if (msg.room_id && msg.room_id.startsWith('dm_') && !knownRoomIds.has(msg.room_id)) {
               knownRoomIds.add(msg.room_id);
+              const senderUser = allUsers.find(u => u.id === msg.sender_id);
               effectiveCloudRooms.push({
                 id: msg.room_id,
                 title: 'Direct Message',
                 type: 'direct',
                 symbol: '💬',
-                avatar: msg.sender_avatar || '/icons/church-logo.png',
-                last_message: msg.content,
+                avatar: senderUser?.avatar || '/icons/church-logo.png',
+                last_message: 'Direct Message',
                 last_message_time: msg.created_at,
                 created_at: msg.created_at
               });
@@ -1252,7 +1253,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
         loadCloudRooms();
       }
-    }, 60000);
+    }, 120000);
     return () => {
       isMounted = false;
       clearInterval(interval);
@@ -1264,9 +1265,11 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
     if (!activeRoomId) return;
     let isMounted = true;
 
+    const allUsers = registeredUsers.length > 0 ? registeredUsers : ChurchDataStore.getUsers();
+
     const loadCloudMessages = async () => {
       try {
-        const cloudData = await ChurchDataStore.fetchChatMessagesFromCloud(activeRoomId);
+        const cloudData = await ChurchDataStore.fetchChatMessagesFromCloud(activeRoomId, 50);
         if (!isMounted) return;
 
         if (cloudData && cloudData.length > 0) {
@@ -1302,11 +1305,12 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
               }
             }
 
+            const senderUser = allUsers.find(u => u.id === d.sender_id);
             return {
               id: d.id,
               senderId: d.sender_id,
               senderName: d.sender_name,
-              senderAvatar: d.sender_avatar || '/icons/church-logo.png',
+              senderAvatar: senderUser?.avatar || d.sender_avatar || '/icons/church-logo.png',
               senderRole: d.sender_role || 'Church Member',
               isMe: d.sender_id === currentUser.id,
               content: d.content,
@@ -1386,7 +1390,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
         loadCloudMessages();
       }
-    }, 60000);
+    }, 120000);
 
     let channel: any = null;
     if (supabase) {
@@ -1398,8 +1402,70 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
             schema: 'public', 
             table: 'church_chat_messages',
             filter: `room_id=eq.${activeRoomId}` 
-          }, () => {
-            loadCloudMessages();
+          }, (payload: any) => {
+            if (payload?.eventType === 'INSERT' && payload.new) {
+              const d = payload.new;
+              const senderUser = allUsers.find(u => u.id === d.sender_id);
+              const cloudReactions: ReactionItem[] = Array.isArray(d.reactions) ? d.reactions.map((r: any) => ({
+                emoji: r.emoji,
+                count: r.count || 0,
+                reacted: Array.isArray(r.userIds) ? r.userIds.includes(currentUser.id) : (r.reacted || false),
+                userIds: r.userIds || []
+              })) : [];
+              const newMsgItem: ChatMessageItem = {
+                id: d.id,
+                senderId: d.sender_id,
+                senderName: d.sender_name || 'Church Believer',
+                senderAvatar: senderUser?.avatar || d.sender_avatar || '/icons/church-logo.png',
+                senderRole: d.sender_role || 'Church Member',
+                isMe: d.sender_id === currentUser.id,
+                content: d.content || '',
+                timestamp: d.created_at ? new Date(d.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now',
+                createdAt: d.created_at,
+                isDelivered: d.is_delivered ?? true,
+                reactions: cloudReactions
+              };
+              setRoomMessages(prev => {
+                const existing = prev[activeRoomId] || [];
+                if (existing.some(m => m.id === newMsgItem.id)) return prev;
+                return {
+                  ...prev,
+                  [activeRoomId]: [...existing, newMsgItem]
+                };
+              });
+            } else if (payload?.eventType === 'UPDATE' && payload.new) {
+              const d = payload.new;
+              setRoomMessages(prev => {
+                const existing = prev[activeRoomId] || [];
+                const updated = existing.map(m => {
+                  if (m.id === d.id) {
+                    const cloudReactions: ReactionItem[] = Array.isArray(d.reactions) ? d.reactions.map((r: any) => ({
+                      emoji: r.emoji,
+                      count: r.count || 0,
+                      reacted: Array.isArray(r.userIds) ? r.userIds.includes(currentUser.id) : (r.reacted || false),
+                      userIds: r.userIds || []
+                    })) : m.reactions;
+                    return {
+                      ...m,
+                      content: d.content ?? m.content,
+                      reactions: cloudReactions
+                    };
+                  }
+                  return m;
+                });
+                return { ...prev, [activeRoomId]: updated };
+              });
+            } else if (payload?.eventType === 'DELETE' && payload.old) {
+              setRoomMessages(prev => {
+                const existing = prev[activeRoomId] || [];
+                return {
+                  ...prev,
+                  [activeRoomId]: existing.filter(m => m.id !== payload.old.id)
+                };
+              });
+            } else {
+              loadCloudMessages();
+            }
           })
           .subscribe();
       } catch {

@@ -61,7 +61,7 @@ export class ChurchDataStore {
   static async fetchUsersFromCloud(force: boolean = false): Promise<UserProfile[]> {
     if (!supabase) return this.getUsers();
     const now = Date.now();
-    if (!force && this._cachedUsers.length > 0 && now - this._lastUsersFetchTime < 4000) {
+    if (!force && this._cachedUsers.length > 0 && now - this._lastUsersFetchTime < 60000) {
       return this._cachedUsers;
     }
     try {
@@ -280,17 +280,25 @@ export class ChurchDataStore {
   }
 
   // --- WORSHIP: SONGS, SINGERS & VOCAL KEYS ---
+  private static _lastSongsFetchTime = 0;
+  private static _cachedSongs: Song[] = [];
+
   static getSongs(): Song[] {
     return this.load<Song[]>(KEY_SONGS, INITIAL_SONGS);
   }
 
-  static async fetchSongsFromCloud(): Promise<Song[]> {
+  static async fetchSongsFromCloud(force: boolean = false): Promise<Song[]> {
     if (!supabase) return this.getSongs();
+    const now = Date.now();
+    if (!force && this._cachedSongs.length > 0 && now - this._lastSongsFetchTime < 120000) {
+      return this._cachedSongs;
+    }
     try {
       const { data, error } = await supabase
         .from('church_songs')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select('id, title, artist, composer, genre, tempo, original_key, mood, notes, lyrics, audio_url, singers, created_at, created_by')
+        .order('created_at', { ascending: false })
+        .limit(100);
 
       if (data && !error) {
         const localSongs = this.getSongs();
@@ -327,12 +335,16 @@ export class ChurchDataStore {
         });
 
         this.save(KEY_SONGS, mapped);
+        this._cachedSongs = mapped;
+        this._lastSongsFetchTime = Date.now();
         return mapped;
       }
     } catch (e) {
       console.warn('fetchSongsFromCloud error:', e);
     }
-    return this.getSongs();
+    const fallback = this.getSongs();
+    this._cachedSongs = fallback;
+    return fallback;
   }
 
   static saveSong(song: Partial<Song> & { title: string; originalKey: string }): Song {
@@ -403,17 +415,25 @@ export class ChurchDataStore {
     return songs;
   }
 
+  private static _lastSingersFetchTime = 0;
+  private static _cachedSingers: Singer[] = [];
+
   static getSingers(): Singer[] {
     return this.load<Singer[]>(KEY_SINGERS, INITIAL_SINGERS);
   }
 
-  static async fetchSingersFromCloud(): Promise<Singer[]> {
+  static async fetchSingersFromCloud(force: boolean = false): Promise<Singer[]> {
     if (!supabase) return this.getSingers();
+    const now = Date.now();
+    if (!force && this._cachedSingers.length > 0 && now - this._lastSingersFetchTime < 120000) {
+      return this._cachedSingers;
+    }
     try {
       const { data, error } = await supabase
         .from('church_singers')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select('id, name, profile_picture, default_role, vocal_range, notes, assigned_songs_count')
+        .order('created_at', { ascending: false })
+        .limit(100);
 
       if (data && !error) {
         const localSingers = this.getSingers();
@@ -435,12 +455,16 @@ export class ChurchDataStore {
         });
 
         this.save(KEY_SINGERS, mapped);
+        this._cachedSingers = mapped;
+        this._lastSingersFetchTime = Date.now();
         return mapped;
       }
     } catch (e) {
       console.warn('fetchSingersFromCloud error:', e);
     }
-    return this.getSingers();
+    const fallback = this.getSingers();
+    this._cachedSingers = fallback;
+    return fallback;
   }
 
   static saveSinger(singer: Partial<Singer> & { name: string }): Singer {
@@ -621,15 +645,16 @@ export class ChurchDataStore {
   static async fetchJoinRequestsFromCloud(force: boolean = false): Promise<MinistryJoinRequest[]> {
     if (!supabase) return this.getJoinRequests();
     const now = Date.now();
-    if (!force && this._cachedJoinReqs.length > 0 && now - this._lastJoinReqFetchTime < 4000) {
+    if (!force && this._cachedJoinReqs.length > 0 && now - this._lastJoinReqFetchTime < 60000) {
       return this._cachedJoinReqs;
     }
     try {
       const { data, error } = await supabase
         .from('church_prayer_requests')
-        .select('*')
+        .select('id, title, description, category, user_id, author_name, status, target_ministry_id, is_answered, testimony_text, created_at')
         .eq('category', 'sys_ministry_join_request')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(50);
 
       if (data && !error) {
         const cloudRequests: MinistryJoinRequest[] = data.map(d => {
@@ -757,7 +782,7 @@ export class ChurchDataStore {
       // 1. Fetch fresh user row from church_members_auth
       const { data: cloudMember } = await supabase
         .from('church_members_auth')
-        .select('*')
+        .select('id, name, username, email, role, role_title, avatar, bio, created_at')
         .eq('id', sess.userId)
         .maybeSingle();
 
@@ -1147,17 +1172,26 @@ export class ChurchDataStore {
   }
 
   // --- ANNOUNCEMENTS ---
+  private static _lastAnnouncementsFetchTime = 0;
+  private static _cachedAnnouncements: Announcement[] = [];
+
   static getAnnouncements(): Announcement[] {
     return this.load<Announcement[]>(KEY_ANNOUNCEMENTS, INITIAL_ANNOUNCEMENTS);
   }
 
-  static async fetchAnnouncementsFromCloud(): Promise<Announcement[]> {
+  static async fetchAnnouncementsFromCloud(force: boolean = false): Promise<Announcement[]> {
     if (!supabase) return this.getAnnouncements();
+    const nowTime = Date.now();
+    if (!force && this._cachedAnnouncements.length > 0 && nowTime - this._lastAnnouncementsFetchTime < 60000) {
+      return this._cachedAnnouncements;
+    }
     try {
       const { data, error } = await supabase
         .from('church_announcements')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select('id, title, content, description, category, date, event_date, expiration_date, status, priority, is_important, is_read, author_name, author_role, target_audience, cover_image, image_url, created_by, created_at, updated_at')
+        .neq('status', 'archived')
+        .order('created_at', { ascending: false })
+        .limit(30);
 
       if (data && !error) {
         // FILTER: Hide drafts and unpublished announcements from regular members
@@ -1191,6 +1225,8 @@ export class ChurchDataStore {
           };
         });
         this.save(KEY_ANNOUNCEMENTS, mapped);
+        this._cachedAnnouncements = mapped;
+        this._lastAnnouncementsFetchTime = Date.now();
 
         // Notify UI listeners in real-time
         if (typeof window !== 'undefined') {
@@ -1202,7 +1238,9 @@ export class ChurchDataStore {
     } catch (e) {
       console.warn('fetchAnnouncementsFromCloud error:', e);
     }
-    return this.getAnnouncements();
+    const fallback = this.getAnnouncements();
+    this._cachedAnnouncements = fallback;
+    return fallback;
   }
 
   static subscribeToAnnouncementsRealtime(onUpdate: (announcements: Announcement[]) => void): () => void {
@@ -1267,17 +1305,25 @@ export class ChurchDataStore {
   }
 
   // --- EVENTS ---
+  private static _lastEventsFetchTime = 0;
+  private static _cachedEvents: ChurchEvent[] = [];
+
   static getEvents(): ChurchEvent[] {
     return this.load<ChurchEvent[]>(KEY_EVENTS, INITIAL_EVENTS);
   }
 
-  static async fetchEventsFromCloud(): Promise<ChurchEvent[]> {
+  static async fetchEventsFromCloud(force: boolean = false): Promise<ChurchEvent[]> {
     if (!supabase) return this.getEvents();
+    const nowTime = Date.now();
+    if (!force && this._cachedEvents.length > 0 && nowTime - this._lastEventsFetchTime < 120000) {
+      return this._cachedEvents;
+    }
     try {
       const { data, error } = await supabase
         .from('church_events')
-        .select('*')
-        .order('date', { ascending: true });
+        .select('id, title, description, date, start_time, end_time, location, category, cover_image, organizer_name, capacity, attendees_count, registered_user_ids, requires_registration')
+        .order('date', { ascending: true })
+        .limit(40);
 
       if (data && !error) {
         const mapped: ChurchEvent[] = data.map(d => ({
@@ -1297,12 +1343,16 @@ export class ChurchDataStore {
           requiresRegistration: d.requires_registration
         }));
         this.save(KEY_EVENTS, mapped);
+        this._cachedEvents = mapped;
+        this._lastEventsFetchTime = Date.now();
         return mapped;
       }
     } catch (e) {
       console.warn('fetchEventsFromCloud error:', e);
     }
-    return this.getEvents();
+    const fallback = this.getEvents();
+    this._cachedEvents = fallback;
+    return fallback;
   }
 
   static saveEvent(ev: ChurchEvent): ChurchEvent {
@@ -1369,6 +1419,9 @@ export class ChurchDataStore {
   }
 
   // --- PRAYER REQUESTS & TESTIMONIES ---
+  private static _lastPrayersFetchTime = 0;
+  private static _cachedPrayers: PrayerRequest[] = [];
+
   static getPrayerRequests(): PrayerRequest[] {
     const list = this.load<PrayerRequest[]>(KEY_PRAYERS, INITIAL_PRAYER_REQUESTS);
     const user = this.getCurrentUser();
@@ -1382,21 +1435,22 @@ export class ChurchDataStore {
     });
   }
 
-  static async fetchPrayerRequestsFromCloud(): Promise<PrayerRequest[]> {
+  static async fetchPrayerRequestsFromCloud(force: boolean = false): Promise<PrayerRequest[]> {
     if (!supabase) return this.getPrayerRequests();
+    const nowTime = Date.now();
+    if (!force && this._cachedPrayers.length > 0 && nowTime - this._lastPrayersFetchTime < 60000) {
+      return this._cachedPrayers;
+    }
     try {
       const { data, error } = await supabase
         .from('church_prayer_requests')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select('id, user_id, author_name, is_anonymous, category, title, description, visibility, target_ministry_id, praying_count, praying_user_ids, is_answered, testimony_text, created_at')
+        .not('category', 'in', '("sys_ministry_join_request","sys_account_recovery","sys_admin_access_request","sys_admin_audit_log")')
+        .order('created_at', { ascending: false })
+        .limit(50);
 
       if (data && !error) {
-        // Exclude system administrative join requests & account recovery requests
-        const prayersOnly = data.filter((d: any) => 
-          d.category !== 'sys_ministry_join_request' && 
-          d.category !== 'sys_account_recovery'
-        );
-        const mapped: PrayerRequest[] = prayersOnly.map(d => ({
+        const mapped: PrayerRequest[] = data.map(d => ({
           id: d.id,
           userId: d.user_id,
           authorName: d.author_name,
@@ -1413,12 +1467,16 @@ export class ChurchDataStore {
           createdAt: d.created_at
         }));
         this.save(KEY_PRAYERS, mapped);
+        this._cachedPrayers = mapped;
+        this._lastPrayersFetchTime = Date.now();
         return this.getPrayerRequests();
       }
     } catch (e) {
       console.warn('fetchPrayerRequestsFromCloud error:', e);
     }
-    return this.getPrayerRequests();
+    const fallback = this.getPrayerRequests();
+    this._cachedPrayers = fallback;
+    return fallback;
   }
 
   static submitPrayerRequest(prayer: {
@@ -1528,8 +1586,10 @@ export class ChurchDataStore {
     try {
       const { data, error } = await supabase
         .from('church_community_posts')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select('id, user_id, author_name, author_avatar, author_role, content, image_url, likes_count, liked_user_ids, comments_count, created_at')
+        .neq('status', 'deleted')
+        .order('created_at', { ascending: false })
+        .limit(30);
 
       if (data && !error && data.length > 0) {
         const mapped: CommunityPost[] = data.map(d => ({
@@ -1621,25 +1681,37 @@ export class ChurchDataStore {
   }
 
   // --- COMMUNITY CHAT ROOMS & MESSAGES CLOUD SYNC ---
+  private static _lastRoomsFetchTime = 0;
+  private static _cachedRooms: any[] = [];
+
   static getChatRooms(): ChatRoom[] {
     return this.load<ChatRoom[]>(KEY_CHAT_ROOMS, INITIAL_CHAT_ROOMS);
   }
 
-  static async fetchChatRoomsFromCloud(): Promise<any[]> {
+  static async fetchChatRoomsFromCloud(force: boolean = false): Promise<any[]> {
     if (!supabase) return this.getChatRooms();
+    const nowTime = Date.now();
+    if (!force && this._cachedRooms.length > 0 && nowTime - this._lastRoomsFetchTime < 60000) {
+      return this._cachedRooms;
+    }
     try {
       const { data, error } = await supabase
         .from('church_chat_rooms')
-        .select('*')
-        .order('created_at', { ascending: true });
+        .select('id, title, type, symbol, avatar, last_message, last_message_time, created_by, created_at')
+        .order('created_at', { ascending: true })
+        .limit(50);
 
       if (data && !error) {
+        this._cachedRooms = data;
+        this._lastRoomsFetchTime = Date.now();
         return data;
       }
     } catch (e) {
       console.warn('fetchChatRoomsFromCloud error:', e);
     }
-    return this.getChatRooms();
+    const fallback = this.getChatRooms();
+    this._cachedRooms = fallback;
+    return fallback;
   }
 
   static async createChatRoomInCloud(room: {
@@ -1650,6 +1722,7 @@ export class ChurchDataStore {
     avatar?: string;
     createdBy?: string;
   }): Promise<void> {
+    this._lastRoomsFetchTime = 0;
     const list = this.getChatRooms();
     const newRoom: ChatRoom = {
       id: room.id,
@@ -1679,6 +1752,7 @@ export class ChurchDataStore {
   }
 
   static async deleteChatRoom(roomId: string): Promise<boolean> {
+    this._lastRoomsFetchTime = 0;
     const list = this.getChatRooms().filter(r => r.id !== roomId);
     this.save(KEY_CHAT_ROOMS, list);
 
@@ -1704,6 +1778,7 @@ export class ChurchDataStore {
     symbol?: string;
     avatar?: string;
   }): Promise<boolean> {
+    this._lastRoomsFetchTime = 0;
     if (!supabase) return true;
     try {
       const { error } = await supabase
@@ -1717,21 +1792,24 @@ export class ChurchDataStore {
     }
   }
 
-  static async fetchChatMessagesFromCloud(roomId: string): Promise<any[]> {
+  static async fetchChatMessagesFromCloud(roomId: string, limit: number = 50): Promise<any[]> {
     if (!supabase) return this.getMessages(roomId);
     try {
       const { data, error } = await supabase
         .from('church_chat_messages')
-        .select('*')
+        .select('id, room_id, sender_id, sender_name, sender_avatar, sender_role, content, reactions, is_delivered, created_at')
         .eq('room_id', roomId)
-        .order('created_at', { ascending: true });
+        .order('created_at', { ascending: false })
+        .limit(limit);
 
       if (!error && Array.isArray(data)) {
+        // Reverse descending query so UI receives chronological messages
+        const chronological = [...data].reverse();
         // Cache to local store
         const all = this.load<Record<string, any>>(KEY_CHAT_MESSAGES, {});
-        all[roomId] = data;
+        all[roomId] = chronological;
         this.save(KEY_CHAT_MESSAGES, all);
-        return data;
+        return chronological;
       }
     } catch (e) {
       console.warn('fetchChatMessagesFromCloud error:', e);
@@ -1739,12 +1817,12 @@ export class ChurchDataStore {
     return this.getMessages(roomId);
   }
 
-  static async fetchRecentChatActivity(limit: number = 300): Promise<any[]> {
+  static async fetchRecentChatActivity(limit: number = 25): Promise<any[]> {
     if (!supabase) return [];
     try {
       const { data, error } = await supabase
         .from('church_chat_messages')
-        .select('id, room_id, sender_id, sender_name, sender_avatar, sender_role, content, reactions, created_at')
+        .select('id, room_id, sender_id, sender_name, sender_role, content, reactions, created_at')
         .order('created_at', { ascending: false })
         .limit(limit);
 
@@ -1812,13 +1890,18 @@ export class ChurchDataStore {
 
     if (!supabase) return true;
     try {
+      // Avoid writing massive base64 URIs into individual message rows; profile avatar resolves by senderId
+      const safeCloudAvatar = (params.senderAvatar && params.senderAvatar.startsWith('data:'))
+        ? '/icons/church-logo.png'
+        : (params.senderAvatar || '/icons/church-logo.png');
+
       // 3. Save message to Supabase
       const { error: insError } = await supabase.from('church_chat_messages').insert({
         id: params.id,
         room_id: params.roomId,
         sender_id: params.senderId,
         sender_name: params.senderName,
-        sender_avatar: params.senderAvatar || '/icons/church-logo.png',
+        sender_avatar: safeCloudAvatar,
         sender_role: params.senderRole || 'Church Member',
         content: params.content,
         reactions: params.reactions || [],

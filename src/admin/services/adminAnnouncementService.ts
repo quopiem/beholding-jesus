@@ -47,8 +47,9 @@ export class AdminAnnouncementService {
       try {
         const { data, error } = await supabase
           .from('church_announcements')
-          .select('*')
-          .order('created_at', { ascending: false });
+          .select('id, title, content, description, category, date, event_date, expiration_date, status, priority, is_important, is_read, author_name, author_role, target_audience, cover_image, image_url, created_by, created_at, updated_at')
+          .order('created_at', { ascending: false })
+          .limit(50);
 
         if (data && !error) {
           const mapped: AdminAnnouncement[] = data.map((d: any) => {

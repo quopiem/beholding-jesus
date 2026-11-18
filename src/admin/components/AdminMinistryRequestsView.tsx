@@ -37,7 +37,7 @@ export const AdminMinistryRequestsView: React.FC = () => {
 
   useEffect(() => {
     refreshData(true);
-    const interval = setInterval(() => refreshData(false), 20000);
+    const interval = setInterval(() => refreshData(false), 120000);
 
     const unsubJoin = ChurchDataStore.subscribeToJoinRequests((fresh) => {
       setJoinRequests(fresh);

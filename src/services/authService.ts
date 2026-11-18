@@ -537,15 +537,16 @@ export class AuthService {
   static async fetchRecoveryRequestsFromCloud(force: boolean = false): Promise<PasswordRecoveryRequest[]> {
     if (!supabase) return this.getRecoveryRequests();
     const now = Date.now();
-    if (!force && this._cachedRecoveryReqs.length > 0 && now - this._lastRecoveryFetchTime < 4000) {
+    if (!force && this._cachedRecoveryReqs.length > 0 && now - this._lastRecoveryFetchTime < 60000) {
       return this._cachedRecoveryReqs;
     }
     try {
       const { data, error } = await supabase
         .from('church_prayer_requests')
-        .select('*')
+        .select('id, user_id, title, description, category, author_name, is_answered, target_ministry_id, testimony_text, status, created_at')
         .eq('category', 'sys_account_recovery')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(50);
 
       if (data && !error) {
         const cloudRequests: PasswordRecoveryRequest[] = data.map(d => {

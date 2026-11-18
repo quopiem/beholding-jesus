@@ -124,7 +124,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
       if (fresh) setPosts(fresh);
     });
 
-    // 3. Low-overhead background safety-sync (only when page is active, every 90 seconds)
+    // 3. Low-overhead background safety-sync (only when page is active, every 3 minutes)
     // Note: Live updates are delivered instantly via Supabase Realtime WebSocket above
     const pollTimer = setInterval(() => {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
@@ -132,7 +132,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
           if (p) setPosts(p);
         });
       }
-    }, 90000);
+    }, 180000);
 
     return () => {
       window.removeEventListener('bjc_feed_change', handleFeedChange);
