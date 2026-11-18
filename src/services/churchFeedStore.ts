@@ -746,6 +746,17 @@ export class ChurchFeedStore {
 
     this.broadcastFeedEvent('new_feed_post', { post: newPost });
 
+    if (newPost.postType === 'announcement') {
+      ChurchDataStore.addNotification({
+        id: `notif-announcement-${newPost.id}`,
+        type: 'announcement',
+        title: `Church Announcement: ${newPost.authorName}`,
+        message: (newPost.content || '').slice(0, 80),
+        linkRoute: 'feed',
+        createdAt: newPost.createdAt
+      });
+    }
+
     return newPost;
   }
 
@@ -1060,6 +1071,23 @@ export class ChurchFeedStore {
         reactions: postReactions,
         actorId: user.id
       });
+
+      // Notify post author if another member added a new reaction
+      if (existingIndex === -1) {
+        const posts = this.getRawPosts();
+        const post = posts.find(p => p.id === postId);
+        if (post && post.authorId && post.authorId !== user.id) {
+          ChurchDataStore.addNotification({
+            id: `rx-notif-${postId}-${user.id}`,
+            userId: post.authorId,
+            type: 'reaction',
+            title: `${user.name} reacted to your post`,
+            message: `${user.name} reacted with ${reactionType} on: "${(post.content || '').slice(0, 45)}..."`,
+            linkRoute: 'feed',
+            createdAt: new Date().toISOString()
+          });
+        }
+      }
     }
 
     return changed;
@@ -1123,6 +1151,19 @@ export class ChurchFeedStore {
       postId,
       comment: newComment
     });
+
+    // Notify post author if another member commented
+    if (post.authorId && post.authorId !== user.id) {
+      ChurchDataStore.addNotification({
+        id: `comm-notif-${newComment.id}`,
+        userId: post.authorId,
+        type: 'comment',
+        title: `${user.name} commented on your post`,
+        message: `${user.name}: "${newComment.content.slice(0, 50)}..."`,
+        linkRoute: 'feed',
+        createdAt: newComment.createdAt
+      });
+    }
 
     return newComment;
   }

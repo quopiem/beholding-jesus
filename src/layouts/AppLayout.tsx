@@ -23,11 +23,11 @@ interface AppLayoutProps {
 }
 
 const MAIN_SWIPE_SECTIONS: string[] = [
-  'home',
   'feed',
+  'fellowship',
+  'messages',
   'bible',
   'stories',
-  'community',
   'ministries',
   'profile'
 ];
@@ -109,6 +109,8 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
     }
   }, [isDarkMode]);
 
+  const [isMoreDrawerOpen, setIsMoreDrawerOpen] = useState(false);
+
   const [unreadChatCount, setUnreadChatCount] = useState<number>(() => {
     try {
       const raw = localStorage.getItem('bjc_unread_chat_count');
@@ -118,9 +120,33 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
     }
   });
 
+  const [unreadGroupsCount, setUnreadGroupsCount] = useState<number>(() => {
+    try {
+      const raw = localStorage.getItem('bjc_unread_groups_count');
+      return raw ? parseInt(raw, 10) || 0 : 0;
+    } catch {
+      return 0;
+    }
+  });
+
+  const [unreadDirectCount, setUnreadDirectCount] = useState<number>(() => {
+    try {
+      const raw = localStorage.getItem('bjc_unread_direct_count');
+      return raw ? parseInt(raw, 10) || 0 : 0;
+    } catch {
+      return 0;
+    }
+  });
+
   useEffect(() => {
     const handleCount = (e: any) => {
       setUnreadChatCount(e.detail?.count || 0);
+      if (typeof e.detail?.groupsCount === 'number') {
+        setUnreadGroupsCount(e.detail.groupsCount);
+      }
+      if (typeof e.detail?.directCount === 'number') {
+        setUnreadDirectCount(e.detail.directCount);
+      }
     };
     window.addEventListener('bjc_unread_chat_count', handleCount);
     return () => window.removeEventListener('bjc_unread_chat_count', handleCount);
@@ -141,7 +167,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
     };
   }, []);
 
-  const isInsideConversation = (currentTab === 'community') && Boolean(
+  const isInsideConversation = (currentTab === 'community' || currentTab === 'fellowship' || currentTab === 'messages') && Boolean(
     isChatConversationOpenProp || 
     isDirectChatOpenProp || 
     isChatViewActive
@@ -321,24 +347,54 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
     setIsRolePickerOpen(false);
   };
 
-  const navItems = [
-    { id: 'home', label: 'Home', icon: Home },
-    { id: 'feed', label: 'Community Feed', icon: Sparkles },
-    { id: 'bjc-ai', label: 'BJC AI', icon: Compass },
-    { id: 'bible', label: 'Bible', icon: BookOpen },
-    { id: 'stories', label: 'Bible Stories', icon: BookMarked },
-    { 
-      id: 'community', 
-      label: 'Fellowship', 
-      icon: MessageSquare,
-      badge: unreadChatCount > 0 ? (unreadChatCount > 99 ? '99+' : String(unreadChatCount)) : undefined,
-      isCountBadge: true
+  const navSections = [
+    {
+      title: 'Community',
+      items: [
+        { id: 'feed', label: 'Community Feed', icon: Sparkles },
+        { 
+          id: 'fellowship', 
+          label: 'Fellowship', 
+          icon: Users,
+          badge: unreadGroupsCount > 0 ? (unreadGroupsCount > 99 ? '99+' : String(unreadGroupsCount)) : undefined,
+          isCountBadge: true
+        },
+        { 
+          id: 'messages', 
+          label: 'Direct Messages', 
+          icon: MessageSquare,
+          badge: unreadDirectCount > 0 ? (unreadDirectCount > 99 ? '99+' : String(unreadDirectCount)) : undefined,
+          isCountBadge: true
+        },
+      ]
     },
-    { id: 'ministries', label: 'Ministries', icon: Users },
-    { id: 'worship', label: 'Worship Hub', icon: Music, badge: 'VOCAL KEYS' },
-    { id: 'events', label: 'Events', icon: Calendar },
-    { id: 'prayer', label: 'Prayer & Faith', icon: Heart },
+    {
+      title: 'Spiritual Life',
+      items: [
+        { id: 'bible', label: 'Bible', icon: BookOpen },
+        { id: 'stories', label: 'Bible Stories', icon: BookMarked },
+        { id: 'prayer', label: 'Prayer & Faith', icon: Heart },
+        { id: 'worship', label: 'Worship Hub', icon: Music, badge: 'VOCAL KEYS' },
+      ]
+    },
+    {
+      title: 'Church Life',
+      items: [
+        { id: 'events', label: 'Events & Calendar', icon: Calendar },
+        { id: 'bjc-ai', label: 'BJC AI Assistant', icon: Compass },
+        { id: 'ministries', label: 'Ministries', icon: Shield },
+      ]
+    },
+    {
+      title: 'Account',
+      items: [
+        { id: 'profile', label: 'Profile & Settings', icon: User },
+        { id: 'public-website', label: 'Public Church Site', icon: ExternalLink },
+      ]
+    }
   ];
+
+  const navItems = navSections.flatMap(s => s.items);
 
   const canAccessAdmin = ['super_admin', 'church_admin', 'pastor', 'ministry_leader'].includes(currentUser.role);
 
@@ -352,7 +408,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         
         {/* Church Brand Header with Crest & 3-line Title */}
         <div className="p-4 border-b border-slate-100 dark:border-slate-800/80">
-          <div className="flex items-center gap-3 cursor-pointer" onClick={() => onTabChange('home')}>
+          <div className="flex items-center gap-3 cursor-pointer" onClick={() => onTabChange('feed')}>
             <img 
               src="/icons/church-seal-gold.png" 
               alt="Beholding Jesus Church" 
@@ -372,56 +428,59 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
           </div>
         </div>
 
-        {/* Navigation Links */}
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          <div className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-            Navigation
-          </div>
+        {/* Navigation Links Grouped Semantically */}
+        <nav className="flex-1 px-3 py-3 space-y-4 overflow-y-auto">
+          {navSections.map(section => (
+            <div key={section.title} className="space-y-1">
+              <div className="px-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                {section.title}
+              </div>
+              {section.items.map(item => {
+                const Icon = item.icon;
+                const isActive = currentTab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      onTabChange(item.id);
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all duration-200 group relative cursor-pointer active:scale-[0.98] ${
+                      isActive 
+                        ? 'bg-gradient-to-r from-[#1e293b] to-[#293b54] dark:from-slate-800 dark:to-slate-800/90 text-white shadow-soft font-semibold border-l-[3.5px] border-gold pl-3' 
+                        : 'text-slate-600 dark:text-slate-400 hover:bg-stone-200/50 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-white hover:translate-x-1'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Icon className={`w-4 h-4 transition-all duration-200 group-hover:scale-110 ${isActive ? 'text-gold' : 'text-slate-400 dark:text-slate-500 group-hover:text-gold'}`} />
+                      <span>{item.label}</span>
+                    </div>
+                    {item.badge && (
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full transition-transform group-hover:scale-105 ${
+                        (item as any).isCountBadge
+                          ? 'bg-[#c5a46d] text-slate-950 font-black'
+                          : isActive 
+                            ? 'bg-gold/30 text-gold-200 text-[9px] uppercase' 
+                            : 'bg-gold-50 dark:bg-slate-800 text-gold-dark dark:text-gold border border-gold/30 text-[9px] uppercase'
+                      }`}>
+                        {item.badge}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
 
-          {navItems.map(item => {
-            const Icon = item.icon;
-            const isActive = currentTab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => {
-                  onTabChange(item.id);
-                  setIsMobileMenuOpen(false);
-                }}
-                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all duration-200 group relative cursor-pointer active:scale-[0.98] ${
-                  isActive 
-                    ? 'bg-gradient-to-r from-[#1e293b] to-[#293b54] dark:from-slate-800 dark:to-slate-800/90 text-white shadow-soft font-semibold border-l-[3.5px] border-gold pl-3' 
-                    : 'text-slate-600 dark:text-slate-400 hover:bg-stone-200/50 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-white hover:translate-x-1'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <Icon className={`w-4 h-4 transition-all duration-200 group-hover:scale-110 ${isActive ? 'text-gold' : 'text-slate-400 dark:text-slate-500 group-hover:text-gold'}`} />
-                  <span>{item.label}</span>
-                </div>
-                {item.badge && (
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full transition-transform group-hover:scale-105 ${
-                    (item as any).isCountBadge
-                      ? 'bg-[#c5a46d] text-slate-950'
-                      : isActive 
-                        ? 'bg-gold/30 text-gold-200 text-[9px] uppercase' 
-                        : 'bg-gold-50 dark:bg-slate-800 text-gold-dark dark:text-gold border border-gold/30 text-[9px] uppercase'
-                  }`}>
-                    {item.badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-
-          {/* Admin Dashboard Entry */}
+          {/* Admin Console Entry (Strictly guarded by RBAC) */}
           {canAccessAdmin && (
-            <div className="pt-3">
-              <div className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+            <div className="pt-2 border-t border-slate-200/60 dark:border-slate-800/80">
+              <div className="px-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-500">
                 Administration
               </div>
               <button
                 onClick={() => onTabChange('admin')}
-                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all ${
+                className={`w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all ${
                   currentTab === 'admin'
                     ? 'bg-[#1e293b] dark:bg-slate-800 text-white shadow-soft font-semibold'
                     : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60 hover:text-slate-900'
@@ -694,6 +753,8 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                           <div 
                             key={n.id} 
                             onClick={() => {
+                              ChurchDataStore.markNotificationRead(n.id);
+                              setNotifications(ChurchDataStore.getNotifications());
                               if (n.linkRoute) onTabChange(n.linkRoute);
                               setIsNotifOpen(false);
                             }}
@@ -899,45 +960,62 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         </main>
 
         {/* ============================================================== */}
-        {/* MOBILE FLOATING PILL ISLAND NAVIGATION BAR                     */}
+        {/* MOBILE FLOATING PILL ISLAND NAVIGATION BAR (5 Clean Items)     */}
         {/* ============================================================== */}
         <nav 
           aria-label="Mobile Navigation"
-          className={`fixed ${currentTab === 'bible' ? 'bottom-0 left-0 right-0 w-full' : 'bottom-3 sm:bottom-5 left-1/2 -translate-x-1/2 w-[calc(100%-12px)] max-w-[520px]'} z-35 md:hidden select-none transition-all duration-300 ease-in-out ${
+          className={`fixed ${currentTab === 'bible' ? 'bottom-0 left-0 right-0 w-full' : 'bottom-3 sm:bottom-5 left-1/2 -translate-x-1/2 w-[calc(100%-12px)] max-w-[500px]'} z-35 md:hidden select-none transition-all duration-300 ease-in-out ${
             !isBottomNavHidden 
               ? 'translate-y-0 opacity-100 pointer-events-auto' 
               : 'translate-y-36 opacity-0 pointer-events-none'
           }`}
         >
-          <div className={`relative flex items-center justify-between px-1.5 sm:px-2 py-1.5 sm:py-2 ${
+          <div className={`relative flex items-center justify-between px-2 py-1.5 sm:py-2 ${
             currentTab === 'bible' 
               ? 'rounded-none bg-[#121214]/96 border-t border-neutral-800/80 shadow-[0_-4px_20px_rgba(0,0,0,0.5)]' 
               : 'rounded-[28px] bg-[#12131A]/95 dark:bg-[#0A0C14]/96 border border-white/20 dark:border-[#C5A46D]/40 shadow-[0_16px_50px_rgba(0,0,0,0.65)] ring-1 ring-white/10'
-          } backdrop-blur-2xl gap-0.5 sm:gap-1 overflow-x-auto scrollbar-none no-scrollbar`}>
+          } backdrop-blur-2xl gap-1 overflow-x-auto scrollbar-none no-scrollbar`}>
             {([
-              { id: 'home', label: 'Home', icon: Home },
               { id: 'feed', label: 'Feed', icon: Sparkles },
-              { id: 'bible', label: 'Bible', icon: BookOpen },
-              { id: 'stories', label: 'Stories', icon: BookMarked },
               { 
-                id: 'community', 
+                id: 'fellowship', 
                 label: 'Fellowship', 
-                icon: MessageSquare,
-                badge: unreadChatCount > 0 ? (unreadChatCount > 99 ? '99+' : String(unreadChatCount)) : undefined
+                icon: Users,
+                badge: unreadGroupsCount > 0 ? (unreadGroupsCount > 99 ? '99+' : String(unreadGroupsCount)) : undefined
               },
-              { id: 'ministries', label: 'Ministry', icon: Users },
-              { id: 'profile', label: 'Profile', icon: User }
+              { 
+                id: 'messages', 
+                label: 'Messages', 
+                icon: MessageSquare,
+                badge: unreadDirectCount > 0 ? (unreadDirectCount > 99 ? '99+' : String(unreadDirectCount)) : undefined
+              },
+              { id: 'bible', label: 'Bible', icon: BookOpen },
+              { 
+                id: 'more', 
+                label: 'More', 
+                icon: Menu,
+                badge: unreadNotifCount > 0 ? '•' : undefined
+              }
             ] as Array<{ id: string; label: string; icon: any; badge?: string }>).map(item => {
               const Icon = item.icon;
-              const isActive = currentTab === item.id;
+              const isMore = item.id === 'more';
+              const isActive = !isMore && (
+                currentTab === item.id || 
+                (item.id === 'fellowship' && currentTab === 'community')
+              );
+
               return (
                 <button
                   key={item.id}
                   onClick={() => {
-                    onTabChange(item.id);
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    if (isMore) {
+                      setIsMoreDrawerOpen(true);
+                    } else {
+                      onTabChange(item.id);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }
                   }}
-                  className={`relative flex flex-col items-center justify-center min-w-[46px] sm:min-w-[58px] flex-1 py-1.5 sm:py-2 px-1 ${currentTab === 'bible' ? 'rounded-xl' : 'rounded-[20px]'} transition-all duration-300 cursor-pointer active:scale-95 shrink-0 group ${
+                  className={`relative flex flex-col items-center justify-center min-w-[54px] flex-1 py-1.5 px-1 ${currentTab === 'bible' ? 'rounded-xl' : 'rounded-[20px]'} transition-all duration-300 cursor-pointer active:scale-95 shrink-0 group ${
                     isActive 
                       ? (currentTab === 'bible' ? 'text-white font-bold' : 'bg-white/20 dark:bg-gradient-to-b dark:from-[#C5A46D]/30 dark:to-[#9E7C44]/20 text-white dark:text-[#E8D4A8] border border-white/25 dark:border-[#C5A46D]/50 shadow-[0_3px_14px_rgba(197,164,109,0.25)]')
                       : 'text-stone-400 hover:text-white dark:text-stone-400 dark:hover:text-stone-200 hover:bg-white/5 border border-transparent'
@@ -946,7 +1024,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                   title={item.label}
                 >
                   <div className="relative flex items-center justify-center">
-                    <Icon className={`w-5 h-5 sm:w-[22px] sm:h-[22px] transition-all duration-300 ${isActive ? 'stroke-[2.4] scale-110 drop-shadow-[0_2px_8px_rgba(197,164,109,0.35)]' : 'stroke-[1.8] group-hover:scale-105'}`} />
+                    <Icon className={`w-5 h-5 transition-all duration-300 ${isActive ? 'stroke-[2.4] scale-110 drop-shadow-[0_2px_8px_rgba(197,164,109,0.35)]' : 'stroke-[1.8] group-hover:scale-105'}`} />
                     {item.badge && (
                       <span className="absolute -top-1 -right-2 min-w-[17px] h-[17px] px-1 rounded-full bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-black text-[9.5px] flex items-center justify-center shadow-md shadow-amber-500/40 ring-1.5 ring-[#12131A] animate-pulse">
                         {item.badge}
@@ -963,6 +1041,189 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
             })}
           </div>
         </nav>
+
+        {/* Mobile Slide-Up "More" Sheet / Drawer */}
+        {isMoreDrawerOpen && (
+          <div className="md:hidden fixed inset-0 z-50 flex flex-col justify-end">
+            {/* Backdrop */}
+            <div 
+              className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity animate-fade-in"
+              onClick={() => setIsMoreDrawerOpen(false)}
+            />
+
+            {/* Bottom Sheet Modal */}
+            <div className="relative w-full max-h-[85vh] bg-[#FAF8F5] dark:bg-slate-900 rounded-t-[28px] border-t border-stone-200/80 dark:border-slate-800 shadow-2xl p-5 overflow-y-auto z-10 animate-slide-in-up">
+              {/* Top Grab Handle */}
+              <div className="w-12 h-1.5 bg-stone-300 dark:bg-slate-700 rounded-full mx-auto mb-4" />
+
+              {/* User Header Profile Card */}
+              <div className="flex items-center justify-between pb-4 mb-4 border-b border-stone-200/70 dark:border-slate-800">
+                <div 
+                  className="flex items-center gap-3 cursor-pointer"
+                  onClick={() => {
+                    onTabChange('profile');
+                    setIsMoreDrawerOpen(false);
+                  }}
+                >
+                  <img 
+                    src={currentUser.avatar || '/icons/church-logo.png'} 
+                    alt={currentUser.name} 
+                    className="w-12 h-12 rounded-full object-cover border-2 border-gold/40 shadow-sm"
+                  />
+                  <div>
+                    <div className="font-bold text-sm text-slate-900 dark:text-white leading-tight">
+                      {currentUser.name}
+                    </div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">
+                      @{currentUser.username || 'member'} • <span className="text-gold font-semibold">{currentUser.roleTitle}</span>
+                    </div>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setIsMoreDrawerOpen(false)}
+                  className="p-2 rounded-full hover:bg-stone-200/60 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400"
+                  aria-label="Close"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Grid of Secondary Modules */}
+              <div className="space-y-4">
+                <div>
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">
+                    Spiritual Life
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { id: 'prayer', label: 'Prayer & Faith', icon: Heart, color: 'text-rose-500' },
+                      { id: 'worship', label: 'Worship Hub', icon: Music, color: 'text-amber-500' },
+                      { id: 'stories', label: 'Bible Stories', icon: BookMarked, color: 'text-emerald-500' },
+                    ].map(m => {
+                      const Icon = m.icon;
+                      return (
+                        <button
+                          key={m.id}
+                          onClick={() => {
+                            onTabChange(m.id);
+                            setIsMoreDrawerOpen(false);
+                          }}
+                          className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all ${
+                            currentTab === m.id
+                              ? 'bg-gold/15 border-gold text-slate-900 dark:text-white font-bold'
+                              : 'bg-white dark:bg-slate-800/80 border-stone-200/60 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-gold/40'
+                          }`}
+                        >
+                          <Icon className={`w-5 h-5 mb-1.5 ${m.color}`} />
+                          <span className="text-xs text-center leading-tight">{m.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">
+                    Church Life & Ministries
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { id: 'events', label: 'Events', icon: Calendar, color: 'text-sky-500' },
+                      { id: 'bjc-ai', label: 'BJC AI Studio', icon: Compass, color: 'text-gold' },
+                      { id: 'ministries', label: 'Ministries', icon: Shield, color: 'text-purple-500' },
+                    ].map(m => {
+                      const Icon = m.icon;
+                      return (
+                        <button
+                          key={m.id}
+                          onClick={() => {
+                            onTabChange(m.id);
+                            setIsMoreDrawerOpen(false);
+                          }}
+                          className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all ${
+                            currentTab === m.id
+                              ? 'bg-gold/15 border-gold text-slate-900 dark:text-white font-bold'
+                              : 'bg-white dark:bg-slate-800/80 border-stone-200/60 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-gold/40'
+                          }`}
+                        >
+                          <Icon className={`w-5 h-5 mb-1.5 ${m.color}`} />
+                          <span className="text-xs text-center leading-tight">{m.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">
+                    Account & Links
+                  </div>
+                  <div className="space-y-1.5">
+                    <button
+                      onClick={() => {
+                        onTabChange('profile');
+                        setIsMoreDrawerOpen(false);
+                      }}
+                      className="w-full flex items-center justify-between p-3 rounded-xl bg-white dark:bg-slate-800/80 border border-stone-200/60 dark:border-slate-800 text-slate-800 dark:text-slate-200 text-xs font-medium"
+                    >
+                      <div className="flex items-center gap-3">
+                        <User className="w-4 h-4 text-slate-500" />
+                        <span>Profile & Account Settings</span>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-slate-400" />
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        onTabChange('public-website');
+                        setIsMoreDrawerOpen(false);
+                      }}
+                      className="w-full flex items-center justify-between p-3 rounded-xl bg-white dark:bg-slate-800/80 border border-stone-200/60 dark:border-slate-800 text-slate-800 dark:text-slate-200 text-xs font-medium"
+                    >
+                      <div className="flex items-center gap-3">
+                        <ExternalLink className="w-4 h-4 text-slate-500" />
+                        <span>Public Church Website</span>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-slate-400" />
+                    </button>
+
+                    {canAccessAdmin && (
+                      <button
+                        onClick={() => {
+                          onTabChange('admin');
+                          setIsMoreDrawerOpen(false);
+                        }}
+                        className="w-full flex items-center justify-between p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-300 text-xs font-medium"
+                      >
+                        <div className="flex items-center gap-3">
+                          <Shield className="w-4 h-4 text-amber-500" />
+                          <span>Admin Console</span>
+                        </div>
+                        <span className="text-[9px] bg-amber-500/20 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded font-mono font-bold">
+                          RBAC
+                        </span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Sign Out Button */}
+                <div className="pt-2">
+                  <button
+                    onClick={() => {
+                      setIsMoreDrawerOpen(false);
+                      handleLogout();
+                    }}
+                    className="w-full flex items-center justify-center gap-2 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-bold hover:bg-rose-500/20 transition cursor-pointer"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span>Sign Out of BJC</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Global Authentication Modal */}
         <AuthModal

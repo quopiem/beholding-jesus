@@ -1312,6 +1312,14 @@ export class ChurchDataStore {
       events[idx] = ev;
     } else {
       events.unshift(ev);
+      this.addNotification({
+        id: `notif-event-${ev.id}`,
+        type: 'event',
+        title: `New Church Event: ${ev.title}`,
+        message: `${ev.date} • ${ev.startTime || '9:00 AM'}${ev.location ? ` at ${ev.location}` : ''}`,
+        linkRoute: 'events',
+        createdAt: new Date().toISOString()
+      });
     }
     this.save(KEY_EVENTS, events);
 
@@ -1958,6 +1966,18 @@ export class ChurchDataStore {
     return list.filter(n => !['notif-1', 'notif-2', 'notif-3'].includes(n.id));
   }
 
+  static markNotificationRead(id: string): void {
+    const list = this.getNotifications();
+    const target = list.find(n => n.id === id);
+    if (target && !target.isRead) {
+      target.isRead = true;
+      this.save(KEY_NOTIFICATIONS, list);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('bjc_notifications_change'));
+      }
+    }
+  }
+
   static markAllNotificationsRead(): NotificationItem[] {
     const list = this.getNotifications();
     list.forEach(n => n.isRead = true);
@@ -1978,18 +1998,26 @@ export class ChurchDataStore {
   static addNotification(notif: Partial<NotificationItem>): NotificationItem {
     const list = this.getNotifications();
     const user = this.getCurrentUser() || this.getRequiredCurrentUser();
+    const targetId = notif.id || `notif-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+    
+    // Prevent duplicate notifications by ID
+    const existingIndex = list.findIndex(n => n.id === targetId);
+    if (existingIndex !== -1) {
+      return list[existingIndex];
+    }
+
     const newNotif: NotificationItem = {
-      id: notif.id || `notif-${Date.now()}`,
+      id: targetId,
       userId: notif.userId || user.id,
       type: notif.type || 'system',
       title: notif.title || 'Notification',
       message: notif.message || '',
-      linkRoute: notif.linkRoute || 'home',
+      linkRoute: notif.linkRoute || 'feed',
       isRead: false,
       createdAt: notif.createdAt || new Date().toISOString()
     };
     list.unshift(newNotif);
-    this.save(KEY_NOTIFICATIONS, list);
+    this.save(KEY_NOTIFICATIONS, list.slice(0, 100)); // Keep max 100 latest notifications
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('bjc_notifications_change'));
     }

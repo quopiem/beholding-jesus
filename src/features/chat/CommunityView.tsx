@@ -244,15 +244,25 @@ interface CommunityViewProps {
   currentUser?: UserProfile;
   onDirectChatStateChange?: (isOpen: boolean) => void;
   onConversationActiveChange?: (isActive: boolean) => void;
+  initialFilter?: 'all' | 'groups' | 'direct' | 'members';
+  onNavigate?: (tab: string) => void;
 }
 
 export const CommunityView: React.FC<CommunityViewProps> = ({ 
   currentUser: userProp,
   onDirectChatStateChange,
-  onConversationActiveChange
+  onConversationActiveChange,
+  initialFilter,
+  onNavigate
 }) => {
   const currentUser: UserProfile = userProp || ChurchDataStore.getCurrentUser() || ChurchDataStore.getRequiredCurrentUser();
-  const [filterTab, setFilterTab] = useState<'all' | 'groups' | 'direct' | 'members'>('all');
+  const [filterTab, setFilterTab] = useState<'all' | 'groups' | 'direct' | 'members'>(initialFilter || 'all');
+
+  useEffect(() => {
+    if (initialFilter) {
+      setFilterTab(initialFilter);
+    }
+  }, [initialFilter]);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeRoomId, setActiveRoomId] = useState<string>(() => {
     try {
@@ -775,9 +785,17 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
   useEffect(() => {
     try {
       localStorage.setItem('bjc_unread_chat_count', String(totalUnreadCount));
-      window.dispatchEvent(new CustomEvent('bjc_unread_chat_count', { detail: { count: totalUnreadCount } }));
+      localStorage.setItem('bjc_unread_groups_count', String(groupsUnreadCount));
+      localStorage.setItem('bjc_unread_direct_count', String(directUnreadCount));
+      window.dispatchEvent(new CustomEvent('bjc_unread_chat_count', { 
+        detail: { 
+          count: totalUnreadCount,
+          groupsCount: groupsUnreadCount,
+          directCount: directUnreadCount
+        } 
+      }));
     } catch (_) {}
-  }, [totalUnreadCount]);
+  }, [totalUnreadCount, groupsUnreadCount, directUnreadCount]);
 
   const activeConversation = conversations.find(c => c.id === activeRoomId) || conversations[0];
   const currentMessages = useMemo(() => {
@@ -1535,6 +1553,16 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
           cleanPreviewText(previewSnippet),
           { roomId: payload.roomId, isDirect: payload.roomId.startsWith('dm_') }
         ).catch(() => {});
+
+        const isDm = payload.roomId.startsWith('dm_');
+        ChurchDataStore.addNotification({
+          id: `msg-${formattedMsg.id}`,
+          type: isDm ? 'direct_message' : 'fellowship_message',
+          title: isDm ? `Message from ${formattedMsg.senderName}` : `Fellowship: ${formattedMsg.senderName}`,
+          message: cleanPreviewText(previewSnippet) || 'Sent a message',
+          linkRoute: isDm ? 'messages' : 'fellowship',
+          createdAt: new Date().toISOString()
+        });
       }
     }
 

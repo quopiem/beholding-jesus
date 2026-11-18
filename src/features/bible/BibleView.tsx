@@ -186,6 +186,21 @@ export const BibleView: React.FC<BibleViewProps> = ({
     };
   }, [selectedBook, currentChapter, selectedTranslation, comparisonTranslation, viewMode]);
 
+  // Dispatch active Bible reading context for BJC AI and system assistants
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('bjc_bible_context', {
+        detail: {
+          bookName: selectedBook?.name || 'Genesis',
+          bookId: selectedBook?.id || 'GEN',
+          chapter: currentChapter,
+          verse: selectedVerse?.verseNumber,
+          verseText: selectedVerse?.text
+        }
+      }));
+    }
+  }, [selectedBook, currentChapter, selectedVerse]);
+
   // Handle Search Input or Reference Jump
   useEffect(() => {
     if (searchQuery.trim().length > 1) {

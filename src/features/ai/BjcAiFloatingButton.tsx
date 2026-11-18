@@ -24,6 +24,13 @@ export const BjcAiFloatingButton: React.FC<BjcAiFloatingButtonProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [hasApiKey, setHasApiKey] = useState(() => BjcAiService.hasApiKey());
+  const [bibleContext, setBibleContext] = useState<{
+    bookName: string;
+    bookId?: string;
+    chapter: number;
+    verse?: number;
+    verseText?: string;
+  } | null>(null);
 
   // Movable / Draggable Button Position across the entire screen (mobile, tablet, desktop)
   const [customPos, setCustomPos] = useState<{ x: number; y: number } | null>(() => {
@@ -119,6 +126,16 @@ export const BjcAiFloatingButton: React.FC<BjcAiFloatingButtonProps> = ({
     };
   }, []);
 
+  useEffect(() => {
+    const handleBibleCtx = (e: any) => {
+      if (e.detail) {
+        setBibleContext(e.detail);
+      }
+    };
+    window.addEventListener('bjc_bible_context', handleBibleCtx);
+    return () => window.removeEventListener('bjc_bible_context', handleBibleCtx);
+  }, []);
+
   // Pointer drag listeners for FAB - enables moving across the entire screen
   const handlePointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
     if (isOpen) return;
@@ -201,7 +218,10 @@ export const BjcAiFloatingButton: React.FC<BjcAiFloatingButtonProps> = ({
     setIsLoading(true);
 
     try {
-      const response = await BjcAiService.sendMessage(text);
+      const response = await BjcAiService.sendMessage(text, undefined, {
+        currentTab,
+        bibleContext: bibleContext?.chapter ? bibleContext : undefined
+      });
       const assistantMsg: BjcAiMessage = {
         id: `ai-${Date.now()}`,
         sender: 'assistant',
@@ -327,6 +347,15 @@ export const BjcAiFloatingButton: React.FC<BjcAiFloatingButtonProps> = ({
 
           {/* Quick Prompts Bar */}
           <div className="shrink-0 px-3 py-2 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200/70 dark:border-slate-800 flex items-center gap-1.5 overflow-x-auto text-[11px] no-scrollbar">
+            {bibleContext?.bookName && bibleContext?.chapter ? (
+              <button
+                onClick={() => handleSendMessage(`Explain the meaning and application of ${bibleContext.bookName} chapter ${bibleContext.chapter}${bibleContext.verse ? ` verse ${bibleContext.verse}` : ''}.`)}
+                className="px-2.5 py-1 rounded-full bg-amber-500/15 border border-amber-500/40 text-amber-700 dark:text-amber-300 hover:bg-amber-500/25 shrink-0 transition flex items-center gap-1 font-medium"
+              >
+                <BookOpen className="w-3 h-3 text-amber-500" />
+                <span>Explain {bibleContext.bookName} {bibleContext.chapter}{bibleContext.verse ? `:${bibleContext.verse}` : ''}</span>
+              </button>
+            ) : null}
             <button
               onClick={() => handleSendMessage("Share an encouraging verse for today with an uplifting prayer.")}
               className="px-2.5 py-1 rounded-full bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:border-gold hover:text-gold shrink-0 transition flex items-center gap-1"

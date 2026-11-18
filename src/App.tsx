@@ -13,18 +13,17 @@ import { ProfileView } from './pages/ProfileView';
 import { BjcAiView } from './features/ai/BjcAiView';
 import { BjcAiFloatingButton } from './features/ai/BjcAiFloatingButton';
 import { AuthPage } from './features/auth/AuthPage';
-import { LandingPageView } from './features/landing/LandingPageView';
 import { PublicSiteLayout } from './public-site';
 import { ChurchDataStore } from './services/churchDataStore';
 import { AuthService } from './services/authService';
 import { PresenceService } from './services/presenceService';
 import { UserProfile } from './types';
 
-const MAIN_SWIPE_SECTIONS = ['home', 'feed', 'bible', 'stories', 'community', 'ministries', 'profile'];
+const MAIN_SWIPE_SECTIONS = ['feed', 'fellowship', 'messages', 'bible', 'stories', 'ministries', 'profile'];
 
 export function App() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => ChurchDataStore.getCurrentUser());
-  const [currentTab, setCurrentTab] = useState<string>('home');
+  const [currentTab, setCurrentTab] = useState<string>('feed');
   const [unauthView, setUnauthView] = useState<'public' | 'login' | 'register'>(() => {
     if (typeof window !== 'undefined') {
       if (window.location.hash === '#login') return 'login';
@@ -33,7 +32,7 @@ export function App() {
     return 'public';
   });
   const [bibleTarget, setBibleTarget] = useState<{ bookId: string; chapter: number } | null>(null);
-  const [visitedTabs, setVisitedTabs] = useState<Set<string>>(() => new Set(['home', 'community', currentTab]));
+  const [visitedTabs, setVisitedTabs] = useState<Set<string>>(() => new Set(['feed', 'fellowship', 'messages', currentTab]));
   const [isChatConversationOpen, setIsChatConversationOpen] = useState(false);
 
   useEffect(() => {
@@ -67,14 +66,14 @@ export function App() {
     };
   }, []);
 
-  // Real-Time Online Presence Tracking (Part 7, 9, 10)
+  // Real-Time Online Presence Tracking
   useEffect(() => {
     if (currentUser) {
       PresenceService.init(currentUser);
     }
   }, [currentUser]);
 
-  // Keep track of visited tabs to preserve each page's internal state without reload (Part 6)
+  // Keep track of visited tabs to preserve each page's internal state without reload
   useEffect(() => {
     setVisitedTabs(prev => {
       if (prev.has(currentTab)) return prev;
@@ -95,7 +94,7 @@ export function App() {
           onBackToPublic={() => setUnauthView('public')}
           onAuthSuccess={(user) => {
             setCurrentUser(user);
-            setCurrentTab('home'); // First view after login/register is the Member Landing Page
+            setCurrentTab('feed'); // Land directly on Community Feed immediately after successful login
           }} 
         />
       );
@@ -114,7 +113,7 @@ export function App() {
     return (
       <PublicSiteLayout
         isLoggedIn={true}
-        onGoToApp={() => setCurrentTab('home')}
+        onGoToApp={() => setCurrentTab('feed')}
         onOpenLogin={() => {}}
         onOpenRegister={() => {}}
       />
@@ -127,14 +126,8 @@ export function App() {
     return (
       <>
         {/* Preserved Main Swipe Sections (State remains intact across tab switches) */}
-        {visitedTabs.has('home') && (
-          <div style={{ display: (currentTab === 'home' || currentTab === 'landing') ? 'block' : 'none' }}>
-            <LandingPageView onNavigate={setCurrentTab} currentUser={currentUser} />
-          </div>
-        )}
-
         {visitedTabs.has('feed') && (
-          <div style={{ display: currentTab === 'feed' ? 'block' : 'none' }}>
+          <div style={{ display: (currentTab === 'feed' || currentTab === 'home' || currentTab === 'landing') ? 'block' : 'none' }}>
             <HomeView onNavigate={setCurrentTab} onOpenQuickAction={() => setCurrentTab('worship')} currentUser={currentUser} />
           </div>
         )}
@@ -162,12 +155,14 @@ export function App() {
           </div>
         )}
 
-        {visitedTabs.has('community') && (
-          <div style={{ display: currentTab === 'community' ? 'block' : 'none' }}>
+        {(visitedTabs.has('fellowship') || visitedTabs.has('messages') || visitedTabs.has('community')) && (
+          <div style={{ display: (currentTab === 'fellowship' || currentTab === 'messages' || currentTab === 'community') ? 'block' : 'none' }}>
             <CommunityView 
               currentUser={currentUser} 
+              initialFilter={currentTab === 'fellowship' ? 'groups' : currentTab === 'messages' ? 'direct' : 'all'}
               onDirectChatStateChange={setIsChatConversationOpen}
               onConversationActiveChange={setIsChatConversationOpen}
+              onNavigate={setCurrentTab}
             />
           </div>
         )}
@@ -204,7 +199,7 @@ export function App() {
                 case 'prayer': return <PrayerFaithView />;
                 case 'admin': return <AdminDashboardView />;
                 case 'bjc-ai': return <BjcAiView onNavigate={setCurrentTab} currentUser={currentUser} />;
-                default: return <LandingPageView onNavigate={setCurrentTab} currentUser={currentUser} />;
+                default: return <HomeView onNavigate={setCurrentTab} onOpenQuickAction={() => setCurrentTab('worship')} currentUser={currentUser} />;
               }
             })()}
           </div>
@@ -213,7 +208,7 @@ export function App() {
     );
   };
 
-  const isInsideChat = currentTab === 'community' && isChatConversationOpen;
+  const isInsideChat = (currentTab === 'community' || currentTab === 'fellowship' || currentTab === 'messages') && isChatConversationOpen;
 
   return (
     <>
@@ -235,8 +230,8 @@ export function App() {
         {renderContent()}
       </AppLayout>
 
-      {/* Floating BJC AI Assistant Button & Widget (Movable across entire screen; visible on all tabs, hidden when inside direct chat or GC or Bible view) */}
-      {currentTab !== 'bjc-ai' && currentTab !== 'bible' && !isInsideChat && (
+      {/* Floating BJC AI Assistant Button & Widget (Movable across entire screen; accessible throughout authenticated app including Bible, hidden only when inside active 1-on-1 or group chat) */}
+      {currentTab !== 'bjc-ai' && !isInsideChat && (
         <BjcAiFloatingButton 
           onOpenFullView={() => setCurrentTab('bjc-ai')} 
           currentTab={currentTab}

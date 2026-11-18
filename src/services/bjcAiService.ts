@@ -8,6 +8,16 @@ export interface BjcAiMessage {
   interactionId?: string;
 }
 
+export interface BjcAiContext {
+  currentTab?: string;
+  bibleContext?: {
+    bookName: string;
+    chapter: number;
+    verse?: number;
+    verseText?: string;
+  };
+}
+
 const STORAGE_KEY_GEMINI_KEY = 'bjc_gemini_api_key';
 const STORAGE_KEY_CHAT_HISTORY = 'bjc_ai_chat_history_v1';
 
@@ -107,7 +117,8 @@ export class BjcAiService {
    */
   static async sendMessage(
     prompt: string,
-    previousInteractionId?: string
+    previousInteractionId?: string,
+    context?: BjcAiContext
   ): Promise<{ text: string; interactionId?: string }> {
     const apiKey = this.getApiKey();
 
@@ -117,9 +128,20 @@ export class BjcAiService {
     }
 
     const currentUser = ChurchDataStore.getCurrentUser();
-    const userContext = currentUser
+    let userContext = currentUser
       ? `The user talking to you is ${currentUser.name} (@${currentUser.username}), whose role in the church is ${currentUser.roleTitle || 'Church Member'}.`
       : 'The user is a member or visitor of Beholding Jesus Church.';
+
+    if (context?.currentTab) {
+      userContext += `\n- Current active application section: ${context.currentTab.toUpperCase()}`;
+    }
+    if (context?.bibleContext && context.bibleContext.chapter > 0) {
+      const b = context.bibleContext;
+      userContext += `\n- Currently reading Bible passage: ${b.bookName} chapter ${b.chapter}.`;
+      if (b.verse && b.verseText) {
+        userContext += `\n- User has currently highlighted verse ${b.verse}: "${b.verseText}". If they ask for explanations, study notes, or prayers related to this verse, directly reference it.`;
+      }
+    }
 
     const systemInstructionWithContext = `${BJC_SYSTEM_INSTRUCTION}\n\nCURRENT CONVERSATION CONTEXT:\n${userContext}`;
 

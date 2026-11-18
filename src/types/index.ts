@@ -432,7 +432,18 @@ export interface CommunityPost {
 // -------------------------------------------------------------
 // NOTIFICATIONS
 // -------------------------------------------------------------
-export type NotificationType = 'message' | 'announcement' | 'event' | 'prayer' | 'ministry' | 'worship' | 'system';
+export type NotificationType = 
+  | 'message' 
+  | 'direct_message' 
+  | 'fellowship_message' 
+  | 'comment' 
+  | 'reaction' 
+  | 'announcement' 
+  | 'event' 
+  | 'prayer' 
+  | 'ministry' 
+  | 'worship' 
+  | 'system';
 
 export interface NotificationItem {
   id: string;
