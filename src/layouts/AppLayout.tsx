@@ -356,14 +356,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
           id: 'fellowship', 
           label: 'Fellowship', 
           icon: Users,
-          badge: unreadGroupsCount > 0 ? (unreadGroupsCount > 99 ? '99+' : String(unreadGroupsCount)) : undefined,
-          isCountBadge: true
-        },
-        { 
-          id: 'messages', 
-          label: 'Direct Messages', 
-          icon: MessageSquare,
-          badge: unreadDirectCount > 0 ? (unreadDirectCount > 99 ? '99+' : String(unreadDirectCount)) : undefined,
+          badge: (unreadGroupsCount + unreadDirectCount) > 0 ? ((unreadGroupsCount + unreadDirectCount) > 99 ? '99+' : String(unreadGroupsCount + unreadDirectCount)) : undefined,
           isCountBadge: true
         },
       ]
@@ -979,13 +972,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                 id: 'fellowship', 
                 label: 'Fellowship', 
                 icon: Users,
-                badge: unreadGroupsCount > 0 ? (unreadGroupsCount > 99 ? '99+' : String(unreadGroupsCount)) : undefined
-              },
-              { 
-                id: 'messages', 
-                label: 'Messages', 
-                icon: MessageSquare,
-                badge: unreadDirectCount > 0 ? (unreadDirectCount > 99 ? '99+' : String(unreadDirectCount)) : undefined
+                badge: (unreadGroupsCount + unreadDirectCount) > 0 ? ((unreadGroupsCount + unreadDirectCount) > 99 ? '99+' : String(unreadGroupsCount + unreadDirectCount)) : undefined
               },
               { id: 'bible', label: 'Bible', icon: BookOpen },
               { 
