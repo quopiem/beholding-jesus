@@ -304,15 +304,15 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   return (
     <div className="min-h-screen w-full bg-[#08150c] relative flex flex-col justify-between items-center text-white overflow-x-hidden font-sans selection:bg-[#E5B358] selection:text-[#1a1204]">
       
-      {/* 1. Cinematic Background Artwork with Sunset, Cross, and Mountains */}
+      {/* 1. Authentic BJC Sanctuary Background: Pastor Preaching Under The Cross */}
       <div 
-        className="fixed inset-0 bg-cover bg-top sm:bg-center pointer-events-none transition-all duration-700" 
-        style={{ backgroundImage: "url('/images/church_login_bg.jpg')" }} 
+        className="fixed inset-0 bg-cover bg-center pointer-events-none transition-all duration-700 filter brightness-[0.55] contrast-[1.08] saturate-[1.10] scale-[1.02]" 
+        style={{ backgroundImage: "url('/images/bjc-login-bg.jpg')" }} 
       />
 
-      {/* 2. Deep Emerald Gradient & Radial Vignette for Content Contrast */}
-      <div className="fixed inset-0 bg-gradient-to-b from-black/25 via-[#06180e]/60 to-[#020b05]/95 pointer-events-none" />
-      <div className="fixed inset-0 bg-radial from-amber-500/10 via-transparent to-transparent pointer-events-none" />
+      {/* 2. Deep Atmospheric Gradient & Radial Vignette for Card Readability */}
+      <div className="fixed inset-0 bg-gradient-to-b from-stone-950/75 via-black/65 to-stone-950/95 pointer-events-none" />
+      <div className="fixed inset-0 bg-radial from-amber-500/10 via-transparent to-black/70 pointer-events-none" />
 
       {/* 3. Main Center Content Container */}
       <div className="relative z-10 w-full max-w-sm sm:max-w-md mx-auto px-5 py-6 sm:py-8 flex flex-col justify-between min-h-screen">
