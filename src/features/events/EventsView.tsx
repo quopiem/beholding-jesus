@@ -7,6 +7,7 @@ import {
 import { ChurchDataStore } from '../../services/churchDataStore';
 import { CHURCH_INFO } from '../../services/churchInfo';
 import { ChurchEvent, EventCategory, UserProfile } from '../../types';
+import { PushNotificationService } from '../../services/pushNotificationService';
 
 export const EventsView: React.FC = () => {
   const [events, setEvents] = useState<ChurchEvent[]>(ChurchDataStore.getEvents());
@@ -91,6 +92,24 @@ export const EventsView: React.FC = () => {
 
     ChurchDataStore.saveEvent(newEvent);
     setEvents(ChurchDataStore.getEvents());
+
+    // In-app and Web Push Notifications for Church Event
+    ChurchDataStore.addNotification({
+      type: 'event',
+      title: `📅 New Event: ${newEvent.title}`,
+      message: `${newEvent.date} at ${newEvent.location}`,
+      linkRoute: 'events'
+    });
+
+    const memberIds = ChurchDataStore.getUsers().filter(u => u.id !== currentUser.id).map(u => u.id);
+    PushNotificationService.notifyChurchEvent(
+      memberIds,
+      newEvent.title,
+      `${newEvent.date} (${newEvent.startTime}) at ${newEvent.location}`,
+      newEvent.id,
+      'new'
+    );
+
     setIsAddModalOpen(false);
     setNewTitle('');
     setNewDesc('');

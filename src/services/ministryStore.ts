@@ -1,4 +1,6 @@
 import { supabase } from '../lib/supabase';
+import { PushNotificationService } from './pushNotificationService';
+import { ChurchDataStore } from './churchDataStore';
 
 export type MinistryId = 'ministry-worship' | 'ministry-usher' | 'ministry-multimedia';
 
@@ -463,6 +465,36 @@ export class MinistryStore {
       list.push(saved);
     }
     this.save(STORAGE_KEYS.SCHEDULES, list);
+
+    // Notify assigned members of schedule update
+    try {
+      const min = this.getMinistryById(saved.ministryId);
+      const minName = min ? min.name : 'Church Ministry';
+      const members = this.getMembers(saved.ministryId);
+      const targetUserIds = saved.assignedMemberNames && saved.assignedMemberNames.length > 0
+        ? members.filter(m => saved.assignedMemberNames?.includes(m.name)).map(m => m.userId)
+        : members.map(m => m.userId);
+
+      if (targetUserIds.length > 0) {
+        targetUserIds.forEach(uid => {
+          ChurchDataStore.addNotification({
+            userId: uid,
+            type: 'ministry',
+            title: `📅 ${minName}: Schedule Update`,
+            message: `${saved.title} on ${saved.date} at ${saved.time}`,
+            linkRoute: 'ministries'
+          });
+        });
+        PushNotificationService.notifyMinistry(
+          targetUserIds,
+          minName,
+          'Schedule Update: ' + saved.title,
+          `${saved.date} (${saved.time}) - ${saved.location || 'Sanctuary'}`,
+          saved.ministryId
+        );
+      }
+    } catch {}
+
     return saved;
   }
 
@@ -494,6 +526,33 @@ export class MinistryStore {
       list.unshift(saved);
     }
     this.save(STORAGE_KEYS.ANNOUNCEMENTS, list);
+
+    // Notify ministry members of announcement
+    try {
+      const min = this.getMinistryById(saved.ministryId);
+      const minName = min ? min.name : 'Church Ministry';
+      const memberUserIds = this.getMembers(saved.ministryId).map(m => m.userId);
+
+      if (memberUserIds.length > 0) {
+        memberUserIds.forEach(uid => {
+          ChurchDataStore.addNotification({
+            userId: uid,
+            type: 'ministry',
+            title: `📢 ${minName} Announcement`,
+            message: `${saved.title}: ${saved.content.slice(0, 60)}...`,
+            linkRoute: 'ministries'
+          });
+        });
+        PushNotificationService.notifyMinistry(
+          memberUserIds,
+          minName,
+          saved.title,
+          saved.content,
+          saved.ministryId
+        );
+      }
+    } catch {}
+
     return saved;
   }
 

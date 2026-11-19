@@ -11,6 +11,7 @@ import { ChurchDataStore } from '../../services/churchDataStore';
 import { UserProfile, BibleNote } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { NotificationService } from '../../services/notificationService';
+import { PushNotificationService } from '../../services/pushNotificationService';
 import { PresenceService, formatLastSeenTimestamp } from '../../services/presenceService';
 import { BibleService } from '../bible/bibleService';
 
@@ -1912,6 +1913,55 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
       content: fullContent,
       reactions: []
     }).catch(() => {});
+
+    // Trigger Web Push Notification
+    if (activeConversation?.type === 'direct' && activeConversation.otherUserId) {
+      PushNotificationService.notifyDirectMessage(
+        activeConversation.otherUserId,
+        currentUser.name,
+        previewSnippet,
+        activeRoomId
+      );
+    } else {
+      // Group message: determine recipient member IDs
+      let recipients: string[] = [];
+      if (activeConversation?.symbol && activeConversation.symbol.startsWith('{')) {
+        try {
+          const meta = JSON.parse(activeConversation.symbol);
+          if (Array.isArray(meta.members)) {
+            recipients = meta.members.filter((id: string) => id !== currentUser.id);
+          }
+        } catch {}
+      }
+      if (recipients.length === 0) {
+        recipients = registeredUsers.filter(u => u.id !== currentUser.id).slice(0, 30).map(u => u.id);
+      }
+      PushNotificationService.notifyGroupMessage(
+        recipients,
+        currentUser.name,
+        activeConversation?.title || 'Sanctuary Fellowship',
+        previewSnippet,
+        activeRoomId
+      );
+    }
+
+    // Check for @mentions in chat message
+    const chatMentions = fullContent.match(/@([a-zA-Z0-9_.-]+)/g);
+    if (chatMentions) {
+      chatMentions.forEach(m => {
+        const cleanUname = m.replace('@', '').toLowerCase();
+        const mentionedUser = registeredUsers.find(u => u.username?.toLowerCase() === cleanUname);
+        if (mentionedUser && mentionedUser.id !== currentUser.id && mentionedUser.id !== activeConversation?.otherUserId) {
+          PushNotificationService.notifyMention(
+            mentionedUser.id,
+            currentUser.name,
+            previewSnippet,
+            `/?tab=fellowship&room=${activeRoomId}`,
+            true
+          );
+        }
+      });
+    }
   };
 
   // Messenger-Style Quick Reaction / Like Handler (Thumbs Up / Amen)
@@ -2172,6 +2222,23 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
 
     setConversations(prev => [newConv, ...prev]);
     setActiveRoomId(newId);
+    // Notify invited participants of new group chat
+    selectedGroupMemberIds.forEach(invitedId => {
+      ChurchDataStore.addNotification({
+        userId: invitedId,
+        type: 'fellowship_message',
+        title: 'New Group Chat Invitation',
+        message: `${currentUser.name} invited you to "${title}"`,
+        linkRoute: 'fellowship'
+      });
+      PushNotificationService.notifyGroupInvitation(
+        invitedId,
+        currentUser.name,
+        title,
+        newId
+      );
+    });
+
     setNewChatTitle('');
     setSelectedGroupMemberIds([]);
     setIsComposeModalOpen(false);

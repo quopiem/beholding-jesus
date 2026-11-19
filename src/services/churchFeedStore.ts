@@ -4,6 +4,7 @@ import {
 } from '../types';
 import { supabase } from '../lib/supabase';
 import { ChurchDataStore } from './churchDataStore';
+import { PushNotificationService } from './pushNotificationService';
 
 const KEY_FEED_POSTS = 'bjc_feed_posts_v11';
 const KEY_REACTIONS = 'bjc_post_reactions_v11';
@@ -872,6 +873,10 @@ export class ChurchFeedStore {
         linkRoute: 'feed',
         createdAt: newPost.createdAt
       });
+
+      // Broadcast push notification to all church members
+      const allMembers = ChurchDataStore.getUsers().filter(u => u.id !== newPost.authorId).map(u => u.id);
+      PushNotificationService.notifyChurchAnnouncement(allMembers, newPost.announcementTitle || newPost.authorName, newPost.content || '', true);
     } else if (newPost.postType === 'prayer_request' && newPost.prayerAudience !== 'private') {
       ChurchDataStore.addNotification({
         id: `notif-prayer-${newPost.id}`,
@@ -880,6 +885,25 @@ export class ChurchFeedStore {
         message: (newPost.content || '').slice(0, 80),
         linkRoute: 'feed',
         createdAt: newPost.createdAt
+      });
+    }
+
+    // Check for @mentions in post content
+    const postMentions = (newPost.content || '').match(/@([a-zA-Z0-9_.-]+)/g);
+    if (postMentions) {
+      const allUsers = ChurchDataStore.getUsers();
+      postMentions.forEach(m => {
+        const cleanUname = m.replace('@', '').toLowerCase();
+        const mentionedUser = allUsers.find(u => u.username?.toLowerCase() === cleanUname);
+        if (mentionedUser && mentionedUser.id !== newPost.authorId) {
+          PushNotificationService.notifyMention(
+            mentionedUser.id,
+            newPost.authorName,
+            newPost.content || '',
+            `/?tab=feed&postId=${newPost.id}`,
+            false
+          );
+        }
       });
     }
 
@@ -1212,6 +1236,15 @@ export class ChurchFeedStore {
             linkRoute: 'feed',
             createdAt: new Date().toISOString()
           });
+
+          // Dispatch Web Push notification
+          PushNotificationService.notifyFeedReaction(
+            post.authorId,
+            user.name,
+            reactionType,
+            post.content || '',
+            postId
+          );
         }
       }
     }
@@ -1270,6 +1303,14 @@ export class ChurchFeedStore {
         linkRoute: 'feed',
         createdAt: new Date().toISOString()
       });
+
+      // Dispatch Web Push notification
+      PushNotificationService.notifyPrayerResponse(
+        post.authorId,
+        user.name,
+        post.content || 'Prayer Request',
+        postId
+      );
     }
 
     return { prayed, prayerCount: post.prayerCount };
@@ -1321,6 +1362,14 @@ export class ChurchFeedStore {
             linkRoute: 'feed',
             createdAt: new Date().toISOString()
           });
+
+          // Dispatch Web Push notification
+          PushNotificationService.notifyPrayerAnswered(
+            prayingUserId,
+            post.authorName,
+            post.praiseNote || post.content || 'Answered Prayer',
+            postId
+          );
         }
       });
     }
@@ -1387,8 +1436,29 @@ export class ChurchFeedStore {
       comment: newComment
     });
 
-    // Notify post author if another member commented
-    if (post.authorId && post.authorId !== user.id) {
+    // 1. If replying to a parent comment, notify parent comment author
+    const parentComment = parentCommentId ? allComments.find(c => c.id === parentCommentId) : null;
+    if (parentComment && parentComment.userId !== user.id) {
+      ChurchDataStore.addNotification({
+        id: `reply-notif-${newComment.id}`,
+        userId: parentComment.userId,
+        type: 'comment',
+        title: `${user.name} replied to your comment`,
+        message: `${user.name}: "${newComment.content.slice(0, 50)}..."`,
+        linkRoute: 'feed',
+        createdAt: newComment.createdAt
+      });
+
+      PushNotificationService.notifyFeedCommentReply(
+        parentComment.userId,
+        user.name,
+        newComment.content,
+        postId
+      );
+    }
+
+    // 2. Notify post author if another member commented (and not already notified as parent author)
+    if (post.authorId && post.authorId !== user.id && post.authorId !== parentComment?.userId) {
       ChurchDataStore.addNotification({
         id: `comm-notif-${newComment.id}`,
         userId: post.authorId,
@@ -1397,6 +1467,37 @@ export class ChurchFeedStore {
         message: `${user.name}: "${newComment.content.slice(0, 50)}..."`,
         linkRoute: 'feed',
         createdAt: newComment.createdAt
+      });
+
+      PushNotificationService.notifyFeedComment(
+        post.authorId,
+        user.name,
+        newComment.content,
+        postId
+      );
+    }
+
+    // 3. Check for @mentions in comment
+    const commentMentions = (newComment.content || '').match(/@([a-zA-Z0-9_.-]+)/g);
+    if (commentMentions) {
+      const allUsers = ChurchDataStore.getUsers();
+      commentMentions.forEach(m => {
+        const cleanUname = m.replace('@', '').toLowerCase();
+        const mentionedUser = allUsers.find(u => u.username?.toLowerCase() === cleanUname);
+        if (
+          mentionedUser && 
+          mentionedUser.id !== user.id && 
+          mentionedUser.id !== post.authorId && 
+          mentionedUser.id !== parentComment?.userId
+        ) {
+          PushNotificationService.notifyMention(
+            mentionedUser.id,
+            user.name,
+            newComment.content,
+            `/?tab=feed&postId=${postId}`,
+            false
+          );
+        }
       });
     }
 

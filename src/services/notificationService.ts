@@ -1,7 +1,9 @@
 /**
  * Beholding Jesus Church - Push & Lock Screen Notification Service
- * Supports Web Notifications API and Service Worker for lock screen & home screen alerts.
+ * Supports Web Notifications API, Service Worker, and Web Push integration.
  */
+
+import { PushNotificationService } from './pushNotificationService';
 
 export class NotificationService {
   private static swRegistration: ServiceWorkerRegistration | null = null;
@@ -16,8 +18,9 @@ export class NotificationService {
 
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
       try {
-        const reg = await navigator.serviceWorker.register('/sw.js');
+        const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
         this.swRegistration = reg;
+        await PushNotificationService.init();
         console.log('[BJC Notifications] Service Worker registered successfully.');
       } catch (err) {
         console.warn('[BJC Notifications] Service Worker registration failed:', err);
@@ -61,7 +64,8 @@ export class NotificationService {
           {
             tag: 'bjc-welcome-notification',
             badge: '/icons/church-logo.png',
-            icon: '/icons/icon-192.png'
+            icon: '/icons/icon-192.png',
+            url: '/'
           }
         );
         return true;
@@ -149,9 +153,13 @@ export class NotificationService {
       ? `💬 Private Message from ${senderName}`
       : `💬 ${senderName} • BJC Community`;
 
+    const targetUrl = options?.isDirect 
+      ? `/?tab=messages&room=${options.roomId || ''}`
+      : `/?tab=fellowship&room=${options?.roomId || 'fellowship'}`;
+
     await this.showNotification(title, cleanText, {
-      tag: `msg-${senderName}`,
-      url: '/?tab=community'
+      tag: `msg-${senderName}-${Date.now()}`,
+      url: targetUrl
     });
   }
 
@@ -170,7 +178,7 @@ export class NotificationService {
 
     await this.showNotification(notifTitle, description, {
       tag: `announcement-${title.slice(0, 15)}`,
-      url: '/'
+      url: '/?tab=feed'
     });
   }
 }

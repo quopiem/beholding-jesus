@@ -28,23 +28,21 @@ export const ChurchMomentsLightboxModal: React.FC<ChurchMomentsLightboxModalProp
     };
   }, [isOpen]);
 
-  if (!isOpen || photos.length === 0 || typeof document === 'undefined') return null;
-
-  const currentPhoto = photos[currentIndex] || photos[0];
   const total = photos.length;
 
   const handleNext = useCallback((e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    onNavigateIndex((currentIndex + 1) % total);
+    if (total > 0) onNavigateIndex((currentIndex + 1) % total);
   }, [currentIndex, total, onNavigateIndex]);
 
   const handlePrev = useCallback((e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    onNavigateIndex((currentIndex - 1 + total) % total);
+    if (total > 0) onNavigateIndex((currentIndex - 1 + total) % total);
   }, [currentIndex, total, onNavigateIndex]);
 
   // Keyboard navigation: Escape, ArrowLeft, ArrowRight
   useEffect(() => {
+    if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
       if (e.key === 'ArrowRight') handleNext();
@@ -52,7 +50,11 @@ export const ChurchMomentsLightboxModal: React.FC<ChurchMomentsLightboxModalProp
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose, handleNext, handlePrev]);
+  }, [isOpen, onClose, handleNext, handlePrev]);
+
+  if (!isOpen || photos.length === 0 || typeof document === 'undefined') return null;
+
+  const currentPhoto = photos[currentIndex] || photos[0];
 
   // Download high-resolution photo
   const handleDownload = (e: React.MouseEvent) => {

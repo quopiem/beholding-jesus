@@ -9,6 +9,7 @@ import { ChurchDataStore } from './churchDataStore';
 import { AuthService } from './authService';
 import { supabase } from '../lib/supabase';
 import { StorageManager } from './storageManager';
+import { PushNotificationService } from './pushNotificationService';
 
 const STORAGE_ADMIN_REQUESTS = 'bjc_admin_requests_v1';
 const STORAGE_ADMIN_AUDIT_LOGS = 'bjc_admin_audit_logs_v1';
@@ -290,6 +291,12 @@ export class AdminService {
       linkRoute: 'admin'
     });
 
+    PushNotificationService.notifyAdminApplicationSubmitted(
+      user.name,
+      user.username || 'member',
+      newRequest.id
+    );
+
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('bjc_admin_requests_change'));
       window.dispatchEvent(new Event('storage'));
@@ -435,6 +442,12 @@ export class AdminService {
       linkRoute: 'admin'
     });
 
+    PushNotificationService.notifyAdminApplicationResolved(
+      req.userId,
+      'approved',
+      caller.name
+    );
+
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('bjc_admin_requests_change'));
       window.dispatchEvent(new Event('bjc_users_change'));
@@ -501,6 +514,12 @@ export class AdminService {
       message: `Your request for Admin access was reviewed: ${req.rejectionReason}. You remain an active church member.`,
       linkRoute: 'home'
     });
+
+    PushNotificationService.notifyAdminApplicationResolved(
+      req.userId,
+      'rejected',
+      caller.name
+    );
 
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('bjc_admin_requests_change'));

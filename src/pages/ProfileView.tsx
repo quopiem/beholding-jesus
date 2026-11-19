@@ -12,6 +12,7 @@ import { AdminService } from '../services/adminService';
 import { CHURCH_INFO } from '../services/churchInfo';
 import { AuthModal } from '../features/auth/AuthModal';
 import { UserProfile, AdminAccessRequest } from '../types';
+import { NotificationSettingsSection } from '../components/NotificationSettingsSection';
 
 interface ProfileViewProps {
   currentUser?: UserProfile;
@@ -85,11 +86,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ currentUser: initialUs
   const myPrayers = ChurchDataStore.getPrayerRequests().filter(p => p.userId === currentUser.id);
   const myBookmarks = BibleService.getBookmarks();
   const myNotes = BibleService.getNotes();
-
-  const [pushChat, setPushChat] = useState(true);
-  const [pushAnnounce, setPushAnnounce] = useState(true);
-  const [pushPrayer, setPushPrayer] = useState(true);
-  const [pushWorship, setPushWorship] = useState(true);
 
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [authTab, setAuthTab] = useState<'login' | 'register' | 'recovery'>('login');
@@ -545,69 +541,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ currentUser: initialUs
         )}
       </div>
 
-      {/* Notification Preferences */}
-      <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-6 sm:p-8 shadow-card space-y-4">
-        <div className="flex items-center gap-2">
-          <Bell className="w-4 h-4 text-gold" />
-          <h2 className="font-serif font-bold text-base text-slate-900 dark:text-white">
-            Church Notification Preferences
-          </h2>
-        </div>
-
-        <div className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
-          <div className="py-3 flex items-center justify-between">
-            <div>
-              <div className="font-semibold text-slate-900 dark:text-white">Church & Pastoral Announcements</div>
-              <div className="text-slate-400 text-[11px]">Receive high-priority updates from church leadership</div>
-            </div>
-            <input 
-              type="checkbox" 
-              checked={pushAnnounce} 
-              onChange={e => setPushAnnounce(e.target.checked)}
-              className="accent-gold rounded cursor-pointer"
-            />
-          </div>
-
-          <div className="py-3 flex items-center justify-between">
-            <div>
-              <div className="font-semibold text-slate-900 dark:text-white">Prayer Chain Updates</div>
-              <div className="text-slate-400 text-[11px]">When someone prays for your request or a testimony is posted</div>
-            </div>
-            <input 
-              type="checkbox" 
-              checked={pushPrayer} 
-              onChange={e => setPushPrayer(e.target.checked)}
-              className="accent-gold rounded cursor-pointer"
-            />
-          </div>
-
-          <div className="py-3 flex items-center justify-between">
-            <div>
-              <div className="font-semibold text-slate-900 dark:text-white">Worship Team & Vocal Key Alerts</div>
-              <div className="text-slate-400 text-[11px]">Setlist updates and key assignment notifications</div>
-            </div>
-            <input 
-              type="checkbox" 
-              checked={pushWorship} 
-              onChange={e => setPushWorship(e.target.checked)}
-              className="accent-gold rounded cursor-pointer"
-            />
-          </div>
-
-          <div className="py-3 flex items-center justify-between">
-            <div>
-              <div className="font-semibold text-slate-900 dark:text-white">Direct Chat Messages</div>
-              <div className="text-slate-400 text-[11px]">Group chat and direct messages from church family</div>
-            </div>
-            <input 
-              type="checkbox" 
-              checked={pushChat} 
-              onChange={e => setPushChat(e.target.checked)}
-              className="accent-gold rounded cursor-pointer"
-            />
-          </div>
-        </div>
-      </div>
+      {/* Dedicated Web Push Notification Settings Section */}
+      <NotificationSettingsSection currentUser={currentUser} />
 
       {/* Bible Study Activity */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

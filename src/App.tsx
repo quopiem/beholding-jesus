@@ -83,6 +83,79 @@ export function App() {
     });
   }, [currentTab]);
 
+  // Deep-Link URL navigation handler for Push Notifications and internal routes
+  const handleNavigateToUrl = (targetUrl: string) => {
+    try {
+      const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost';
+      const parsed = new URL(targetUrl, origin);
+      const tab = parsed.searchParams.get('tab');
+      const room = parsed.searchParams.get('room');
+      const postId = parsed.searchParams.get('postId');
+      const eventId = parsed.searchParams.get('eventId');
+
+      if (room) {
+        try { localStorage.setItem('bjc_last_active_room_id', room); } catch {}
+      }
+      if (postId) {
+        try { localStorage.setItem('bjc_highlight_post_id', postId); } catch {}
+      }
+      if (eventId) {
+        try { localStorage.setItem('bjc_selected_event_id', eventId); } catch {}
+      }
+
+      if (tab) {
+        setCurrentTab(tab);
+      } else if (room) {
+        setCurrentTab('fellowship');
+      }
+    } catch {
+      // Fallback: simple tab routing
+      if (targetUrl.includes('tab=')) {
+        const match = targetUrl.match(/tab=([a-z0-9_-]+)/i);
+        if (match?.[1]) setCurrentTab(match[1]);
+      }
+    }
+  };
+
+  // Push Notification Click & Deep Link Router with Authentication Destination Preservation
+  useEffect(() => {
+    const handlePushNavigate = (e: any) => {
+      const url = e.detail?.url;
+      if (!url) return;
+
+      if (!currentUser) {
+        try {
+          sessionStorage.setItem('bjc_redirect_after_auth', url);
+        } catch {}
+        setUnauthView('login');
+      } else {
+        handleNavigateToUrl(url);
+      }
+    };
+
+    window.addEventListener('bjc_push_navigate', handlePushNavigate);
+
+    // Check deep link parameters in window location on load
+    if (typeof window !== 'undefined' && window.location.search) {
+      const params = new URLSearchParams(window.location.search);
+      const targetTab = params.get('tab');
+      if (targetTab) {
+        if (!currentUser) {
+          try {
+            sessionStorage.setItem('bjc_redirect_after_auth', window.location.search);
+          } catch {}
+          setUnauthView('login');
+        } else {
+          handleNavigateToUrl(window.location.search);
+        }
+      }
+    }
+
+    return () => {
+      window.removeEventListener('bjc_push_navigate', handlePushNavigate);
+    };
+  }, [currentUser]);
+
   // Public Church Website & Authentication Gateway:
   // Unauthenticated visitors land on the Public Church Website (Home, About, Beliefs, etc.).
   // Clicking "Login" or "Join Us" transitions smoothly to the existing AuthPage.
@@ -94,7 +167,17 @@ export function App() {
           onBackToPublic={() => setUnauthView('public')}
           onAuthSuccess={(user) => {
             setCurrentUser(user);
-            setCurrentTab('feed'); // Land directly on Community Feed immediately after successful login
+            // Restore intended destination if arriving from a Push Notification or deep link
+            let restoredTab = 'feed';
+            try {
+              const pendingRedirect = sessionStorage.getItem('bjc_redirect_after_auth');
+              if (pendingRedirect) {
+                sessionStorage.removeItem('bjc_redirect_after_auth');
+                handleNavigateToUrl(pendingRedirect);
+                return;
+              }
+            } catch {}
+            setCurrentTab(restoredTab); // Land on Community Feed by default
           }} 
         />
       );
