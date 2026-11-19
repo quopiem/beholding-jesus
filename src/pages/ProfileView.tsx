@@ -251,10 +251,24 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ currentUser: initialUs
                   </div>
                 </div>
 
-                <div className="flex items-center justify-center sm:justify-end gap-2">
+                <div className="flex items-center justify-center sm:justify-end gap-2 flex-wrap">
+                  <button
+                    onClick={() => {
+                      const el = document.getElementById('web-push-settings');
+                      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      el?.classList.add('ring-2', 'ring-gold');
+                      setTimeout(() => el?.classList.remove('ring-2', 'ring-gold'), 2500);
+                    }}
+                    className="px-3.5 py-1.5 rounded-xl bg-gold/15 text-gold-dark dark:text-gold hover:bg-gold/25 border border-gold/30 text-xs font-bold flex items-center gap-1.5 transition shadow-xs cursor-pointer"
+                    title="Jump to Web Push Notification Settings"
+                  >
+                    <Bell className="w-3.5 h-3.5 text-gold" />
+                    <span>Push Alerts</span>
+                  </button>
+
                   <button
                     onClick={() => setIsEditing(true)}
-                    className="px-3.5 py-1.5 rounded-xl bg-gold/15 text-gold-dark dark:text-gold hover:bg-gold/25 border border-gold/30 text-xs font-bold flex items-center gap-1.5 transition shadow-xs"
+                    className="px-3.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-xs font-bold flex items-center gap-1.5 transition shadow-xs cursor-pointer"
                   >
                     <Edit3 className="w-3.5 h-3.5" />
                     <span>Edit Profile</span>

@@ -218,7 +218,10 @@ export const NotificationSettingsSection: React.FC<NotificationSettingsSectionPr
   };
 
   return (
-    <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-6 sm:p-8 shadow-card space-y-6">
+    <div
+      id="web-push-settings"
+      className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-6 sm:p-8 shadow-card space-y-6 scroll-mt-24 transition-all duration-300"
+    >
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
         <div className="flex items-center gap-3">
@@ -317,19 +320,39 @@ export const NotificationSettingsSection: React.FC<NotificationSettingsSectionPr
             </button>
           )}
 
-          <button
-            onClick={handleSendTest}
-            disabled={!isSubscribed || isTesting}
-            className="px-3.5 py-1.5 rounded-xl bg-slate-200 dark:bg-slate-700 hover:bg-gold hover:text-slate-950 font-bold text-[11px] text-slate-800 dark:text-slate-200 transition flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-            title="Send test push to this device"
-          >
-            {isTesting ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <Send className="w-3.5 h-3.5" />
-            )}
-            Test Notification
-          </button>
+          {!isSubscribed ? (
+            <button
+              onClick={handleToggleMasterPush}
+              disabled={isSavingPref}
+              className="px-4 py-2 rounded-xl bg-gold hover:bg-gold-light text-slate-950 font-bold text-xs shadow-soft transition flex items-center gap-1.5 cursor-pointer animate-pulse"
+            >
+              {isSavingPref ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Bell className="w-3.5 h-3.5" />}
+              Enable Push Notifications
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={handleSendTest}
+                disabled={isTesting}
+                className="px-3.5 py-1.5 rounded-xl bg-slate-200 dark:bg-slate-700 hover:bg-gold hover:text-slate-950 font-bold text-[11px] text-slate-800 dark:text-slate-200 transition flex items-center gap-1.5 cursor-pointer"
+                title="Send test push to this device"
+              >
+                {isTesting ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Send className="w-3.5 h-3.5" />
+                )}
+                Test Notification
+              </button>
+              <button
+                onClick={() => handleRemoveDevice('', currentEndpoint || '')}
+                className="px-3 py-1.5 rounded-xl border border-rose-200 dark:border-rose-900/50 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-[11px] font-medium transition cursor-pointer"
+                title="Unsubscribe this device"
+              >
+                Unsubscribe
+              </button>
+            </>
+          )}
         </div>
       </div>
 

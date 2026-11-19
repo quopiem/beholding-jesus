@@ -381,6 +381,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
       title: 'Account',
       items: [
         { id: 'profile', label: 'Profile & Settings', icon: User },
+        { id: 'web-push', label: 'Push Notifications', icon: Bell },
         { id: 'public-website', label: 'Public Church Site', icon: ExternalLink },
       ]
     }
@@ -766,6 +767,23 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
                         ))}
                       </div>
                     )}
+
+                    {/* Web Push Quick Action Footer */}
+                    <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                        <Bell className="w-3.5 h-3.5 text-gold" />
+                        <span>Lock screen alerts</span>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setIsNotifOpen(false);
+                          onTabChange('web-push');
+                        }}
+                        className="text-[11px] font-bold text-gold hover:text-gold-dark hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        Web Push Settings →
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

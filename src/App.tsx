@@ -83,6 +83,21 @@ export function App() {
     });
   }, [currentTab]);
 
+  // Tab change handler with smooth auto-scroll to Web Push Settings
+  const handleTabChange = (tab: string) => {
+    if (tab === 'web-push' || tab === 'notifications' || tab === 'push-settings') {
+      setCurrentTab('profile');
+      setTimeout(() => {
+        const el = document.getElementById('web-push-settings');
+        el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el?.classList.add('ring-2', 'ring-gold');
+        setTimeout(() => el?.classList.remove('ring-2', 'ring-gold'), 2500);
+      }, 150);
+      return;
+    }
+    setCurrentTab(tab);
+  };
+
   // Deep-Link URL navigation handler for Push Notifications and internal routes
   const handleNavigateToUrl = (targetUrl: string) => {
     try {
@@ -104,7 +119,7 @@ export function App() {
       }
 
       if (tab) {
-        setCurrentTab(tab);
+        handleTabChange(tab);
       } else if (room) {
         setCurrentTab('fellowship');
       }
@@ -112,7 +127,7 @@ export function App() {
       // Fallback: simple tab routing
       if (targetUrl.includes('tab=')) {
         const match = targetUrl.match(/tab=([a-z0-9_-]+)/i);
-        if (match?.[1]) setCurrentTab(match[1]);
+        if (match?.[1]) handleTabChange(match[1]);
       }
     }
   };
@@ -296,7 +311,7 @@ export function App() {
     <>
       <AppLayout 
         currentTab={currentTab} 
-        onTabChange={setCurrentTab}
+        onTabChange={handleTabChange}
         onOpenQuickAction={() => setCurrentTab('feed')}
         currentUser={currentUser}
         isChatConversationOpen={isInsideChat}
