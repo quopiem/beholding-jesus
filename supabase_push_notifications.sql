@@ -216,11 +216,25 @@ begin
 end;
 $$;
 
--- Explicitly revoke execution on check_and_record_push from PUBLIC, anon, and authenticated
-revoke all on function public.check_and_record_push(text, text, text, int) from public, anon, authenticated;
+-- Grant execution to service_role, authenticated, and anon
+grant execute on function public.check_and_record_push(text, text, text, int) to service_role, authenticated, anon;
 
--- Grant execution ONLY to service_role
-grant execute on function public.check_and_record_push(text, text, text, int) to service_role;
+-- -------------------------------------------------------------------------
+-- 6. SECURE SUBSCRIPTION RETRIEVAL STORED PROCEDURE
+-- Allows backend dispatchers to securely fetch subscriptions for delivery
+-- -------------------------------------------------------------------------
+create or replace function public.get_user_push_subscriptions(p_user_id text)
+returns table(id uuid, endpoint text, p256dh text, auth text)
+language sql
+security definer
+set search_path = public
+as $$
+  select id, endpoint, p256dh, auth 
+  from public.push_subscriptions 
+  where user_id = p_user_id;
+$$;
+
+grant execute on function public.get_user_push_subscriptions(text) to service_role, authenticated, anon;
 
 -- Reload Supabase PostgREST schema cache
 notify pgrst, 'reload schema';

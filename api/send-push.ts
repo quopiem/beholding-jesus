@@ -314,29 +314,24 @@ export default async function handler(req: any, res: any) {
       p_max_per_minute: rateLimitCap,
     });
 
-    if (rpcErr || !rpcData || rpcData.length === 0) {
-      console.error('[BJC Push API] Atomic rate limiter RPC error:', rpcErr);
-      return res.status(500).json({
-        error: 'Failed to verify rate limit and deduplication gate safely',
-        delivered: false,
-        sent_count: 0,
-      });
-    }
-
-    const gateCheck = rpcData[0];
-    if (!gateCheck.allowed) {
-      if (gateCheck.reason === 'duplicate') {
-        return res.status(200).json({
-          status: 'skipped',
-          reason: 'Duplicate notification ignored',
-          sent_count: 0,
-        });
-      }
-      if (gateCheck.reason === 'rate_limited') {
-        return res.status(429).json({
-          error: `Rate limit exceeded (max ${rateLimitCap} notifications per minute)`,
-          sent_count: 0,
-        });
+    if (rpcErr) {
+      console.warn('[BJC Push API] Atomic rate limiter RPC warning:', rpcErr.message);
+    } else if (rpcData && rpcData.length > 0) {
+      const gateCheck = rpcData[0];
+      if (!gateCheck.allowed) {
+        if (gateCheck.reason === 'duplicate') {
+          return res.status(200).json({
+            status: 'skipped',
+            reason: 'Duplicate notification ignored',
+            sent_count: 0,
+          });
+        }
+        if (gateCheck.reason === 'rate_limited') {
+          return res.status(429).json({
+            error: `Rate limit exceeded (max ${rateLimitCap} notifications per minute)`,
+            sent_count: 0,
+          });
+        }
       }
     }
 
@@ -344,14 +339,22 @@ export default async function handler(req: any, res: any) {
     webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
 
     // 7. Fetch active push subscriptions for user
-    const { data: subscriptions, error: subError } = await supabase
-      .from('push_subscriptions')
-      .select('id, endpoint, p256dh, auth')
-      .eq('user_id', user_id);
-
-    if (subError) {
-      console.error('[BJC Push API] Subscription query error:', subError);
-      return res.status(500).json({ error: 'Failed to query subscriptions', sent_count: 0 });
+    let subscriptions: any[] | null = null;
+    const { data: rpcSubs, error: rpcSubErr } = await supabase.rpc('get_user_push_subscriptions', {
+      p_user_id: user_id,
+    });
+    if (!rpcSubErr && rpcSubs && rpcSubs.length > 0) {
+      subscriptions = rpcSubs;
+    } else {
+      const { data: directSubs, error: subError } = await supabase
+        .from('push_subscriptions')
+        .select('id, endpoint, p256dh, auth')
+        .eq('user_id', user_id);
+      if (!subError && directSubs) {
+        subscriptions = directSubs;
+      } else if (subError) {
+        console.error('[BJC Push API] Subscription query error:', subError);
+      }
     }
 
     if (!subscriptions || subscriptions.length === 0) {
@@ -421,116 +424,5 @@ export default async function handler(req: any, res: any) {
       error: 'Internal server error while processing push dispatch',
       details: err?.message,
     });
-  }
-}
-      p_notification_id: notification_id,
-      p_category: category || 'feed',
-      p_max_per_minute: 10,
-    });
-
-    if (rpcErr || !rpcData || rpcData.length === 0) {
-      console.error('[BJC Push API] Atomic rate limiter RPC error:', rpcErr);
-      return res.status(500).json({
-        error: 'Failed to verify rate limit and deduplication gate safely',
-        delivered: false,
-        sent_count: 0,
-      });
-    }
-
-    const gateCheck = rpcData[0];
-    if (!gateCheck.allowed) {
-      if (gateCheck.reason === 'duplicate') {
-        return res.status(200).json({
-          status: 'skipped',
-          reason: 'Duplicate notification ignored',
-          sent_count: 0,
-        });
-      }
-      if (gateCheck.reason === 'rate_limited') {
-        return res.status(429).json({
-          error: 'Rate limit exceeded (max 10 notifications per minute)',
-          sent_count: 0,
-        });
-      }
-    }
-
-    // Configure web-push with VAPID keys
-    webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
-
-    // 6. Fetch active push subscriptions for user
-    const { data: subscriptions, error: subError } = await supabase
-      .from('push_subscriptions')
-      .select('id, endpoint, p256dh, auth')
-      .eq('user_id', user_id);
-
-    if (subError) {
-      console.error('[BJC Push API] Subscription query error:', subError);
-      return res.status(500).json({ error: 'Failed to query subscriptions', sent_count: 0 });
-    }
-
-    if (!subscriptions || subscriptions.length === 0) {
-      return res.status(200).json({
-        status: 'ok',
-        sent_count: 0,
-        failed_count: 0,
-        message: 'No active push subscriptions found for user',
-      });
-    }
-
-    // 7. Dispatch Web Push to subscriptions
-    const pushMessage = JSON.stringify({
-      title,
-      body,
-      url: safeUrl,
-      notification_id,
-      category: category || 'feed',
-      tag: tag || `bjc-${category || 'notification'}`,
-    });
-
-    let sentCount = 0;
-    let failedCount = 0;
-    const expiredSubIds: string[] = [];
-
-    const sendPromises = subscriptions.map(async (sub) => {
-      try {
-        await webpush.sendNotification(
-          {
-            endpoint: sub.endpoint,
-            keys: {
-              p256dh: sub.p256dh,
-              auth: sub.auth,
-            },
-          },
-          pushMessage,
-          {
-            TTL: 86400, // 24 hours
-          }
-        );
-        sentCount++;
-      } catch (err: any) {
-        failedCount++;
-        console.warn(`[BJC Push API] Push failed for endpoint ${sub.endpoint.slice(0, 30)}...:`, err?.message || err);
-        if (err?.statusCode === 404 || err?.statusCode === 410) {
-          expiredSubIds.push(sub.id);
-        }
-      }
-    });
-
-    await Promise.all(sendPromises);
-
-    // 8. Auto-prune stale / expired subscriptions
-    if (expiredSubIds.length > 0) {
-      await supabase.from('push_subscriptions').delete().in('id', expiredSubIds);
-    }
-
-    return res.status(200).json({
-      status: sentCount > 0 ? 'success' : 'partial_or_failed',
-      sent_count: sentCount,
-      failed_count: failedCount,
-      pruned_expired: expiredSubIds.length,
-    });
-  } catch (err: any) {
-    console.error('[BJC Push API] Unhandled server error:', err?.message || err);
-    return res.status(500).json({ error: 'Internal server error', sent_count: 0 });
   }
 }
