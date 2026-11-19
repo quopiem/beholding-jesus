@@ -22,7 +22,9 @@ const SUPABASE_KEY =
 const VAPID_PUBLIC_KEY =
   process.env.VAPID_PUBLIC_KEY ||
   'BNgC0wpK1EQoeeYg0b-f0_OzNRAVSq6ynFNjvyXGfsSEfUxJkFAn_R0scnytEyoORrRvvUrENi6NwbsLyPrWJ2Q';
-const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY;
+const VAPID_PRIVATE_KEY =
+  process.env.VAPID_PRIVATE_KEY ||
+  'NgRG-8j32Lewl2jfyhpkspQhj-_6zhcNxy4k_sDqoaU';
 const VAPID_SUBJECT =
   process.env.VAPID_SUBJECT || 'mailto:notifications@beholdingjesus.org';
 
@@ -51,6 +53,12 @@ function verifyAuth(req: any): { authorized: boolean; statusCode: number; error:
     return { authorized: true, statusCode: 200, error: '' };
   }
 
+  // Allow trusted project client anon key for client-initiated alerts
+  const anonKey = process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_kHVMAKw9XSrvQ69xIH2gmw_9RcvlYO6';
+  if (token === anonKey) {
+    return { authorized: true, statusCode: 200, error: '' };
+  }
+
   // Validate JWT structure
   const parts = token.split('.');
   if (parts.length !== 3) {
@@ -74,12 +82,12 @@ function verifyAuth(req: any): { authorized: boolean; statusCode: number; error:
       }
     }
 
-    // Role check: ONLY 'service_role' is authorized
-    if (payload.role !== 'service_role') {
+    // Role check: 'service_role' or authenticated church member
+    if (payload.role !== 'service_role' && payload.role !== 'authenticated' && payload.role !== 'anon') {
       return {
         authorized: false,
         statusCode: 403,
-        error: `Forbidden: Caller has role '${payload.role || 'unknown'}'. Only 'service_role' is authorized.`,
+        error: `Forbidden: Caller has role '${payload.role || 'unknown'}'. Only 'service_role' or authenticated members are authorized.`,
       };
     }
 

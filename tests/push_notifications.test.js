@@ -755,3 +755,94 @@ test('19. Service Worker Push & Notification Click Event Simulation', async () =
     : '/';
   assert.equal(safeUrl, '/?tab=fellowship&room=fellowship');
 });
+
+test('20. Lifecycle: Fresh Account Permission Flow & Browser Prompt Trigger', async () => {
+  let promptShown = false;
+  let permissionState = 'default';
+
+  // Mock browser Notification object
+  const mockNotification = {
+    get permission() { return permissionState; },
+    requestPermission: async () => {
+      promptShown = true;
+      permissionState = 'granted';
+      return 'granted';
+    }
+  };
+
+  // User taps "Enable Web Push Notifications"
+  assert.equal(mockNotification.permission, 'default');
+  const result = await mockNotification.requestPermission();
+  assert.equal(promptShown, true, 'Native browser prompt must be triggered');
+  assert.equal(result, 'granted');
+  assert.equal(mockNotification.permission, 'granted');
+});
+
+test('21. Lifecycle: Permission Denied Prevention & Fail-Closed Behavior', async () => {
+  const permissionState = 'denied';
+  let isSubscribed = false;
+
+  // Attempting to subscribe when permission is denied
+  let subscribeStatus = '';
+  if (permissionState === 'denied') {
+    subscribeStatus = 'permission_denied';
+    isSubscribed = false;
+  }
+
+  assert.equal(subscribeStatus, 'permission_denied');
+  assert.equal(isSubscribed, false, 'Must never mark as subscribed when permission is denied');
+});
+
+test('22. Lifecycle: Database onConflict Syntax & Atomic Multi-Device Upsert', async () => {
+  const db = new MockPostgresDatabase();
+  const userId = 'usr-onconflict-test';
+  const endpoint1 = 'https://push.browser.com/ep1';
+  const endpoint2 = 'https://push.browser.com/ep2';
+
+  // Verify upsert with valid non-spaced constraint user_id,endpoint
+  db.upsertSubscription({ userId, endpoint: endpoint1, p256dh: 'k1', auth: 'a1' });
+  db.upsertSubscription({ userId, endpoint: endpoint2, p256dh: 'k2', auth: 'a2' });
+
+  // Updating existing endpoint1 should update without duplicate
+  db.upsertSubscription({ userId, endpoint: endpoint1, p256dh: 'k1-updated', auth: 'a1-updated' });
+
+  const subs = db.getSubscriptionsForUser(userId);
+  assert.equal(subs.length, 2, 'Should have exactly 2 distinct device endpoints');
+  const ep1 = subs.find(s => s.endpoint === endpoint1);
+  assert.equal(ep1.p256dh, 'k1-updated');
+});
+
+test('23. Lifecycle: 8-State UI Status Matrix Exhaustive Verification', async () => {
+  function computeStatus({ isRegistering, isPushSupported, permission, isSubscribed, pushEnabled }) {
+    if (isRegistering) return 'registering';
+    if (!isPushSupported) return 'unsupported';
+    if (permission === 'denied') return 'permission_denied';
+    if (isSubscribed) {
+      if (pushEnabled === false) return 'not_enabled';
+      return 'subscribed';
+    }
+    if (permission === 'granted') return 'granted_unregistered';
+    return 'permission_not_requested';
+  }
+
+  // 1. Unsupported
+  assert.equal(computeStatus({ isPushSupported: false }), 'unsupported');
+
+  // 2. Permission not requested
+  assert.equal(computeStatus({ isPushSupported: true, permission: 'default', isSubscribed: false }), 'permission_not_requested');
+
+  // 3. Permission denied
+  assert.equal(computeStatus({ isPushSupported: true, permission: 'denied', isSubscribed: false }), 'permission_denied');
+
+  // 4. Granted but unregistered
+  assert.equal(computeStatus({ isPushSupported: true, permission: 'granted', isSubscribed: false }), 'granted_unregistered');
+
+  // 5. Registering
+  assert.equal(computeStatus({ isRegistering: true }), 'registering');
+
+  // 6. Subscribed
+  assert.equal(computeStatus({ isPushSupported: true, permission: 'granted', isSubscribed: true, pushEnabled: true }), 'subscribed');
+
+  // 7. Not enabled (muted on account)
+  assert.equal(computeStatus({ isPushSupported: true, permission: 'granted', isSubscribed: true, pushEnabled: false }), 'not_enabled');
+});

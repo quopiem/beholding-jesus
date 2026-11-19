@@ -10,6 +10,13 @@ import { UserProfile } from '../types';
 export const VAPID_PUBLIC_KEY =
   'BNgC0wpK1EQoeeYg0b-f0_OzNRAVSq6ynFNjvyXGfsSEfUxJkFAn_R0scnytEyoORrRvvUrENi6NwbsLyPrWJ2Q';
 
+export interface IOSSupportStatus {
+  isIOSDevice: boolean;
+  isStandalonePWA: boolean;
+  canReceivePush: boolean;
+  message: string;
+}
+
 export interface PushCategorySettings {
   feed: boolean;
   chat: boolean;
@@ -114,6 +121,51 @@ export class PushNotificationService {
   }
 
   /**
+   * Complete iOS capability and requirement detection (matches Worship Team architecture)
+   */
+  static getIOSSupportStatus(): IOSSupportStatus {
+    const ios = this.isIos();
+    const standalone = this.isStandalone();
+    const supported = this.isPushSupported();
+
+    if (!ios) {
+      return {
+        isIOSDevice: false,
+        isStandalonePWA: standalone,
+        canReceivePush: supported,
+        message: supported
+          ? 'Web Push is fully supported by your browser.'
+          : 'Push notifications are not supported in this browser.',
+      };
+    }
+
+    if (!supported) {
+      return {
+        isIOSDevice: true,
+        isStandalonePWA: standalone,
+        canReceivePush: false,
+        message: 'iOS 16.4 or later is required for Web Push. Please verify your iOS version in Settings > General > About.',
+      };
+    }
+
+    if (!standalone) {
+      return {
+        isIOSDevice: true,
+        isStandalonePWA: false,
+        canReceivePush: false,
+        message: 'Apple iOS requires installing BJC to your Home Screen from Safari before notifications can be enabled.',
+      };
+    }
+
+    return {
+      isIOSDevice: true,
+      isStandalonePWA: true,
+      canReceivePush: true,
+      message: 'App is running in Home Screen mode. Web Push notifications are fully active and supported!',
+    };
+  }
+
+  /**
    * Detects if device is iOS 16.4+ which supports Web Push ONLY when installed as a PWA
    */
   static isIosSupported(): boolean {
@@ -171,7 +223,28 @@ export class PushNotificationService {
   // -----------------------------------------------------------------------
 
   /**
-   * Registers and retrieves the active Service Worker registration
+   * Registers the service worker and waits for it to become ready
+   */
+  static async registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
+      return null;
+    }
+    try {
+      const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+      // Race navigator.serviceWorker.ready with a 4s timeout to guarantee no indefinite hanging
+      const readyPromise = navigator.serviceWorker.ready;
+      const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 4000));
+      const readyReg = await Promise.race([readyPromise, timeoutPromise]);
+      this.swRegistration = readyReg || reg;
+      return this.swRegistration;
+    } catch (err) {
+      console.error('[BJC Push] Service worker registration failed:', err);
+      return null;
+    }
+  }
+
+  /**
+   * Retrieves active Service Worker registration
    */
   static async getServiceWorkerRegistration(): Promise<ServiceWorkerRegistration | null> {
     if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
@@ -183,18 +256,15 @@ export class PushNotificationService {
     }
 
     try {
-      const reg = await navigator.serviceWorker.ready;
-      this.swRegistration = reg;
-      return reg;
-    } catch {
-      try {
-        const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
-        this.swRegistration = reg;
-        return reg;
-      } catch (err) {
-        console.warn('[BJC Push] Service worker registration error:', err);
-        return null;
+      const existing = await navigator.serviceWorker.getRegistration();
+      if (existing) {
+        this.swRegistration = existing;
+        return existing;
       }
+      return await this.registerServiceWorker();
+    } catch (err) {
+      console.warn('[BJC Push] Error fetching SW registration:', err);
+      return null;
     }
   }
 
@@ -207,8 +277,10 @@ export class PushNotificationService {
 
     if ('serviceWorker' in navigator) {
       try {
-        const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
-        this.swRegistration = reg;
+        const reg = await this.registerServiceWorker();
+        if (reg) {
+          this.swRegistration = reg;
+        }
 
         // Listen for messages from service worker (e.g. push click deep-link navigation)
         navigator.serviceWorker.addEventListener('message', (event) => {
@@ -227,15 +299,16 @@ export class PushNotificationService {
 
   /**
    * Retrieves active push subscription for this browser/device, if any
+   * Fast, non-blocking check using navigator.serviceWorker.getRegistration()
    */
   static async getSubscription(): Promise<PushSubscription | null> {
     if (!this.isPushSupported()) return null;
     try {
-      const reg = await this.getServiceWorkerRegistration();
+      const reg = await navigator.serviceWorker.getRegistration();
       if (!reg || !reg.pushManager) return null;
       return await reg.pushManager.getSubscription();
     } catch (err) {
-      console.warn('[BJC Push] Failed to get subscription:', err);
+      console.warn('[BJC Push] Failed to read subscription:', err);
       return null;
     }
   }
@@ -254,44 +327,77 @@ export class PushNotificationService {
    */
   static async subscribe(user: UserProfile): Promise<{
     success: boolean;
+    status:
+      | 'subscribed'
+      | 'permission_denied'
+      | 'permission_dismissed'
+      | 'unsupported'
+      | 'ios_pwa_required'
+      | 'registration_failed'
+      | 'database_error';
     error?: string;
     subscription?: PushSubscription;
   }> {
+    // 1. Check browser notification support
     if (!this.isPushSupported()) {
       return {
         success: false,
-        error: 'Your browser or device does not support Web Push notifications.',
+        status: 'unsupported',
+        error: 'Web Push notifications are not supported by this browser.',
       };
     }
 
-    if (this.isIos() && !this.isStandalone()) {
+    // 2. Check iOS Home Screen PWA constraint
+    const iosStatus = this.getIOSSupportStatus();
+    if (iosStatus.isIOSDevice && !iosStatus.isStandalonePWA) {
       return {
         success: false,
-        error:
-          'On iPhone and iPad, push notifications require adding BJC to your Home Screen first (Safari → Share → Add to Home Screen).',
+        status: 'ios_pwa_required',
+        error: 'Please add BJC to your Home Screen from Safari first before enabling push notifications.',
       };
     }
 
     try {
-      // 1. Request user permission
-      const permission = await Notification.requestPermission();
-      if (permission !== 'granted') {
+      // 3. Check current permission and request if default
+      let permission: NotificationPermission = Notification.permission;
+      if (permission === 'denied') {
         return {
           success: false,
-          error:
-            permission === 'denied'
-              ? 'Notification permission was denied. Please allow notifications in your browser/device settings.'
-              : 'Notification permission was dismissed.',
+          status: 'permission_denied',
+          error: 'Notification permission is blocked in your browser settings. Please allow notifications for this site.',
         };
       }
 
-      // 2. Get Service Worker registration
-      const reg = await this.getServiceWorkerRegistration();
-      if (!reg) {
-        return { success: false, error: 'Service worker is not active on this device.' };
+      // Request directly on click interaction
+      if (permission === 'default') {
+        permission = await Notification.requestPermission();
       }
 
-      // 3. Register with Web Push endpoint via VAPID public key
+      if (permission !== 'granted') {
+        return {
+          success: false,
+          status: permission === 'denied' ? 'permission_denied' : 'permission_dismissed',
+          error:
+            permission === 'denied'
+              ? 'Notification permission was denied. Please allow notifications in your browser settings.'
+              : 'Notification permission was dismissed without being allowed.',
+        };
+      }
+
+      // 4. Ensure Service Worker is registered and active
+      let reg = await navigator.serviceWorker.getRegistration();
+      if (!reg) {
+        reg = (await this.registerServiceWorker()) || undefined;
+      }
+      if (!reg || !reg.pushManager) {
+        return {
+          success: false,
+          status: 'registration_failed',
+          error: 'Failed to initialize service worker registration.',
+        };
+      }
+
+      // 5. Obtain Push Subscription with Public VAPID Key
       const applicationServerKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
       let sub = await reg.pushManager.getSubscription();
       if (!sub) {
@@ -301,17 +407,21 @@ export class PushNotificationService {
         });
       }
 
-      // 4. Extract credentials
+      // 6. Extract credentials
       const subJson = sub.toJSON();
       const endpoint = sub.endpoint;
       const p256dh = subJson.keys?.p256dh || '';
       const auth = subJson.keys?.auth || '';
 
       if (!endpoint || !p256dh || !auth) {
-        return { success: false, error: 'Failed to extract push encryption keys from browser.' };
+        return {
+          success: false,
+          status: 'registration_failed',
+          error: 'Failed to extract push encryption credentials from browser.',
+        };
       }
 
-      // 5. Save device subscription to Supabase Cloud database
+      // 7. Store / sync subscription in Supabase Cloud database
       if (supabase) {
         const { error: dbErr } = await supabase.from('push_subscriptions').upsert(
           {
@@ -324,23 +434,36 @@ export class PushNotificationService {
             platform: this.getPlatform(),
             updated_at: new Date().toISOString(),
           },
-          { onConflict: 'user_id, endpoint' }
+          { onConflict: 'user_id,endpoint' }
         );
 
         if (dbErr) {
-          console.warn('[BJC Push] Database subscription upsert error:', dbErr);
+          console.error('[BJC Push] Supabase push_subscriptions upsert error:', dbErr);
+          return {
+            success: false,
+            status: 'database_error',
+            error: `Database rejected subscription: ${dbErr.message}`,
+          };
         }
       }
 
-      // 6. Ensure default push preferences exist for user
+      // 8. Ensure default preferences exist for user
       await this.ensureDefaultPreferences(user.id);
 
       window.dispatchEvent(new CustomEvent('bjc_push_state_change', { detail: { subscribed: true } }));
 
-      return { success: true, subscription: sub };
+      return {
+        success: true,
+        status: 'subscribed',
+        subscription: sub,
+      };
     } catch (err: any) {
       console.error('[BJC Push] Subscribe error:', err);
-      return { success: false, error: err?.message || 'Failed to activate push notifications.' };
+      return {
+        success: false,
+        status: 'registration_failed',
+        error: err?.message || 'Failed to activate push notifications.',
+      };
     }
   }
 
@@ -349,17 +472,21 @@ export class PushNotificationService {
    */
   static async unsubscribe(user: UserProfile): Promise<boolean> {
     try {
-      const sub = await this.getSubscription();
-      if (sub) {
-        const endpoint = sub.endpoint;
-        await sub.unsubscribe();
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (reg && reg.pushManager) {
+        const sub = await reg.pushManager.getSubscription();
+        if (sub) {
+          const endpoint = sub.endpoint;
+          await sub.unsubscribe();
 
-        // Remove from database
-        if (supabase) {
-          await supabase
-            .from('push_subscriptions')
-            .delete()
-            .match({ user_id: user.id, endpoint });
+          // Remove from database
+          if (supabase) {
+            await supabase
+              .from('push_subscriptions')
+              .delete()
+              .eq('user_id', user.id)
+              .eq('endpoint', endpoint);
+          }
         }
       }
 

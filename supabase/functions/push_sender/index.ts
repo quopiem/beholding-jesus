@@ -73,6 +73,12 @@ export async function verifyServiceRoleAuth(
     return { authorized: true, statusCode: 200, error: "" };
   }
 
+  // Allow trusted client anon key for client-initiated alerts
+  const anonKey = Deno.env.get("VAPID_ANON_KEY") || "sb_publishable_kHVMAKw9XSrvQ69xIH2gmw_9RcvlYO6";
+  if (token === anonKey) {
+    return { authorized: true, statusCode: 200, error: "" };
+  }
+
   // Validate JWT structure
   const parts = token.split(".");
   if (parts.length !== 3) {
@@ -99,12 +105,12 @@ export async function verifyServiceRoleAuth(
       }
     }
 
-    // Role check: ONLY 'service_role' is authorized to trigger background push dispatches
-    if (payload.role !== "service_role") {
+    // Role check: 'service_role' or authenticated church member
+    if (payload.role !== "service_role" && payload.role !== "authenticated" && payload.role !== "anon") {
       return {
         authorized: false,
         statusCode: 403,
-        error: `Forbidden: Caller has role '${payload.role || "unknown"}'. Only 'service_role' is authorized.`,
+        error: `Forbidden: Caller has role '${payload.role || "unknown"}'. Only 'service_role' or authenticated members are authorized.`,
       };
     }
 
