@@ -26,6 +26,14 @@ create table if not exists public.push_subscriptions (
   unique (user_id, endpoint)
 );
 
+-- Ensure newly added columns exist if the table was created in an earlier migration
+alter table public.push_subscriptions 
+  add column if not exists device_name text default 'Web Browser',
+  add column if not exists user_agent text,
+  add column if not exists platform text default 'web',
+  add column if not exists created_at timestamp with time zone default timezone('utc'::text, now()),
+  add column if not exists updated_at timestamp with time zone default timezone('utc'::text, now());
+
 create index if not exists idx_push_subs_user_id on public.push_subscriptions(user_id);
 create index if not exists idx_push_subs_endpoint on public.push_subscriptions(endpoint);
 
@@ -213,3 +221,6 @@ revoke all on function public.check_and_record_push(text, text, text, int) from 
 
 -- Grant execution ONLY to service_role
 grant execute on function public.check_and_record_push(text, text, text, int) to service_role;
+
+-- Reload Supabase PostgREST schema cache
+notify pgrst, 'reload schema';
