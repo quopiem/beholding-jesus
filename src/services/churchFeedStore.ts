@@ -874,9 +874,8 @@ export class ChurchFeedStore {
         createdAt: newPost.createdAt
       });
 
-      // Broadcast push notification to all church members
-      const allMembers = ChurchDataStore.getUsers().filter(u => u.id !== newPost.authorId).map(u => u.id);
-      PushNotificationService.notifyChurchAnnouncement(allMembers, newPost.announcementTitle || newPost.authorName, newPost.content || '', true);
+      // Broadcast push notification to all church members across all devices
+      PushNotificationService.notifyChurchAnnouncement([], newPost.announcementTitle || newPost.authorName, newPost.content || '', true);
     } else if (newPost.postType === 'prayer_request' && newPost.prayerAudience !== 'private') {
       ChurchDataStore.addNotification({
         id: `notif-prayer-${newPost.id}`,
@@ -1086,6 +1085,16 @@ export class ChurchFeedStore {
     } catch {}
 
     this.broadcastFeedEvent('feed_pin_post', { postId, isPinned });
+
+    if (isPinned && post) {
+      PushNotificationService.broadcastPush({
+        title: `📌 Pinned Announcement: ${post.announcementTitle || post.authorName}`,
+        body: (post.content || '').slice(0, 100) || 'An important announcement has been pinned in the Sanctuary.',
+        url: '/?tab=feed',
+        category: 'announcements',
+        notificationId: `pin-${postId}-${Date.now()}`,
+      }).catch(err => console.warn('[BJC Feed] Pin push broadcast warning:', err));
+    }
 
     return true;
   }

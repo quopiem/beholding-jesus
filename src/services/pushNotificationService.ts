@@ -423,19 +423,32 @@ export class PushNotificationService {
 
       // 7. Store / sync subscription in Supabase Cloud database
       if (supabase) {
-        const { error: dbErr } = await supabase.from('push_subscriptions').upsert(
+        const baseSub = {
+          user_id: user.id,
+          endpoint,
+          p256dh,
+          auth,
+          user_agent: navigator.userAgent.slice(0, 300),
+          platform: this.getPlatform(),
+          updated_at: new Date().toISOString(),
+        };
+
+        let { error: dbErr } = await supabase.from('push_subscriptions').upsert(
           {
-            user_id: user.id,
-            endpoint,
-            p256dh,
-            auth,
+            ...baseSub,
             device_name: this.getDeviceName(),
-            user_agent: navigator.userAgent.slice(0, 300),
-            platform: this.getPlatform(),
-            updated_at: new Date().toISOString(),
           },
           { onConflict: 'user_id,endpoint' }
         );
+
+        // Fallback: If schema cache hasn't loaded device_name yet, upsert base subscription
+        if (dbErr && dbErr.message && dbErr.message.includes('device_name')) {
+          const fallback = await supabase.from('push_subscriptions').upsert(
+            baseSub,
+            { onConflict: 'user_id,endpoint' }
+          );
+          dbErr = fallback.error;
+        }
 
         if (dbErr) {
           console.error('[BJC Push] Supabase push_subscriptions upsert error:', dbErr);
@@ -683,7 +696,7 @@ export class PushNotificationService {
   // -----------------------------------------------------------------------
 
   /**
-   * Dispatches a Web Push notification through the Supabase Edge Function
+   * Dispatches a Web Push notification (Direct Recipient or Broadcast)
    */
   static async dispatchPush(payload: PushDispatchPayload): Promise<PushDispatchResult> {
     const edgeFunctionPayload = {
@@ -696,28 +709,7 @@ export class PushNotificationService {
       tag: payload.tag || `bjc-${payload.category || 'notification'}`,
     };
 
-    // 1. Try Supabase Edge Function invoke
-    if (supabase && supabase.functions) {
-      try {
-        const { data, error } = await supabase.functions.invoke('push_sender', {
-          body: edgeFunctionPayload,
-        });
-
-        if (!error && data) {
-          return {
-            success: data.sent_count > 0,
-            sentCount: data.sent_count || 0,
-            failedCount: data.failed_count || 0,
-            status: data.status,
-            reason: data.reason,
-          };
-        }
-      } catch (invokeErr) {
-        console.warn('[BJC Push] Edge function invoke fallback:', invokeErr);
-      }
-    }
-
-    // 2. Fallback to /api/send-push endpoint (e.g. Vercel/Netlify serverless)
+    // 1. Primary: /api/send-push endpoint on Vercel serverless (matches Worship Team app)
     try {
       const anonKey = 'sb_publishable_kHVMAKw9XSrvQ69xIH2gmw_9RcvlYO6';
       const res = await fetch('/api/send-push', {
@@ -725,7 +717,7 @@ export class PushNotificationService {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${anonKey}`,
-          'x-bjc-user-id': edgeFunctionPayload.user_id,
+          'x-bjc-user-id': edgeFunctionPayload.user_id || '',
         },
         body: JSON.stringify(edgeFunctionPayload),
       });
@@ -741,20 +733,31 @@ export class PushNotificationService {
         };
       } else {
         const errJson = await res.json().catch(() => ({}));
-        console.error('[BJC Push] API fetch error response:', res.status, errJson);
-        return {
-          success: false,
-          sentCount: 0,
-          error: errJson.error || `Push dispatch error: HTTP ${res.status}`,
-        };
+        console.warn('[BJC Push] /api/send-push returned HTTP', res.status, errJson);
       }
     } catch (fetchErr: any) {
-      console.warn('[BJC Push] API fetch fallback error:', fetchErr);
-      return {
-        success: false,
-        sentCount: 0,
-        error: fetchErr?.message || 'Network error reaching push dispatch endpoint.',
-      };
+      console.warn('[BJC Push] /api/send-push fetch warning:', fetchErr);
+    }
+
+    // 2. Secondary fallback: Supabase Edge Function invoke (if deployed)
+    if (supabase && supabase.functions) {
+      try {
+        const { data, error } = await supabase.functions.invoke('push_sender', {
+          body: edgeFunctionPayload,
+        });
+
+        if (!error && data) {
+          return {
+            success: (data.sent_count || data.sentCount || 0) > 0,
+            sentCount: data.sent_count || data.sentCount || 0,
+            failedCount: data.failed_count || 0,
+            status: data.status,
+            reason: data.reason,
+          };
+        }
+      } catch (invokeErr) {
+        console.warn('[BJC Push] Edge function invoke fallback:', invokeErr);
+      }
     }
 
     return {
@@ -762,6 +765,27 @@ export class PushNotificationService {
       sentCount: 0,
       error: 'Unable to reach push dispatch function.',
     };
+  }
+
+  /**
+   * Broadcasts a Web Push alert to all registered and eligible devices in the church
+   * (Matches Worship Team app broadcast behavior)
+   */
+  static async broadcastPush(payload: {
+    title: string;
+    body: string;
+    url?: string;
+    category?: 'feed' | 'chat' | 'events' | 'announcements' | 'ministries' | 'admin' | 'system' | 'test';
+    notificationId?: string;
+  }): Promise<PushDispatchResult> {
+    return this.dispatchPush({
+      userId: '', // Empty user_id triggers broadcast to all subscribers in api/send-push
+      notificationId: payload.notificationId || `broadcast-${Date.now()}`,
+      title: payload.title,
+      body: payload.body,
+      url: payload.url || '/?tab=feed',
+      category: payload.category || 'announcements',
+    });
   }
 
   // -----------------------------------------------------------------------
@@ -981,19 +1005,17 @@ export class PushNotificationService {
     content: string,
     isImportant: boolean = false
   ): Promise<void> {
-    const emoji = isImportant ? '🚨' : '📢';
+    const emoji = isImportant ? '📌' : '📢';
     const title = `${emoji} Church Announcement: ${announcementTitle}`;
 
-    for (const uid of recipientIds) {
-      await this.dispatchPush({
-        userId: uid,
-        notificationId: `announcement-${uid}-${Date.now()}`,
-        category: 'announcements',
-        title,
-        body: content.slice(0, 100),
-        url: '/?tab=feed',
-      });
-    }
+    // Broadcast to all church members across all registered devices (matches Worship Team app)
+    await this.broadcastPush({
+      title,
+      body: content ? content.slice(0, 100) : 'New church announcement posted in Beholding Jesus Church',
+      url: '/?tab=feed',
+      category: 'announcements',
+      notificationId: `announcement-${Date.now()}`,
+    });
   }
 
   /**

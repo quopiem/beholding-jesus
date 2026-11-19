@@ -54,11 +54,7 @@ self.addEventListener('push', (event) => {
     },
     tag: payload.tag || payload.notification_id || `bjc-${payload.category || 'general'}`,
     renotify: true,
-    requireInteraction: true,
-    actions: [
-      { action: 'open', title: 'Open BJC' },
-      { action: 'dismiss', title: 'Dismiss' }
-    ]
+    requireInteraction: false
   };
 
   event.waitUntil(

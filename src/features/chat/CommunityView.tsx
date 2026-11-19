@@ -1915,9 +1915,14 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
     }).catch(() => {});
 
     // Trigger Web Push Notification
-    if (activeConversation?.type === 'direct' && activeConversation.otherUserId) {
+    const directRecipientId = activeConversation?.otherUserId || 
+      (activeConversation?.id?.startsWith('dm_') 
+        ? activeConversation.id.replace('dm_', '').split('_').find(id => id !== currentUser.id)
+        : (activeConversation?.type === 'direct' ? activeConversation.id : null));
+
+    if (directRecipientId) {
       PushNotificationService.notifyDirectMessage(
-        activeConversation.otherUserId,
+        directRecipientId,
         currentUser.name,
         previewSnippet,
         activeRoomId
