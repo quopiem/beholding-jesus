@@ -187,7 +187,7 @@ class MockPostgresDatabase {
 // SERVER VERIFICATION LOGIC (Mirroring functions/push_sender/index.ts)
 // -------------------------------------------------------------------------
 
-function verifyServiceRoleAuth(authHeader, jwtSecret, expectedServiceRoleKey) {
+function verifyServiceRoleAuth(authHeader, jwtSecret, expectedServiceRoleKey, reqHeaders) {
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return {
       authorized: false,
@@ -205,6 +205,12 @@ function verifyServiceRoleAuth(authHeader, jwtSecret, expectedServiceRoleKey) {
 
   if (expectedServiceRoleKey && token === expectedServiceRoleKey) {
     return { authorized: true, statusCode: 200, error: '', isServiceRole: true, userId: null };
+  }
+
+  const anonKey = 'sb_publishable_kHVMAKw9XSrvQ69xIH2gmw_9RcvlYO6';
+  if (token === anonKey) {
+    const headerUserId = reqHeaders?.['x-bjc-user-id'] || null;
+    return { authorized: true, statusCode: 200, error: '', isServiceRole: false, userId: headerUserId };
   }
 
   const parts = token.split('.');
@@ -274,7 +280,8 @@ async function simulatePushSender(req, db, env) {
   const authCheck = verifyServiceRoleAuth(
     req.headers?.authorization,
     env.SUPABASE_JWT_SECRET,
-    env.SUPABASE_SERVICE_ROLE_KEY
+    env.SUPABASE_SERVICE_ROLE_KEY,
+    req.headers
   );
   if (!authCheck.authorized) {
     return { statusCode: authCheck.statusCode, body: { error: authCheck.error } };
@@ -1104,4 +1111,57 @@ test('29. Privileged RPC Execution: check_and_record_push execution denied to or
   // Only trusted service_role can execute the RPC
   const result = await db.executeRpcDirectly('service_role', 'user-1', 'notif-1', 'feed', 10);
   assert.equal(result[0].allowed, true);
+});
+
+test('30. Church Client Publishable Anon Key Test Alert Dispatch', async () => {
+  const db = new MockPostgresDatabase();
+  const env = {
+    SUPABASE_JWT_SECRET: 'authentic_church_secret',
+    VAPID_PRIVATE_KEY: 'vapid_key'
+  };
+
+  const memberId = 'usr-browser-client-test';
+  const anonKey = 'sb_publishable_kHVMAKw9XSrvQ69xIH2gmw_9RcvlYO6';
+
+  db.upsertSubscription({
+    userId: memberId,
+    endpoint: 'https://fcm.googleapis.com/fcm/send/browser-device',
+    p256dh: 'k-browser',
+    auth: 'a-browser'
+  });
+
+  // Client triggers test alert with anon key and user id header
+  const res = await simulatePushSender({
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${anonKey}`,
+      'x-bjc-user-id': memberId,
+    },
+    body: {
+      user_id: memberId,
+      category: 'test',
+      notification_id: 'test-client-1'
+    }
+  }, db, env);
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.status, 'success');
+  assert.equal(res.body.sent_count, 1);
+
+  // Client cannot trigger privileged categories using anon key
+  const privilegedRes = await simulatePushSender({
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${anonKey}`,
+      'x-bjc-user-id': memberId,
+    },
+    body: {
+      user_id: memberId,
+      category: 'announcements',
+      notification_id: 'announce-2'
+    }
+  }, db, env);
+
+  assert.equal(privilegedRes.statusCode, 403);
+  assert.match(privilegedRes.body.error, /Ordinary members can only request test notifications/);
 });

@@ -719,11 +719,13 @@ export class PushNotificationService {
 
     // 2. Fallback to /api/send-push endpoint (e.g. Vercel/Netlify serverless)
     try {
+      const anonKey = 'sb_publishable_kHVMAKw9XSrvQ69xIH2gmw_9RcvlYO6';
       const res = await fetch('/api/send-push', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer sb_publishable_kHVMAKw9XSrvQ69xIH2gmw_9RcvlYO6`,
+          Authorization: `Bearer ${anonKey}`,
+          'x-bjc-user-id': edgeFunctionPayload.user_id,
         },
         body: JSON.stringify(edgeFunctionPayload),
       });
@@ -737,9 +739,22 @@ export class PushNotificationService {
           status: data.status,
           reason: data.reason,
         };
+      } else {
+        const errJson = await res.json().catch(() => ({}));
+        console.error('[BJC Push] API fetch error response:', res.status, errJson);
+        return {
+          success: false,
+          sentCount: 0,
+          error: errJson.error || `Push dispatch error: HTTP ${res.status}`,
+        };
       }
-    } catch (fetchErr) {
+    } catch (fetchErr: any) {
       console.warn('[BJC Push] API fetch fallback error:', fetchErr);
+      return {
+        success: false,
+        sentCount: 0,
+        error: fetchErr?.message || 'Network error reaching push dispatch endpoint.',
+      };
     }
 
     return {

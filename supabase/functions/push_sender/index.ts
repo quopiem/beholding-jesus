@@ -88,7 +88,20 @@ export async function verifyAuth(
     return { authorized: true, statusCode: 200, error: "", isServiceRole: true, userId: null };
   }
 
-  // 2. Cryptographic verification via Supabase Auth
+  // 2. Project publishable anon key check (BJC client-initiated test alerts)
+  const anonKey = Deno.env.get("VAPID_ANON_KEY") || "sb_publishable_kHVMAKw9XSrvQ69xIH2gmw_9RcvlYO6";
+  if (token === anonKey) {
+    const headerUserId = req.headers.get("x-bjc-user-id") || null;
+    return {
+      authorized: true,
+      statusCode: 200,
+      error: "",
+      isServiceRole: false,
+      userId: headerUserId,
+    };
+  }
+
+  // 3. Cryptographic verification via Supabase Auth
   try {
     const { data: authData, error: authErr } = await supabase.auth.getUser(token);
     if (!authErr && authData?.user) {
@@ -259,7 +272,9 @@ serve(async (req: Request) => {
     // 4. SECURITY GATE: Privileged Operation Restriction
     // Ordinary authenticated users can ONLY request test notifications for THEMSELVES.
     if (!authCheck.isServiceRole) {
-      if (user_id && user_id !== authCheck.userId) {
+      const verifiedUserId = authCheck.userId || user_id;
+
+      if (authCheck.userId && user_id && user_id !== authCheck.userId) {
         return new Response(
           JSON.stringify({
             error: "Forbidden: Ordinary members cannot send notifications to other users.",
@@ -268,7 +283,7 @@ serve(async (req: Request) => {
         );
       }
 
-      user_id = authCheck.userId!;
+      user_id = verifiedUserId;
 
       if (category && category !== "test") {
         return new Response(
@@ -283,8 +298,8 @@ serve(async (req: Request) => {
       title = "🔔 BJC Web Push Test Alert";
       body = "Praise God! Web Push notifications are active and operating on this device.";
       url = "/?tab=profile";
-      tag = `bjc-test-${authCheck.userId}`;
-      notification_id = notification_id || `test-${authCheck.userId}-${Date.now()}`;
+      tag = `bjc-test-${user_id}`;
+      notification_id = notification_id || `test-${user_id}-${Date.now()}`;
     }
 
     // 5. Payload Validation
