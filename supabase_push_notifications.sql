@@ -39,18 +39,29 @@ drop policy if exists "push_subs_insert_own" on public.push_subscriptions;
 drop policy if exists "push_subs_update_own" on public.push_subscriptions;
 drop policy if exists "push_subs_delete_own" on public.push_subscriptions;
 
--- Client-safe RLS policies for BJC church members
+-- Strict owner-only RLS policies:
+-- Members can ONLY view, insert, update, or delete their OWN device push subscriptions.
 create policy "push_subs_select_own" on public.push_subscriptions 
-  for select using (true);
+  for select using (
+    auth.uid()::text = user_id or (auth.jwt() ->> 'sub') = user_id
+  );
 
 create policy "push_subs_insert_own" on public.push_subscriptions 
-  for insert with check (true);
+  for insert with check (
+    auth.uid()::text = user_id or (auth.jwt() ->> 'sub') = user_id
+  );
 
 create policy "push_subs_update_own" on public.push_subscriptions 
-  for update using (true) with check (true);
+  for update using (
+    auth.uid()::text = user_id or (auth.jwt() ->> 'sub') = user_id
+  ) with check (
+    auth.uid()::text = user_id or (auth.jwt() ->> 'sub') = user_id
+  );
 
 create policy "push_subs_delete_own" on public.push_subscriptions 
-  for delete using (true);
+  for delete using (
+    auth.uid()::text = user_id or (auth.jwt() ->> 'sub') = user_id
+  );
 
 -- -------------------------------------------------------------------------
 -- 2. NOTIFICATIONS_SENT (ATOMIC DEDUPLICATION TABLE)
@@ -104,12 +115,33 @@ alter table public.push_preferences enable row level security;
 drop policy if exists "push_prefs_allow_all" on public.push_preferences;
 drop policy if exists "push_prefs_select_own" on public.push_preferences;
 drop policy if exists "push_prefs_upsert_own" on public.push_preferences;
+drop policy if exists "push_prefs_insert_own" on public.push_preferences;
+drop policy if exists "push_prefs_update_own" on public.push_preferences;
+drop policy if exists "push_prefs_delete_own" on public.push_preferences;
 
+-- Strict owner-only RLS policies:
+-- Members can ONLY view, insert, update, or delete their OWN notification preferences.
 create policy "push_prefs_select_own" on public.push_preferences 
-  for select using (true);
+  for select using (
+    auth.uid()::text = user_id or (auth.jwt() ->> 'sub') = user_id
+  );
 
-create policy "push_prefs_upsert_own" on public.push_preferences 
-  for all using (true) with check (true);
+create policy "push_prefs_insert_own" on public.push_preferences 
+  for insert with check (
+    auth.uid()::text = user_id or (auth.jwt() ->> 'sub') = user_id
+  );
+
+create policy "push_prefs_update_own" on public.push_preferences 
+  for update using (
+    auth.uid()::text = user_id or (auth.jwt() ->> 'sub') = user_id
+  ) with check (
+    auth.uid()::text = user_id or (auth.jwt() ->> 'sub') = user_id
+  );
+
+create policy "push_prefs_delete_own" on public.push_preferences 
+  for delete using (
+    auth.uid()::text = user_id or (auth.jwt() ->> 'sub') = user_id
+  );
 
 -- -------------------------------------------------------------------------
 -- 5. ATOMIC RATE LIMIT & DEDUPLICATION STORED PROCEDURE

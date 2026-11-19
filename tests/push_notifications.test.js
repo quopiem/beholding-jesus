@@ -141,6 +141,46 @@ class MockPostgresDatabase {
   getPreferences(userId) {
     return this.pushPreferences.get(userId) || null;
   }
+
+  // Simulates Postgres RLS policy: auth.uid()::text = user_id or (auth.jwt() ->> 'sub') = user_id
+  querySubscriptionsAsUser(callerUserId, targetUserId) {
+    if (callerUserId !== targetUserId) {
+      // Row Level Security filters out records belonging to other users
+      return [];
+    }
+    return this.getSubscriptionsForUser(targetUserId);
+  }
+
+  queryPreferencesAsUser(callerUserId, targetUserId) {
+    if (callerUserId !== targetUserId) {
+      return null;
+    }
+    return this.getPreferences(targetUserId);
+  }
+
+  // Simulates REVOKE ALL on notifications_sent FROM public, anon, authenticated
+  directQueryNotificationsSent(callerRole) {
+    if (callerRole !== 'service_role') {
+      throw new Error('permission denied for table notifications_sent');
+    }
+    return Array.from(this.notificationsSent);
+  }
+
+  // Simulates REVOKE ALL on push_rate_limits FROM public, anon, authenticated
+  directQueryRateLimits(callerRole) {
+    if (callerRole !== 'service_role') {
+      throw new Error('permission denied for table push_rate_limits');
+    }
+    return Array.from(this.rateLimits.entries());
+  }
+
+  // Simulates REVOKE EXECUTE on check_and_record_push FROM public, anon, authenticated
+  executeRpcDirectly(callerRole, ...args) {
+    if (callerRole !== 'service_role') {
+      throw new Error('permission denied for function check_and_record_push');
+    }
+    return this.checkAndRecordPush(...args);
+  }
 }
 
 // -------------------------------------------------------------------------
@@ -153,16 +193,18 @@ function verifyServiceRoleAuth(authHeader, jwtSecret, expectedServiceRoleKey) {
       authorized: false,
       statusCode: 401,
       error: 'Missing or malformed Authorization header. Bearer token required.',
+      isServiceRole: false,
+      userId: null,
     };
   }
 
   const token = authHeader.slice(7).trim();
   if (!token) {
-    return { authorized: false, statusCode: 401, error: 'Empty Bearer token provided.' };
+    return { authorized: false, statusCode: 401, error: 'Empty Bearer token provided.', isServiceRole: false, userId: null };
   }
 
   if (expectedServiceRoleKey && token === expectedServiceRoleKey) {
-    return { authorized: true, statusCode: 200, error: '' };
+    return { authorized: true, statusCode: 200, error: '', isServiceRole: true, userId: null };
   }
 
   const parts = token.split('.');
@@ -171,6 +213,8 @@ function verifyServiceRoleAuth(authHeader, jwtSecret, expectedServiceRoleKey) {
       authorized: false,
       statusCode: 401,
       error: 'Invalid JWT format. Must contain three dot-separated segments.',
+      isServiceRole: false,
+      userId: null,
     };
   }
 
@@ -182,16 +226,8 @@ function verifyServiceRoleAuth(authHeader, jwtSecret, expectedServiceRoleKey) {
     if (payload.exp && typeof payload.exp === 'number') {
       const nowSeconds = Math.floor(Date.now() / 1000);
       if (payload.exp < nowSeconds) {
-        return { authorized: false, statusCode: 401, error: 'JWT has expired.' };
+        return { authorized: false, statusCode: 401, error: 'JWT has expired.', isServiceRole: false, userId: null };
       }
-    }
-
-    if (payload.role !== 'service_role') {
-      return {
-        authorized: false,
-        statusCode: 403,
-        error: `Forbidden: Caller has role '${payload.role || 'unknown'}'. Only 'service_role' is authorized.`,
-      };
     }
 
     if (jwtSecret) {
@@ -202,13 +238,29 @@ function verifyServiceRoleAuth(authHeader, jwtSecret, expectedServiceRoleKey) {
           authorized: false,
           statusCode: 401,
           error: 'Invalid JWT cryptographic signature.',
+          isServiceRole: false,
+          userId: null,
         };
       }
     }
 
-    return { authorized: true, statusCode: 200, error: '' };
+    if (payload.role === 'service_role') {
+      return { authorized: true, statusCode: 200, error: '', isServiceRole: true, userId: null };
+    }
+
+    if (payload.sub) {
+      return { authorized: true, statusCode: 200, error: '', isServiceRole: false, userId: payload.sub };
+    }
+
+    return {
+      authorized: false,
+      statusCode: 403,
+      error: `Forbidden: Caller has role '${payload.role || 'unknown'}'. Only 'service_role' or authenticated members are authorized.`,
+      isServiceRole: false,
+      userId: null,
+    };
   } catch (err) {
-    return { authorized: false, statusCode: 401, error: 'Failed to parse or validate JWT: Invalid payload' };
+    return { authorized: false, statusCode: 401, error: 'Failed to parse or validate JWT: Invalid payload', isServiceRole: false, userId: null };
   }
 }
 
@@ -240,7 +292,32 @@ async function simulatePushSender(req, db, env) {
     };
   }
 
-  const { user_id, notification_id, title, body, url, category } = req.body || {};
+  let { user_id, notification_id, title, body, url, category, tag } = req.body || {};
+
+  // Security gate for ordinary authenticated users
+  if (!authCheck.isServiceRole) {
+    if (user_id && user_id !== authCheck.userId) {
+      return {
+        statusCode: 403,
+        body: { error: 'Forbidden: Ordinary members cannot send notifications to other users.' },
+      };
+    }
+    user_id = authCheck.userId;
+
+    if (category && category !== 'test') {
+      return {
+        statusCode: 403,
+        body: { error: 'Forbidden: Ordinary members can only request test notifications for their own devices.' },
+      };
+    }
+
+    category = 'test';
+    title = '🔔 BJC Web Push Test Alert';
+    body = 'Praise God! Web Push notifications are active and operating on this device.';
+    url = '/?tab=profile';
+    tag = `bjc-test-${authCheck.userId}`;
+    notification_id = notification_id || `test-${authCheck.userId}-${Date.now()}`;
+  }
 
   // Payload Validation
   if (!user_id || typeof user_id !== 'string') {
@@ -275,9 +352,10 @@ async function simulatePushSender(req, db, env) {
   }
 
   // Atomic Rate Limiting & Deduplication Gate
+  const rateLimitCap = authCheck.isServiceRole ? 10 : 5;
   let rpcData;
   try {
-    rpcData = await db.checkAndRecordPush(user_id, notification_id, category || 'feed', 10);
+    rpcData = await db.checkAndRecordPush(user_id, notification_id, category || 'feed', rateLimitCap);
   } catch (err) {
     return {
       statusCode: 500,
@@ -296,7 +374,7 @@ async function simulatePushSender(req, db, env) {
     if (gateCheck.reason === 'rate_limited') {
       return {
         statusCode: 429,
-        body: { error: 'Rate limit exceeded (max 10 notifications per minute)', sent_count: 0 }
+        body: { error: `Rate limit exceeded (max ${rateLimitCap} notifications per minute)`, sent_count: 0 }
       };
     }
   }
@@ -515,7 +593,7 @@ test('9. Unauthorized Non-Service-Role JWT Rejection (403 Forbidden)', async () 
     VAPID_PRIVATE_KEY: 'vapid_key'
   };
 
-  // Authenticated church member trying to trigger arbitrary push
+  // Authenticated church member trying to trigger push to another user
   const memberToken = createSignedJWT({ role: 'authenticated', sub: 'usr-123' }, 'authentic_church_secret');
   const res = await simulatePushSender({
     method: 'POST',
@@ -524,7 +602,7 @@ test('9. Unauthorized Non-Service-Role JWT Rejection (403 Forbidden)', async () 
   }, db, env);
 
   assert.equal(res.statusCode, 403);
-  assert.match(res.body.error, /Only 'service_role' is authorized/);
+  assert.match(res.body.error, /Ordinary members cannot send notifications to other users/);
 });
 
 test('10. Disabled Global Push Preferences (Server-Enforced Skip)', async () => {
@@ -845,4 +923,185 @@ test('23. Lifecycle: 8-State UI Status Matrix Exhaustive Verification', async ()
 
   // 7. Not enabled (muted on account)
   assert.equal(computeStatus({ isPushSupported: true, permission: 'granted', isSubscribed: true, pushEnabled: false }), 'not_enabled');
+});
+
+test('24. Ordinary Member Blocked from Privileged Non-Test Categories (403 Forbidden)', async () => {
+  const db = new MockPostgresDatabase();
+  const env = {
+    SUPABASE_JWT_SECRET: 'authentic_church_secret',
+    VAPID_PRIVATE_KEY: 'vapid_key'
+  };
+
+  const memberId = 'usr-member-456';
+  const memberToken = createSignedJWT({ role: 'authenticated', sub: memberId }, 'authentic_church_secret');
+
+  // Attempting to send an announcement notification as an ordinary member
+  const res = await simulatePushSender({
+    method: 'POST',
+    headers: { authorization: `Bearer ${memberToken}` },
+    body: {
+      user_id: memberId,
+      category: 'announcements',
+      notification_id: 'announce-1',
+      title: 'Fake Announcement',
+      body: 'Spam alert'
+    }
+  }, db, env);
+
+  assert.equal(res.statusCode, 403);
+  assert.match(res.body.error, /Ordinary members can only request test notifications/);
+});
+
+test('25. Ordinary Member Permitted to Trigger Own Test Alert (Enforces Safe Test Payload)', async () => {
+  const db = new MockPostgresDatabase();
+  const env = {
+    SUPABASE_JWT_SECRET: 'authentic_church_secret',
+    VAPID_PRIVATE_KEY: 'vapid_key'
+  };
+
+  const memberId = 'usr-member-789';
+  const memberToken = createSignedJWT({ role: 'authenticated', sub: memberId }, 'authentic_church_secret');
+
+  // Register device for this member
+  db.upsertSubscription({
+    userId: memberId,
+    endpoint: 'https://fcm.googleapis.com/fcm/send/device-member-789',
+    p256dh: 'k789',
+    auth: 'a789'
+  });
+
+  // Member sends test alert with attempted spoofed text
+  const res = await simulatePushSender({
+    method: 'POST',
+    headers: { authorization: `Bearer ${memberToken}` },
+    body: {
+      user_id: memberId,
+      category: 'test',
+      title: 'Spoofed Title Attempt',
+      body: 'Spoofed body attempt'
+    }
+  }, db, env);
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.status, 'success');
+  assert.equal(res.body.sent_count, 1);
+});
+
+test('26. Ordinary Member Test Rate Limit (Strict 5 Alerts / Minute HTTP 429)', async () => {
+  const db = new MockPostgresDatabase();
+  const env = {
+    SUPABASE_JWT_SECRET: 'authentic_church_secret',
+    VAPID_PRIVATE_KEY: 'vapid_key'
+  };
+
+  const memberId = 'usr-member-ratelimit';
+  const memberToken = createSignedJWT({ role: 'authenticated', sub: memberId }, 'authentic_church_secret');
+
+  db.upsertSubscription({
+    userId: memberId,
+    endpoint: 'https://fcm.googleapis.com/fcm/send/device-ratelimit',
+    p256dh: 'k-rl',
+    auth: 'a-rl'
+  });
+
+  // Fire 5 test notifications in rapid succession (allowed limit)
+  for (let i = 1; i <= 5; i++) {
+    const res = await simulatePushSender({
+      method: 'POST',
+      headers: { authorization: `Bearer ${memberToken}` },
+      body: {
+        user_id: memberId,
+        category: 'test',
+        notification_id: `test-burst-${i}`
+      }
+    }, db, env);
+    assert.equal(res.statusCode, 200, `Burst notification #${i} should succeed`);
+  }
+
+  // 6th test notification in the same minute must be rate limited
+  const res6 = await simulatePushSender({
+    method: 'POST',
+    headers: { authorization: `Bearer ${memberToken}` },
+    body: {
+      user_id: memberId,
+      category: 'test',
+      notification_id: 'test-burst-6'
+    }
+  }, db, env);
+
+  assert.equal(res6.statusCode, 429);
+  assert.match(res6.body.error, /Rate limit exceeded \(max 5 notifications per minute\)/);
+});
+
+test('27. Database Owner-Only RLS Policies Isolation', async () => {
+  const db = new MockPostgresDatabase();
+  const aliceId = 'usr-alice';
+  const bobId = 'usr-bob';
+
+  // Seed subscriptions and preferences
+  db.upsertSubscription({ userId: aliceId, endpoint: 'https://push.com/alice', p256dh: 'ka', auth: 'aa' });
+  db.upsertSubscription({ userId: bobId, endpoint: 'https://push.com/bob', p256dh: 'kb', auth: 'ab' });
+  db.setPreferences(aliceId, { pushEnabled: true });
+  db.setPreferences(bobId, { pushEnabled: false });
+
+  // Alice queries her own subscriptions & preferences -> allowed
+  const aliceOwnSubs = db.querySubscriptionsAsUser(aliceId, aliceId);
+  assert.equal(aliceOwnSubs.length, 1);
+  assert.equal(aliceOwnSubs[0].endpoint, 'https://push.com/alice');
+
+  const aliceOwnPrefs = db.queryPreferencesAsUser(aliceId, aliceId);
+  assert.equal(aliceOwnPrefs.pushEnabled, true);
+
+  // Alice attempts to query Bob's subscriptions & preferences -> filtered out by RLS
+  const bobSubsFromAlice = db.querySubscriptionsAsUser(aliceId, bobId);
+  assert.equal(bobSubsFromAlice.length, 0, 'RLS must not reveal Bob subscriptions to Alice');
+
+  const bobPrefsFromAlice = db.queryPreferencesAsUser(aliceId, bobId);
+  assert.equal(bobPrefsFromAlice, null, 'RLS must not reveal Bob preferences to Alice');
+});
+
+test('28. Table Security: Direct access to notifications_sent & push_rate_limits denied to non-service_role', async () => {
+  const db = new MockPostgresDatabase();
+
+  // Non-service roles (authenticated, anon) must be rejected
+  assert.throws(
+    () => db.directQueryNotificationsSent('authenticated'),
+    /permission denied for table notifications_sent/
+  );
+  assert.throws(
+    () => db.directQueryNotificationsSent('anon'),
+    /permission denied for table notifications_sent/
+  );
+
+  assert.throws(
+    () => db.directQueryRateLimits('authenticated'),
+    /permission denied for table push_rate_limits/
+  );
+  assert.throws(
+    () => db.directQueryRateLimits('anon'),
+    /permission denied for table push_rate_limits/
+  );
+
+  // Trusted service_role succeeds
+  assert.doesNotThrow(() => db.directQueryNotificationsSent('service_role'));
+  assert.doesNotThrow(() => db.directQueryRateLimits('service_role'));
+});
+
+test('29. Privileged RPC Execution: check_and_record_push execution denied to ordinary callers', async () => {
+  const db = new MockPostgresDatabase();
+
+  // Ordinary authenticated callers cannot execute check_and_record_push directly
+  await assert.rejects(
+    async () => db.executeRpcDirectly('authenticated', 'user-1', 'notif-1', 'feed', 10),
+    /permission denied for function check_and_record_push/
+  );
+
+  await assert.rejects(
+    async () => db.executeRpcDirectly('anon', 'user-1', 'notif-1', 'feed', 10),
+    /permission denied for function check_and_record_push/
+  );
+
+  // Only trusted service_role can execute the RPC
+  const result = await db.executeRpcDirectly('service_role', 'user-1', 'notif-1', 'feed', 10);
+  assert.equal(result[0].allowed, true);
 });

@@ -46,16 +46,29 @@ function decodeBase64Url(str: string): string {
   return atob(base64);
 }
 
-// Verify that the incoming request is authorized with a trusted 'service_role' JWT
-export async function verifyServiceRoleAuth(
+export interface AuthVerificationResult {
+  authorized: boolean;
+  statusCode: number;
+  error: string;
+  isServiceRole: boolean;
+  userId: string | null;
+}
+
+// Cryptographic token verification:
+// 1. Exact service_role key match for trusted backend operations
+// 2. Cryptographic Supabase Auth verification (supabase.auth.getUser)
+// 3. Cryptographic HMAC SHA-256 signature verification with SUPABASE_JWT_SECRET
+export async function verifyAuth(
   req: Request
-): Promise<{ authorized: boolean; statusCode: number; error: string }> {
+): Promise<AuthVerificationResult> {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return {
       authorized: false,
       statusCode: 401,
       error: "Missing or malformed Authorization header. Bearer token required.",
+      isServiceRole: false,
+      userId: null,
     };
   }
 
@@ -65,27 +78,41 @@ export async function verifyServiceRoleAuth(
       authorized: false,
       statusCode: 401,
       error: "Empty Bearer token provided.",
+      isServiceRole: false,
+      userId: null,
     };
   }
 
-  // Exact match against server service role secret
+  // 1. Exact match against server service role secret (Trusted backend workflows)
   if (SUPABASE_SERVICE_ROLE_KEY && token === SUPABASE_SERVICE_ROLE_KEY) {
-    return { authorized: true, statusCode: 200, error: "" };
+    return { authorized: true, statusCode: 200, error: "", isServiceRole: true, userId: null };
   }
 
-  // Allow trusted client anon key for client-initiated alerts
-  const anonKey = Deno.env.get("VAPID_ANON_KEY") || "sb_publishable_kHVMAKw9XSrvQ69xIH2gmw_9RcvlYO6";
-  if (token === anonKey) {
-    return { authorized: true, statusCode: 200, error: "" };
+  // 2. Cryptographic verification via Supabase Auth
+  try {
+    const { data: authData, error: authErr } = await supabase.auth.getUser(token);
+    if (!authErr && authData?.user) {
+      return {
+        authorized: true,
+        statusCode: 200,
+        error: "",
+        isServiceRole: false,
+        userId: authData.user.id,
+      };
+    }
+  } catch {
+    // Proceed to cryptographic JWT signature check
   }
 
-  // Validate JWT structure
+  // 3. Cryptographic JWT signature verification
   const parts = token.split(".");
   if (parts.length !== 3) {
     return {
       authorized: false,
       statusCode: 401,
       error: "Invalid JWT format. Must contain three dot-separated segments.",
+      isServiceRole: false,
+      userId: null,
     };
   }
 
@@ -101,17 +128,10 @@ export async function verifyServiceRoleAuth(
           authorized: false,
           statusCode: 401,
           error: "JWT has expired.",
+          isServiceRole: false,
+          userId: null,
         };
       }
-    }
-
-    // Role check: 'service_role' or authenticated church member
-    if (payload.role !== "service_role" && payload.role !== "authenticated" && payload.role !== "anon") {
-      return {
-        authorized: false,
-        statusCode: 403,
-        error: `Forbidden: Caller has role '${payload.role || "unknown"}'. Only 'service_role' or authenticated members are authorized.`,
-      };
     }
 
     // Cryptographic signature verification if SUPABASE_JWT_SECRET is set
@@ -145,16 +165,46 @@ export async function verifyServiceRoleAuth(
           authorized: false,
           statusCode: 401,
           error: "Invalid JWT cryptographic signature.",
+          isServiceRole: false,
+          userId: null,
         };
       }
     }
 
-    return { authorized: true, statusCode: 200, error: "" };
+    if (payload.role === "service_role") {
+      return {
+        authorized: true,
+        statusCode: 200,
+        error: "",
+        isServiceRole: true,
+        userId: null,
+      };
+    }
+
+    if (payload.sub) {
+      return {
+        authorized: true,
+        statusCode: 200,
+        error: "",
+        isServiceRole: false,
+        userId: payload.sub,
+      };
+    }
+
+    return {
+      authorized: false,
+      statusCode: 403,
+      error: `Forbidden: Caller has role '${payload.role || "unknown"}'. Only 'service_role' or authenticated members are authorized.`,
+      isServiceRole: false,
+      userId: null,
+    };
   } catch (err: any) {
     return {
       authorized: false,
       statusCode: 401,
       error: `Failed to parse or validate JWT: ${err?.message || "Invalid payload"}`,
+      isServiceRole: false,
+      userId: null,
     };
   }
 }
@@ -180,8 +230,8 @@ serve(async (req: Request) => {
     });
   }
 
-  // 2. Strict Service Role Authentication
-  const authCheck = await verifyServiceRoleAuth(req);
+  // 2. Strict Cryptographic Authentication Check
+  const authCheck = await verifyAuth(req);
   if (!authCheck.authorized) {
     return new Response(JSON.stringify({ error: authCheck.error }), {
       status: authCheck.statusCode,
@@ -204,9 +254,40 @@ serve(async (req: Request) => {
 
   try {
     const payload = (await req.json()) as PushPayload;
-    const { user_id, notification_id, title, body, url, category, tag } = payload;
+    let { user_id, notification_id, title, body, url, category, tag } = payload;
 
-    // 4. Payload Validation
+    // 4. SECURITY GATE: Privileged Operation Restriction
+    // Ordinary authenticated users can ONLY request test notifications for THEMSELVES.
+    if (!authCheck.isServiceRole) {
+      if (user_id && user_id !== authCheck.userId) {
+        return new Response(
+          JSON.stringify({
+            error: "Forbidden: Ordinary members cannot send notifications to other users.",
+          }),
+          { status: 403, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      user_id = authCheck.userId!;
+
+      if (category && category !== "test") {
+        return new Response(
+          JSON.stringify({
+            error: "Forbidden: Ordinary members can only request test notifications for their own devices.",
+          }),
+          { status: 403, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      category = "test";
+      title = "🔔 BJC Web Push Test Alert";
+      body = "Praise God! Web Push notifications are active and operating on this device.";
+      url = "/?tab=profile";
+      tag = `bjc-test-${authCheck.userId}`;
+      notification_id = notification_id || `test-${authCheck.userId}-${Date.now()}`;
+    }
+
+    // 5. Payload Validation
     if (!user_id || typeof user_id !== "string" || user_id.length > 100) {
       return new Response(JSON.stringify({ error: "Invalid or missing user_id" }), {
         status: 400,
@@ -279,11 +360,12 @@ serve(async (req: Request) => {
 
     // 6. Atomic Rate Limiting & Duplicate Check via Database RPC
     // Fails safely: NO non-atomic fallback queries
+    const maxPerMin = authCheck.isServiceRole ? 10 : 5;
     const { data: rpcData, error: rpcErr } = await supabase.rpc("check_and_record_push", {
       p_user_id: user_id,
       p_notification_id: notification_id,
       p_category: category || "feed",
-      p_max_per_minute: 10,
+      p_max_per_minute: maxPerMin,
     });
 
     if (rpcErr || !rpcData || rpcData.length === 0) {
@@ -313,7 +395,9 @@ serve(async (req: Request) => {
       if (gateCheck.reason === "rate_limited") {
         return new Response(
           JSON.stringify({
-            error: "Rate limit exceeded (max 10 notifications per minute)",
+            error: authCheck.isServiceRole
+              ? "Rate limit exceeded (max 10 notifications per minute)"
+              : "Rate limit exceeded (max 5 test notifications per minute)",
             sent_count: 0,
           }),
           { status: 429, headers: { "Content-Type": "application/json" } }
