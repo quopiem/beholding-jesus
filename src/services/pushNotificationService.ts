@@ -423,28 +423,30 @@ export class PushNotificationService {
 
       // 7. Store / sync subscription in Supabase Cloud database
       if (supabase) {
-        const baseSub = {
+        const minimalSub = {
           user_id: user.id,
           endpoint,
           p256dh,
           auth,
           user_agent: navigator.userAgent.slice(0, 300),
-          platform: this.getPlatform(),
-          updated_at: new Date().toISOString(),
         };
 
+        // Try with full metadata first
         let { error: dbErr } = await supabase.from('push_subscriptions').upsert(
           {
-            ...baseSub,
+            ...minimalSub,
             device_name: this.getDeviceName(),
+            platform: this.getPlatform(),
+            updated_at: new Date().toISOString(),
           },
           { onConflict: 'user_id,endpoint' }
         );
 
-        // Fallback: If schema cache hasn't loaded device_name yet, upsert base subscription
-        if (dbErr && dbErr.message && dbErr.message.includes('device_name')) {
+        // Fallback: If any extra column is not in schema cache, upsert minimal working schema
+        if (dbErr) {
+          console.warn('[BJC Push] Retrying upsert with minimal schema:', dbErr.message);
           const fallback = await supabase.from('push_subscriptions').upsert(
-            baseSub,
+            minimalSub,
             { onConflict: 'user_id,endpoint' }
           );
           dbErr = fallback.error;
