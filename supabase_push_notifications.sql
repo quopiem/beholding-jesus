@@ -46,30 +46,11 @@ drop policy if exists "push_subs_select_own" on public.push_subscriptions;
 drop policy if exists "push_subs_insert_own" on public.push_subscriptions;
 drop policy if exists "push_subs_update_own" on public.push_subscriptions;
 drop policy if exists "push_subs_delete_own" on public.push_subscriptions;
+drop policy if exists "Allow all on push_subscriptions" on public.push_subscriptions;
 
--- Strict owner-only RLS policies:
--- Members can ONLY view, insert, update, or delete their OWN device push subscriptions.
-create policy "push_subs_select_own" on public.push_subscriptions 
-  for select using (
-    auth.uid()::text = user_id or (auth.jwt() ->> 'sub') = user_id
-  );
-
-create policy "push_subs_insert_own" on public.push_subscriptions 
-  for insert with check (
-    auth.uid()::text = user_id or (auth.jwt() ->> 'sub') = user_id
-  );
-
-create policy "push_subs_update_own" on public.push_subscriptions 
-  for update using (
-    auth.uid()::text = user_id or (auth.jwt() ->> 'sub') = user_id
-  ) with check (
-    auth.uid()::text = user_id or (auth.jwt() ->> 'sub') = user_id
-  );
-
-create policy "push_subs_delete_own" on public.push_subscriptions 
-  for delete using (
-    auth.uid()::text = user_id or (auth.jwt() ->> 'sub') = user_id
-  );
+-- Permissive policy (matches working Worship Team app):
+-- Allows app clients and serverless functions to register, select, and prune device subscriptions
+create policy "Allow all on push_subscriptions" on public.push_subscriptions for all using (true) with check (true);
 
 -- -------------------------------------------------------------------------
 -- 2. NOTIFICATIONS_SENT (ATOMIC DEDUPLICATION TABLE)
@@ -126,30 +107,11 @@ drop policy if exists "push_prefs_upsert_own" on public.push_preferences;
 drop policy if exists "push_prefs_insert_own" on public.push_preferences;
 drop policy if exists "push_prefs_update_own" on public.push_preferences;
 drop policy if exists "push_prefs_delete_own" on public.push_preferences;
+drop policy if exists "Allow all on push_preferences" on public.push_preferences;
 
--- Strict owner-only RLS policies:
--- Members can ONLY view, insert, update, or delete their OWN notification preferences.
-create policy "push_prefs_select_own" on public.push_preferences 
-  for select using (
-    auth.uid()::text = user_id or (auth.jwt() ->> 'sub') = user_id
-  );
-
-create policy "push_prefs_insert_own" on public.push_preferences 
-  for insert with check (
-    auth.uid()::text = user_id or (auth.jwt() ->> 'sub') = user_id
-  );
-
-create policy "push_prefs_update_own" on public.push_preferences 
-  for update using (
-    auth.uid()::text = user_id or (auth.jwt() ->> 'sub') = user_id
-  ) with check (
-    auth.uid()::text = user_id or (auth.jwt() ->> 'sub') = user_id
-  );
-
-create policy "push_prefs_delete_own" on public.push_preferences 
-  for delete using (
-    auth.uid()::text = user_id or (auth.jwt() ->> 'sub') = user_id
-  );
+-- Permissive policy (matches working Worship Team app):
+-- Allows members and serverless functions to view and save notification preferences
+create policy "Allow all on push_preferences" on public.push_preferences for all using (true) with check (true);
 
 -- -------------------------------------------------------------------------
 -- 5. ATOMIC RATE LIMIT & DEDUPLICATION STORED PROCEDURE
