@@ -283,7 +283,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
               {/* View Church Landing Page pill */}
               <button
-                onClick={() => onNavigate('home')}
+                onClick={() => onNavigate('public-website')}
                 className="px-4 py-2 rounded-2xl border border-gold/40 bg-gold/10 hover:bg-gold/20 text-gold-dark dark:text-gold text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ml-auto sm:ml-0 shadow-2xs active:scale-95"
               >
                 <span>Church Home</span>
@@ -501,7 +501,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
               </h4>
               <ul className="space-y-2">
                 <li>
-                  <button onClick={() => onNavigate('home')} className="hover:text-gold transition flex items-center gap-1.5 cursor-pointer">
+                  <button onClick={() => onNavigate('feed')} className="hover:text-gold transition flex items-center gap-1.5 cursor-pointer">
                     <ChevronRight className="w-3 h-3 text-gold/60" /> Home Sanctuary Feed
                   </button>
                 </li>

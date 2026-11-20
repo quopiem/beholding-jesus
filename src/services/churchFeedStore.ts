@@ -614,14 +614,22 @@ export class ChurchFeedStore {
   static subscribeToFeedRealtime(onUpdate: (posts: FeedPost[]) => void): () => void {
     if (!supabase) return () => {};
 
-    const channel = supabase.channel('bjc-feed-realtime-hub', {
-      config: { broadcast: { self: false } }
-    });
+    try {
+      if (this.feedHubChannel) {
+        try {
+          supabase.removeChannel(this.feedHubChannel);
+        } catch {}
+        this.feedHubChannel = null;
+      }
 
-    this.feedHubChannel = channel;
+      const channel = supabase.channel('bjc-feed-realtime-hub', {
+        config: { broadcast: { self: false } }
+      });
 
-    channel
-      .on('broadcast', { event: 'new_feed_post' }, async ({ payload }: any) => {
+      this.feedHubChannel = channel;
+
+      channel
+        .on('broadcast', { event: 'new_feed_post' }, async ({ payload }: any) => {
         if (payload?.post) {
           const current = this.getRawPosts();
           if (!current.some(p => p.id === payload.post.id)) {
@@ -738,9 +746,18 @@ export class ChurchFeedStore {
       })
       .subscribe();
 
-    return () => {
-      supabase?.removeChannel(channel);
-    };
+      return () => {
+        try {
+          supabase?.removeChannel(channel);
+          if (this.feedHubChannel === channel) {
+            this.feedHubChannel = null;
+          }
+        } catch {}
+      };
+    } catch (e) {
+      console.warn('subscribeToFeedRealtime initialization error:', e);
+      return () => {};
+    }
   }
 
   // --- POST CREATION ---

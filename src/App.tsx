@@ -206,8 +206,8 @@ export function App() {
     );
   }
 
-  // Authenticated Member viewing Public Website
-  if (currentUser && currentTab === 'public-website') {
+  // Authenticated Member viewing Public Website / Landing Page
+  if (currentUser && (currentTab === 'public-website' || currentTab === 'home' || currentTab === 'landing')) {
     return (
       <PublicSiteLayout
         isLoggedIn={true}

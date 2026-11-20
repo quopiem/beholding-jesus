@@ -55,6 +55,8 @@ export default {
       fontFamily: {
         sans: ['Plus Jakarta Sans', 'Inter', 'system-ui', '-apple-system', 'sans-serif'],
         serif: ['Cinzel', 'Playfair Display', 'Georgia', 'serif'],
+        display: ['Playfair Display', 'Cinzel', 'Georgia', 'serif'],
+        script: ['Alex Brush', 'cursive', 'serif'],
         bible: ['Merriweather', 'Lora', 'Georgia', 'serif'],
       },
       boxShadow: {

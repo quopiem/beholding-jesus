@@ -162,7 +162,7 @@ export const PublicSiteLayout: React.FC<PublicSiteLayoutProps> = ({
       />
 
       {/* Main Page Content */}
-      <main className="flex-1">
+      <main className={`flex-1 ${currentPage !== 'home' ? 'pt-24 sm:pt-28' : ''}`}>
         {renderActivePage()}
       </main>
 
